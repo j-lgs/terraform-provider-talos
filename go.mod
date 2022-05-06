@@ -5,10 +5,13 @@ go 1.18
 replace github.com/talos-systems/talos/pkg/machinery v1.0.4 => ./talos_vendor/talos/pkg/machinery
 
 require (
+	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/hashicorp/terraform-plugin-log v0.3.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.14.0
 	github.com/talos-systems/talos/pkg/machinery v1.0.4
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220420130459-88a4932fb60b
+	google.golang.org/grpc v1.46.0
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
@@ -17,7 +20,6 @@ require (
 	github.com/containerd/go-cni v1.1.5 // indirect
 	github.com/containernetworking/cni v1.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -68,8 +70,6 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220503193339-ba3ae3f07e29 // indirect
-	google.golang.org/grpc v1.46.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
