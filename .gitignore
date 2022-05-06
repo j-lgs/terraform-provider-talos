@@ -5,6 +5,7 @@ vendor/
 talos_vendor
 gen/
 bin/
+dist/
 
 # talos
 talosconfig
