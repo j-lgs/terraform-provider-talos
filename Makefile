@@ -12,11 +12,11 @@ TIME                = $(shell date +'%H:%M:%S')
 KERNEL=$(shell if [ "$$(uname -s)" == "Linux" ]; then echo linux; fi)
 ARCH=$(shell if [ "$$(uname -m)" == "x86_64" ]; then echo amd64; fi)
 
-.PHONY: build fmt vet test clean install acctest local-dev-install
+.PHONY: build fmt vet test clean install acctest local-dev-install vendor docs
 
 
 
-all: build
+all: build docs
 
 vendor:
 	mkdir -p vendor_talos
@@ -36,10 +36,13 @@ test:
 	@echo " -> testing code"
 	@go test -v ./...
 
-build: clean
+build: docs
 	@echo " -> Building"
 	goreleaser build --rm-dist --single-target --snapshot
 	@echo "Built terraform-provider-talos"
+
+docs:
+	tfplugindocs
 
 install: build
 	cp dist/provider-terraform-talos_linux_amd64_v1/provider-terraform-talos_* $$GOPATH/bin/terraform-provider-talos
