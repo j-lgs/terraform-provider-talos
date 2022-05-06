@@ -3,7 +3,7 @@ SHELL := /bin/bash
 MAJOR := 0
 MINOR := 0
 MICRO := 0
-NEXT_MICRO := 1
+NEXT_MICRO := 2
 CURRENT_VERSION_MICRO := $(MAJOR).$(MINOR).$(MICRO)
 
 DATE                = $(shell date +'%d.%m.%Y')
@@ -30,20 +30,19 @@ test:
 
 build: clean
 	@echo " -> Building"
-	mkdir -p bin
-	CGO_ENABLED=0 go build -trimpath -o bin/terraform-provider-talos
+	goreleaser build --rm-dist --single-target --snapshot
 	@echo "Built terraform-provider-talos"
 
 install: build
-	cp bin/terraform-provider-talos $$GOPATH/bin/terraform-provider-talos
+	cp dist/provider-terraform-talos_linux_amd64_v1/provider-terraform-talos_* $$GOPATH/bin/terraform-provider-talos
 
 local-dev-install: build
 	find examples -name '.terraform.lock.hcl' -delete
 	@echo "$(CURRENT_VERSION_MICRO)"
 	@echo "$(KERNEL)"
 	@echo "$(ARCH)"
-	mkdir -p ~/.terraform.d/plugins/localhost/jlgs/talos/$(MAJOR).$(MINOR).$(NEXT_MICRO)/$(KERNEL)_$(ARCH)/
-	cp bin/terraform-provider-talos ~/.terraform.d/plugins/localhost/jlgs/talos/$(MAJOR).$(MINOR).$(NEXT_MICRO)/$(KERNEL)_$(ARCH)/terraform-provider-talos
+	mkdir -p ~/.terraform.d/plugins/localhost/j-lgs/talos/$(MAJOR).$(MINOR).$(NEXT_MICRO)/$(KERNEL)_$(ARCH)/
+	cp dist/provider-terraform-talos_linux_amd64_v1/provider-terraform-talos_* ~/.terraform.d/plugins/localhost/j-lgs/talos/$(MAJOR).$(MINOR).$(NEXT_MICRO)/$(KERNEL)_$(ARCH)/terraform-provider-talos
 
 #clean:
 #	@git clean -f -d
