@@ -2,7 +2,7 @@
 *.so
 build/
 vendor/
-talos_vendor
+vendor_talos
 gen/
 bin/
 dist/
