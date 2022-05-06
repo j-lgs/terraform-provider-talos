@@ -14,7 +14,15 @@ ARCH=$(shell if [ "$$(uname -m)" == "x86_64" ]; then echo amd64; fi)
 
 .PHONY: build fmt vet test clean install acctest local-dev-install
 
+
+
 all: build
+
+vendor:
+	mkdir -p vendor_talos
+	git clone --depth=1 https://github.com/siderolabs/talos.git vendor_talos/talos
+	mv talos vendor_talos/talos
+	go mod vendor
 
 fmt:
 	@echo " -> checking code style"
@@ -43,6 +51,3 @@ local-dev-install: build
 	@echo "$(ARCH)"
 	mkdir -p ~/.terraform.d/plugins/localhost/j-lgs/talos/$(MAJOR).$(MINOR).$(NEXT_MICRO)/$(KERNEL)_$(ARCH)/
 	cp dist/provider-terraform-talos_linux_amd64_v1/provider-terraform-talos_* ~/.terraform.d/plugins/localhost/j-lgs/talos/$(MAJOR).$(MINOR).$(NEXT_MICRO)/$(KERNEL)_$(ARCH)/terraform-provider-talos
-
-#clean:
-#	@git clean -f -d
