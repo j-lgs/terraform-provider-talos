@@ -2,14 +2,14 @@ module terraform-provider-talos
 
 go 1.18
 
-replace github.com/talos-systems/talos/pkg/machinery v1.0.4 => ./talos_vendor/talos/pkg/machinery
+replace github.com/talos-systems/talos/pkg/machinery v1.0.4 => ./vendor_talos/talos/pkg/machinery
 
 require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/hashicorp/terraform-plugin-log v0.3.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.14.0
 	github.com/talos-systems/talos/pkg/machinery v1.0.4
-	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220420130459-88a4932fb60b
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220504211119-3d4a969bb56b
 	google.golang.org/grpc v1.46.0
 	gopkg.in/yaml.v2 v2.4.0
 )
@@ -63,7 +63,7 @@ require (
 	github.com/vmihailenco/msgpack/v4 v4.3.12 // indirect
 	github.com/vmihailenco/tagparser v0.1.2 // indirect
 	github.com/zclconf/go-cty v1.10.0 // indirect
-	golang.org/x/crypto v0.0.0-20220427172511-eb4f295cb31f // indirect
+	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4 // indirect
 	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6 // indirect
