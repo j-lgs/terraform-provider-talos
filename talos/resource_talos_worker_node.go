@@ -277,6 +277,9 @@ func resourceWorkerNodeCreate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.FromErr(err)
 	}
 
+	d.SetId(d.Get("name").(string))
+	d.Set("patch", patched)
+
 	return nil
 }
 
