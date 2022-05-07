@@ -22,12 +22,12 @@ defaults
   timeout connect         5s
 
 frontend http_stats
-  bind *:8080
+  bind {{ .APIProxyIP }}:8080
   mode http
   stats uri /haproxy?stats
 
 listen k8s-apiserver
-  bind *:{{ .APIProxyPort }}
+  bind {{ .APIProxyIP }}:{{ .APIProxyPort }}
   option httpchk GET /healthz
   http-check expect status 200
   option ssl-hello-chk
