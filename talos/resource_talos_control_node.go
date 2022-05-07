@@ -493,16 +493,15 @@ func generatePatched(ctx context.Context, d *schema.ResourceData, config []byte)
 	}
 
 	wgAddress := d.Get("wg_address").(string)
-	wgAddress_ := ""
+	wgAddress_ := wgAddress
 	wgIp, wgNetwork := net.IP{}, &net.IPNet{}
-	if wgAddress == "" {
-		wgAddress_ = ""
-	} else {
+	if wgAddress != "" {
+		var err error
 		wgIp, wgNetwork, err = net.ParseCIDR(wgAddress)
 		if err != nil {
-			return "", diag.FromErr(err)
+			panic(err)
 		}
-		wgAddress = ipNetwork(wgIp, *wgNetwork)
+		wgAddress_ = ipNetwork(wgIp, *wgNetwork)
 	}
 
 	buffer := new(strings.Builder)
@@ -623,9 +622,14 @@ func genKeypair(wgIp net.IP, wgPrivateKey string) (string, string, diag.Diagnost
 func resourceControlNodeCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	bootstrap := d.Get("bootstrap").(bool)
 
-	wgIp, _, err := net.ParseCIDR(d.Get("wg_address").(string))
-	if err != nil {
-		return diag.FromErr(err)
+	wgIp_ := d.Get("wg_address").(string)
+	wgIp := net.IP{}
+	if wgIp_ != "" {
+		var err error
+		wgIp, _, err = net.ParseCIDR(wgIp_)
+		if err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	pub, priv, diags := genKeypair(wgIp, d.Get("wg_private_key").(string))
