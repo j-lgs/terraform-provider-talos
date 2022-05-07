@@ -131,13 +131,7 @@ func templateControl() string {
   "op": "add",
   "path": "/machine/sysctls",
   "value": {
-   "net.ipv4.ip_nonlocal_bind": "1"
-  }
- },
- {
-  "op": "add",
-  "path": "/machine/sysctls",
-  "value": {
+   "net.ipv4.ip_nonlocal_bind": "1",
    "net.ipv6.ip_nonlocal_bind": "1"
   }
  },
