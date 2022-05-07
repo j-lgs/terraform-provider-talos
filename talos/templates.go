@@ -441,7 +441,7 @@ func templateWorker() string {
   }
  },
 {{ end }}
-{{ if no .GPU "" }}
+{{ if ne .GPU "" }}
  {
   "op": "add",
   "path": "/machine/udev",
