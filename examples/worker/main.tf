@@ -19,69 +19,81 @@ provider "libvirt" {
   uri = "qemu:///system"
 }
 
-resource "macaddress" "single_example" {
+
+locals {
+  nodes = {
+    worker-node:  {ip: "192.168.122.201/24"}
+    control-node: {ip: "192.168.122.200/24"}
+  }
 }
 
 resource "libvirt_volume" "talos" {
+  for_each = local.nodes
   source = "https://github.com/siderolabs/talos/releases/download/v1.0.4/talos-amd64.iso"
-  name   = "talos"
+  name   = join("", ["talos_", each.key])
 }
 
-resource "libvirt_volume" "single_example_boot" {
-  name   = "single_example_boot.qcow2"
-  size   = 8589934592 # 4GiB
+resource "macaddress" "worker_example" {
+    for_each = local.nodes
 }
 
-resource "libvirt_domain" "single_example" {
-  name = "single_example"
+resource "libvirt_volume" "worker_example_boot" {
+  for_each = local.nodes
+  name   = join("", [each.key, "_worker_example_boot.qcow2"])
+  size   = 8589934592 # 8GiB
+}
+
+resource "libvirt_domain" "worker_example" {
+  for_each = local.nodes
+  name = each.key
 
   memory = "2048"
   vcpu   = 2
 
   disk {
-    volume_id = libvirt_volume.talos.id
+    volume_id = libvirt_volume.talos[each.key].id
   }
 
   disk {
-    volume_id = libvirt_volume.single_example_boot.id
+    volume_id = libvirt_volume.worker_example_boot[each.key].id
   }
 
   network_interface {
     network_name   = "default"
-    hostname       = "single_example"
-    mac            = upper(macaddress.single_example.address)
+    hostname       = "worker_example"
+    mac            = upper(macaddress.worker_example[each.key].address)
     wait_for_lease = true
   }
 }
 
-resource "talos_configuration" "single_example" {
+resource "talos_configuration" "worker_example" {
   # Talos configuration version target
   target_version = "v1.0"
   # Name of the talos cluster
   cluster_name = "taloscluster"
   # List of control plane nodes to act as endpoints the talos client should connect to
-  endpoints = ["192.168.122.100"]
+  endpoints = ["192.168.122.200"]
 
   # The evential endpoint that the kubernetes client will connect to
-  kubernetes_endpoint = "https://192.168.122.100:6443"
+  kubernetes_endpoint = "https://192.168.122.200:6443"
 
   # The kubernetes version to be deployed
   kubernetes_version = "1.23.6"
 }
 
-resource "talos_control_node" "single_example" {
+resource "talos_control_node" "worker_example" {
   # The node's hostname
-  name = "cluster-control-1"
+  name = "control-node"
 
   # MAC address for the node. Will be used to apply the initial configuration
-  macaddr = libvirt_domain.single_example.network_interface[0].mac
+  macaddr = libvirt_domain.worker_example["control-node"].network_interface[0].mac
   # Expected network range to find the node's interface identified by `macaddr`
   dhcp_network_cidr = "192.168.122.0/25"
   # The disk to install talos onto
   install_disk = "/dev/vdb"
 
   # The primary interface's address in CIDR form
-  ip = "192.168.122.100/24"
+  ip = "192.168.122.200/24"
   # The primary interface's gateway address
   gateway = "192.168.122.1"
   # The node's nameservers
@@ -106,11 +118,37 @@ resource "talos_control_node" "single_example" {
 
   # The base config from the node's talos_configuration
   # Contains shared information and secrets
-  base_config = talos_configuration.single_example.base_config
+  base_config = talos_configuration.worker_example.base_config
+}
+
+resource "talos_worker_node" "worker_example" {
+  # The node's hostname
+  name = "worker-node"
+
+  # MAC address for the node. Will be used to apply the initial configuration
+  macaddr = libvirt_domain.worker_example["worker-node"].network_interface[0].mac
+  # Expected network range to find the node's interface identified by `macaddr`
+  dhcp_network_cidr = "192.168.122.0/25"
+  # The disk to install talos onto
+  install_disk = "/dev/vdb"
+
+  # The talos image to install
+  talos_image = "ghcr.io/siderolabs/installer:v1.0.4"
+
+  # The primary interface's address in CIDR form
+  ip = "192.168.122.201/24"
+  # The primary interface's gateway address
+  gateway = "192.168.122.1"
+  # The node's nameservers
+  nameservers = [
+    "192.168.122.1"
+  ]
+
+  base_config = talos_configuration.worker_example.base_config
 }
 
 # Create a local talosconfig
 resource "local_file" "talosconfig" {
-  content = talos_configuration.single_example.talosconfig
+  content = talos_configuration.worker_example.talosconfig
   filename = "talosconfig"
 }
