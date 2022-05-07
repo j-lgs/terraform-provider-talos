@@ -451,7 +451,7 @@ func templateWorker() string {
     "SUBSYSTEM==\"drm\", KERNEL==\"card*\",    GROUP=\"44\",  MODE=\"0666\""
    ]
   }
- }
+ },
 {{ end }}
  {
   "op": "add",
