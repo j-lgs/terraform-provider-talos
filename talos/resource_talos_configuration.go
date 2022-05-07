@@ -23,12 +23,14 @@ func resourceClusterConfiguration() *schema.Resource {
 		DeleteContext: resourceClusterDelete,
 		Schema: map[string]*schema.Schema{
 			"target_version": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "The version of the Talos cluster configuration that will be generated.",
 			},
 			"cluster_name": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "Configures the cluster's name",
 			},
 			"endpoints": {
 				Type:     schema.TypeList,
@@ -37,25 +39,30 @@ func resourceClusterConfiguration() *schema.Resource {
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
+				Description: "A list of that the talosctl client will connect to. Can be a DNS hostname or an IP address and may include a port number. Must begin with \"https://\".",
 			},
 			"kubernetes_endpoint": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "The kubernetes endpoint that the nodes and the kubectl client will connect to. Can be a DNS hostname or an IP address and may include a port number. Must begin with \"https://\".",
 			},
 			"kubernetes_version": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "The version of kubernetes and all it's components (kube-apiserver, kubelet, kube-scheduler, etc) that will be deployed onto the cluster.",
 			},
 
 			"talosconfig": {
-				Type:      schema.TypeString,
-				Sensitive: true,
-				Computed:  true,
+				Type:        schema.TypeString,
+				Sensitive:   true,
+				Computed:    true,
+				Description: "Talosconfig YAML that can be used by the talosctl client to communicate with the cluster.",
 			},
 			"base_config": {
-				Sensitive: true,
-				Type:      schema.TypeString,
-				Computed:  true,
+				Sensitive:   true,
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "JSON Serialised object that contains information needed to create controlplane and worker node configurations.",
 			},
 		},
 	}
