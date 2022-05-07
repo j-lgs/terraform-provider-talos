@@ -37,6 +37,70 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+func validateDomain(value interface{}, key string) (warns []string, errs []error) {
+	v := value.(string)
+	pattern := `[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*`
+	if !regexp.MustCompile(pattern).Match([]byte(v)) {
+		errs = append(errs, fmt.Errorf("Node name must be a lowercase RFC 1123 subdomain, got %s", v))
+	}
+	return
+}
+
+func validateMAC(value interface{}, key string) (warns []string, errs []error) {
+	v := value.(string)
+	if _, err := net.ParseMAC(v); err != nil {
+		errs = append(errs, fmt.Errorf("Must provide a valid MAC address, got %s, error %s", v, err.Error()))
+	}
+	return
+}
+
+func validateCIDR(value interface{}, key string) (warns []string, errs []error) {
+	v := value.(string)
+	if _, _, err := net.ParseCIDR(v); err != nil {
+		errs = append(errs, fmt.Errorf("Must provide a valid CIDR IP address, got %s, error %s", v, err.Error()))
+	}
+	return
+}
+
+func validateIP(value interface{}, key string) (warns []string, errs []error) {
+	v := value.(string)
+	if net.ParseIP(v) == nil {
+		errs = append(errs, fmt.Errorf("Must provide a valid IP address, got %s", v))
+	}
+	return
+}
+
+func validateHost(value interface{}, key string) (warns []string, errs []error) {
+	v := value.(string)
+	pattern := `[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*:[0-9]{2,}`
+	if !regexp.MustCompile(pattern).Match([]byte(v)) {
+		errs = append(errs, fmt.Errorf("Node name must be a lowercase RFC 1123 subdomain with a port appended, seperated by \":\", got %s", v))
+	}
+	return
+}
+
+func validateImage(value interface{}, key string) (warns []string, errs []error) {
+	v := value.(string)
+	pattern := `[^/]+\.[^/.]+/([^/.]+/)?[^/.]+(:.+)?`
+	if !regexp.MustCompile(pattern).Match([]byte(v)) {
+		errs = append(errs, fmt.Errorf("Node name must be a valid container image, got %s", v))
+	}
+	return
+}
+
+func validateState(value interface{}, key string) (warns []string, errs []error) {
+	v := value.(string)
+	switch v {
+	case
+		"MASTER",
+		"BACKUP":
+	default:
+		errs = append(errs, fmt.Errorf("Invalid keepalived node state, expected one of MASTER, BACKUP, got %s", v))
+	}
+
+	return
+}
+
 func resourceControlNode() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceControlNodeCreate,
@@ -46,8 +110,9 @@ func resourceControlNode() *schema.Resource {
 		Schema: map[string]*schema.Schema{
 			// Mandatory for minimal template generation
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validateDomain,
 			},
 
 			"install_disk": {
@@ -55,32 +120,38 @@ func resourceControlNode() *schema.Resource {
 				Required: true,
 			},
 			"talos_image": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validateImage,
 			},
 
 			"macaddr": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validateMAC,
 			},
 			"ip": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validateCIDR,
 			},
 			"dhcp_network_cidr": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validateCIDR,
 			},
 			"gateway": {
-				Type:     schema.TypeString,
-				Required: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validateIP,
 			},
 			"nameservers": {
 				Type:     schema.TypeList,
 				Required: true,
 				MinItems: 1,
 				Elem: &schema.Schema{
-					Type: schema.TypeString,
+					Type:         schema.TypeString,
+					ValidateFunc: validateDomain,
 				},
 			},
 			"peers": {
@@ -88,7 +159,8 @@ func resourceControlNode() *schema.Resource {
 				MinItems: 0,
 				Optional: true,
 				Elem: &schema.Schema{
-					Type: schema.TypeString,
+					Type:         schema.TypeString,
+					ValidateFunc: validateIP,
 				},
 			},
 
@@ -100,16 +172,19 @@ func resourceControlNode() *schema.Resource {
 
 			// Wireguard optionals TODO make into typeset
 			"wg_address": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validateCIDR,
 			},
 			"wg_allowed_ips": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validateCIDR,
 			},
 			"wg_endpoint": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validateHost,
 			},
 			"wg_public_key": {
 				Type:     schema.TypeString,
@@ -133,14 +208,16 @@ func resourceControlNode() *schema.Resource {
 				Default:  8443,
 			},
 			"ingress_ip": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validateIP,
 			},
 
 			// Load balancing API proxy optionals
 			"api_proxy_ip": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validateIP,
 			},
 			"api_proxy_port": {
 				Type:     schema.TypeInt,
@@ -164,8 +241,9 @@ func resourceControlNode() *schema.Resource {
 				Default:  "11",
 			},
 			"state": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validateState,
 			},
 			"priority": {
 				Type:     schema.TypeInt,
@@ -179,8 +257,9 @@ func resourceControlNode() *schema.Resource {
 
 			// Container registry optionals
 			"registry_ip": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validateIP,
 			},
 
 			// From the cluster provider
@@ -199,14 +278,16 @@ func resourceControlNode() *schema.Resource {
 
 			// Container images
 			"haproxy_image": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "haproxy:2.4.14",
+				Type:         schema.TypeString,
+				Optional:     true,
+				Default:      "haproxy:2.4.14",
+				ValidateFunc: validateImage,
 			},
 			"keepalived_image": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "osixia/keepalived:1.3.5-1",
+				Type:         schema.TypeString,
+				Optional:     true,
+				Default:      "osixia/keepalived:1.3.5-1",
+				ValidateFunc: validateImage,
 			},
 		},
 	}

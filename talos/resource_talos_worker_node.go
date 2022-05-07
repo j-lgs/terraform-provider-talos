@@ -3,6 +3,7 @@ package talos
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -21,6 +22,19 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
+
+func validateGpu(value interface{}, key string) (warns []string, errs []error) {
+	v := value.(string)
+	switch v {
+	case
+		"Cometlake",
+		"AnyGPU":
+	default:
+		errs = append(errs, fmt.Errorf("Invalid keepalived node state, expected one of Cometlake, AnyGPU, got %s", v))
+	}
+
+	return
+}
 
 func resourceWorkerNode() *schema.Resource {
 	return &schema.Resource{
@@ -85,8 +99,9 @@ func resourceWorkerNode() *schema.Resource {
 			},
 
 			"gpu": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:         schema.TypeString,
+				Optional:     true,
+				ValidateFunc: validateGpu,
 			},
 
 			// From the cluster provider
@@ -261,6 +276,7 @@ func resourceWorkerNodeCreate(ctx context.Context, d *schema.ResourceData, m int
 		tflog.Error(ctx, err.Error())
 		return diag.FromErr(err)
 	}
+
 	return nil
 }
 
