@@ -366,7 +366,7 @@ func templateWorker() string {
    {
     "interface": "eth0",
     "addresses": [
-     "{{ .InterfaceNetwork }}"
+     "{{ .IPNetwork }}"
     ],
     "routes": [
      {
