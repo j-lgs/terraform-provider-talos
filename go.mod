@@ -8,6 +8,7 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/hashicorp/terraform-plugin-log v0.3.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.14.0
+	github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d
 	github.com/talos-systems/talos/pkg/machinery v1.0.4
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220504211119-3d4a969bb56b
 	google.golang.org/grpc v1.46.0
@@ -51,7 +52,6 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/oklog/run v1.1.0 // indirect
-	github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/siderolabs/go-pointer v1.0.0 // indirect
