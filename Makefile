@@ -3,7 +3,7 @@ SHELL := /bin/bash
 MAJOR := 0
 MINOR := 0
 MICRO := 0
-NEXT_MICRO := 6
+NEXT_MICRO := 10
 CURRENT_VERSION_MICRO := $(MAJOR).$(MINOR).$(MICRO)
 
 DATE                = $(shell date +'%d.%m.%Y')
@@ -36,7 +36,7 @@ test:
 	@echo " -> testing code"
 	@go test -v ./...
 
-build: docs
+build:
 	@echo " -> Building"
 	goreleaser build --rm-dist --single-target --snapshot
 	@echo "Built terraform-provider-talos"
