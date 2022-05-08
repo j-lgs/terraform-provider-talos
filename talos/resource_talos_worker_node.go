@@ -7,15 +7,12 @@ import (
 	"log"
 	"net"
 	"strconv"
-	"strings"
-	"text/template"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/talos-systems/talos/pkg/machinery/api/machine"
-	"github.com/talos-systems/talos/pkg/machinery/config/configpatcher"
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	machinetype "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
@@ -52,6 +49,28 @@ func resourceWorkerNode() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
+			"kernel_args": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"cluster_apiserver_args": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"cluster_proxy_args": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+
 			"talos_image": {
 				Type:     schema.TypeString,
 				Required: true,
@@ -64,13 +83,99 @@ func resourceWorkerNode() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"ip": {
-				Type:     schema.TypeString,
-				Required: true,
+			"registry_mirrors": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
 			},
-			"gateway": {
-				Type:     schema.TypeString,
+			"kubelet_extra_mount": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"destination": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"type": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"source": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"options": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
+					},
+				},
+			},
+			"kubelet_extra_args": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"sysctls": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"udev": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"interface": {
+				Type:     schema.TypeList,
 				Required: true,
+				MinItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"name": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"addresses": {
+							Type:     schema.TypeList,
+							Required: true,
+							MinItems: 1,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
+						},
+						"route": {
+							Type:     schema.TypeList,
+							Required: true,
+							MinItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"network": {
+										Type:         schema.TypeString,
+										Optional:     true,
+										InputDefault: "0.0.0.0/0",
+									},
+									"gateway": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 			"nameservers": {
 				Type:     schema.TypeList,
@@ -79,29 +184,6 @@ func resourceWorkerNode() *schema.Resource {
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
-			},
-			// Container registry optionals
-			"registry_ip": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-
-			"privileged": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-			},
-
-			"mayastor": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-			},
-
-			"gpu": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validateGpu,
 			},
 
 			// From the cluster provider
@@ -136,61 +218,14 @@ type WorkerNodeSpec struct {
 	RegistryIP string
 }
 
-func generatePatchedWorker(ctx context.Context, d *schema.ResourceData, config []byte) (string, diag.Diagnostics) {
-	nameservers := []string{}
-	for _, ns := range d.Get("nameservers").([]interface{}) {
-		nameservers = append(nameservers, ns.(string))
+func assignSchemaStringList(d *schema.ResourceData, field string, configField *[]string) {
+	for _, value := range d.Get(field).([]interface{}) {
+		*configField = append(*configField, value.(string))
 	}
 
-	var t *template.Template
-
-	// template controlplane patches
-	t = template.Must(template.New("worker").Parse(templateWorker()))
-
-	ip, network, err := net.ParseCIDR(d.Get("ip").(string))
-	if err != nil {
-		return "", diag.FromErr(err)
-	}
-
-	buffer := new(strings.Builder)
-	err = t.ExecuteTemplate(buffer, "worker", WorkerNodeSpec{
-		Name: d.Get("name").(string),
-
-		IPNetwork:   ipNetwork(ip, *network),
-		Hostname:    d.Get("name").(string),
-		Gateway:     d.Get("gateway").(string),
-		Nameservers: nameservers,
-
-		Privileged: d.Get("privileged").(bool),
-		Mayastor:   d.Get("mayastor").(bool),
-		GPU:        d.Get("gpu").(string),
-
-		RegistryIP: d.Get("registry_ip").(string),
-	})
-	if err != nil {
-		tflog.Error(ctx, "Error running worker template.")
-		return "", diag.FromErr(err)
-	}
-
-	jsonpatch, err := jsonpatch.DecodePatch([]byte(buffer.String()))
-	if err != nil {
-		tflog.Error(ctx, "Error decoding jsonpatch: "+buffer.String())
-		return "", diag.FromErr(err)
-	}
-
-	patched, err := configpatcher.JSON6902(config, jsonpatch)
-	if err != nil {
-		tflog.Error(ctx, "Error attempting applying jsonpatch: "+buffer.String())
-		return "", diag.FromErr(err)
-	}
-
-	return string(patched), nil
 }
 
 func generateConfigWorker(ctx context.Context, d *schema.ResourceData) ([]byte, diag.Diagnostics) {
-	disk := d.Get("install_disk").(string)
-	image := d.Get("talos_image").(string)
-
 	input := generate.Input{}
 	if err := json.Unmarshal([]byte(d.Get("base_config").(string)), &input); err != nil {
 		tflog.Error(ctx, "Failed to unmarshal input bundle: "+err.Error())
@@ -204,8 +239,101 @@ func generateConfigWorker(ctx context.Context, d *schema.ResourceData) ([]byte, 
 		return nil, diag.FromErr(err)
 	}
 
-	workerConfig.MachineConfig.MachineInstall.InstallDisk = disk
-	workerConfig.MachineConfig.MachineInstall.InstallImage = image
+	mc := workerConfig.MachineConfig
+	// Install opts
+	mc.MachineInstall.InstallDisk = d.Get("install_disk").(string)
+	mc.MachineInstall.InstallImage = d.Get("talos_image").(string)
+	assignSchemaStringList(d, "kernel_args", &mc.MachineInstall.InstallExtraKernelArgs)
+
+	// Network opts
+	mc.MachineNetwork.NetworkHostname = d.Get("name").(string)
+	assignSchemaStringList(d, "nameservers", &mc.MachineNetwork.NameServers)
+
+	interfaces := d.Get("interface").([]interface{})
+	for _, netInterface := range interfaces {
+		n := netInterface.(map[string]interface{})
+
+		addresses := []string{}
+		for _, value := range n["addresses"].([]interface{}) {
+			addresses = append(addresses, value.(string))
+		}
+
+		routes := []*v1alpha1.Route{}
+		for _, resourceRoute := range n["route"].([]interface{}) {
+			r := resourceRoute.(map[string]interface{})
+
+			routes = append(routes, &v1alpha1.Route{
+				RouteGateway: r["gateway"].(string),
+				RouteNetwork: r["network"].(string),
+			})
+		}
+
+		mc.MachineNetwork.NetworkInterfaces = append(mc.MachineNetwork.NetworkInterfaces, &v1alpha1.Device{
+			DeviceInterface: n["name"].(string),
+			DeviceAddresses: addresses,
+			DeviceRoutes:    routes,
+		})
+	}
+
+	// TODO: Model full capabilities
+	/*
+		for host, endpoint := range d.Get("registry_mirrors").(map[string]interface{}) {
+			mc.MachineRegistries.RegistryMirrors = {
+			host:
+			}
+			mc.MachineRegistries.RegistryMirrors[host].MirrorEndpoints[0] = endpoint.(string)
+		}
+	*/
+
+	for _, mount := range d.Get("kubelet_extra_mount").([]interface{}) {
+		m := mount.(map[string]interface{})
+
+		mountOptions := []string{}
+		for _, option := range m["options"].([]interface{}) {
+			mountOptions = append(mountOptions, option.(string))
+		}
+
+		mc.MachineKubelet.KubeletExtraMounts = append(mc.MachineKubelet.KubeletExtraMounts, v1alpha1.ExtraMount{
+			Mount: specs.Mount{
+				Destination: m["destination"].(string),
+				Type:        m["type"].(string),
+				Source:      m["source"].(string),
+				Options:     mountOptions,
+			},
+		})
+	}
+
+	mc.MachineKubelet.KubeletExtraArgs = map[string]string{}
+	for k, v := range d.Get("kubelet_extra_args").(map[string]interface{}) {
+		mc.MachineKubelet.KubeletExtraArgs[k] = v.(string)
+	}
+
+	mc.MachineSysctls = map[string]string{}
+	for k, v := range d.Get("sysctls").(map[string]interface{}) {
+		mc.MachineSysctls[k] = v.(string)
+	}
+
+	udevRules := []string{}
+	for _, v := range d.Get("udev").([]interface{}) {
+		udevRules = append(udevRules, v.(string))
+	}
+
+	mc.MachineUdev = &v1alpha1.UdevConfig{
+		UdevRules: udevRules,
+	}
+
+	apiExtraArgs := map[string]string{}
+	for k, v := range d.Get("cluster_apiserver_args").(map[string]interface{}) {
+		apiExtraArgs[k] = v.(string)
+	}
+	workerConfig.ClusterConfig.APIServerConfig = &v1alpha1.APIServerConfig{}
+
+	proxyExtraArgs := map[string]string{}
+	for k, v := range d.Get("cluster_proxy_args").(map[string]interface{}) {
+		proxyExtraArgs[k] = v.(string)
+	}
+	workerConfig.ClusterConfig.ProxyConfig = &v1alpha1.ProxyConfig{}
+
 	var workerYaml []byte
 
 	workerYaml, err = workerConfig.Bytes()
@@ -218,19 +346,20 @@ func generateConfigWorker(ctx context.Context, d *schema.ResourceData) ([]byte, 
 }
 
 func resourceWorkerNodeCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	cfg, diags := generateConfigWorker(ctx, d)
+	patched, diags := generateConfigWorker(ctx, d)
 	if diags != nil {
 		tflog.Error(ctx, "Error generating patched machineconfig")
 		return diags
 	}
 
-	patched, diags := generatePatchedWorker(ctx, d, cfg)
-	if diags != nil {
-		tflog.Error(ctx, "Error generating patched machineconfig")
-		return diags
-	}
-	d.Set("patch", patched)
-
+	/*
+		patched, diags := generatePatchedWorker(ctx, d, cfg)
+		if diags != nil {
+			tflog.Error(ctx, "Error generating patched machineconfig")
+			return diags
+		}
+		d.Set("patch", patched)
+	*/
 	_, network, err := net.ParseCIDR(d.Get("dhcp_network_cidr").(string))
 	if err != nil {
 		return diag.FromErr(err)

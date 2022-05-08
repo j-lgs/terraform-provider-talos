@@ -2,7 +2,7 @@ terraform {
   required_providers {
     talos = {
       source  = "localhost/j-lgs/talos"
-      version = "0.0.5"
+      version = "0.0.10"
     }
     libvirt = {
       source = "dmacvicar/libvirt"
@@ -132,13 +132,56 @@ resource "talos_worker_node" "worker_example" {
   # The disk to install talos onto
   install_disk = "/dev/vdb"
 
+  cluster_apiserver_args = {
+    "allow-privileged" = "true"
+  }
+
+  kernel_args = ["i915.enable_guc=2", "i915.enable_dc=0"]
+
+  interface {
+    # The interface's name
+    name = "eth0"
+    # The interface's addresses in CIDR form
+    addresses = [
+      "192.168.122.201/24"
+    ]
+    route {
+      network = "0.0.0.0/0"
+      gateway = "192.168.122.1"
+    }
+  }
+
+  cluster_proxy_args = {
+    "ipvs-strict-arp" = "true"
+  }
+
+  sysctls = {
+    "vm.nr_hugepages": "128"
+  }
+
+  kubelet_extra_mount {
+    destination = "/var/local"
+    type = "bind"
+    source = "/var/local"
+    options = [
+      "rbind",
+      "rshared",
+      "rw"
+    ]
+  } 
+  
+  kubelet_extra_args = {
+    "node-labels": "openebs.io/engine=mayastor"
+  }
+  
+  udev = [
+    "SUBSYSTEM==\"drm\", KERNEL==\"renderD*\", GROUP=\"103\", MODE=\"0666\"",
+    "SUBSYSTEM==\"drm\", KERNEL==\"card*\",    GROUP=\"44\",  MODE=\"0666\""
+  ]
+  
   # The talos image to install
   talos_image = "ghcr.io/siderolabs/installer:v1.0.4"
 
-  # The primary interface's address in CIDR form
-  ip = "192.168.122.201/24"
-  # The primary interface's gateway address
-  gateway = "192.168.122.1"
   # The node's nameservers
   nameservers = [
     "192.168.122.1"
