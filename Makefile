@@ -14,11 +14,10 @@ ARCH=$(shell if [ "$$(uname -m)" == "x86_64" ]; then echo amd64; fi)
 
 .PHONY: build fmt vet test clean install acctest local-dev-install vendor docs
 
-
-
 all: build docs
 
 vendor:
+	@echo " -> Grabbing talos vendor code"
 	mkdir -p vendor_talos
 	git clone --depth=1 https://github.com/siderolabs/talos.git vendor_talos/talos
 	mv talos vendor_talos/talos
@@ -34,7 +33,17 @@ vet:
 
 test:
 	@echo " -> testing code"
-	@go test -v ./...
+	@go test -v ./talos
+
+acc-test:
+	@echo " -> acceptance testing code"
+
+	@mkdir -p .tmp
+	@wget -P .tmp -nc "https://github.com/siderolabs/talos/releases/download/v1.0.4/talos-amd64.iso"
+	@pgrep http-server >/dev/null && echo "http-server still running on PID $$(pgrep http-server)" || http-server .tmp -p 8000 -s --no-dotfiles &
+
+	TF_ACC=1 go test -v ./talos
+	@kill "$$(pgrep http-server)"
 
 build:
 	@echo " -> Building"
