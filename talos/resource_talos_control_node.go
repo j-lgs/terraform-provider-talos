@@ -261,7 +261,7 @@ func checkArp(mac string) (net.IP, diag.Diagnostics) {
 	scanner := bufio.NewScanner(arp)
 	for scanner.Scan() {
 		f := strings.Fields(scanner.Text())
-		if f[3] == mac.String() {
+		if strings.EqualFold(f[3], mac) {
 			return net.ParseIP(f[0]), nil
 		}
 	}
@@ -269,7 +269,7 @@ func checkArp(mac string) (net.IP, diag.Diagnostics) {
 	return nil, nil
 }
 
-func lookupIP(ctx context.Context, network *net.IPNet, mac net.HardwareAddr) (net.IP, diag.Diagnostics) {
+func lookupIP(ctx context.Context, network string, mac string) (net.IP, diag.Diagnostics) {
 	// Check if it's in the initial table
 
 	ip := net.IP{}
@@ -290,13 +290,15 @@ func lookupIP(ctx context.Context, network *net.IPNet, mac net.HardwareAddr) (ne
 		case <-ctx.Done():
 			return nil, diag.FromErr(ctx.Err())
 		default:
-			err := exec.CommandContext(ctx, "nmap", "-sP", network.String()).Run()
+			err := exec.CommandContext(ctx, "nmap", "-sP", network).Run()
 			if err != nil {
 				return nil, diag.Errorf("%s\n", err)
 			}
 			if ip, diags = checkArp(mac); diags != nil {
 				return nil, diags
 			}
+			tflog.Error(ctx, ip.String())
+			tflog.Error(ctx, mac)
 			if ip != nil {
 				return ip, nil
 			}
@@ -467,43 +469,15 @@ func genKeypair(wgIp net.IP, wgPrivateKey string) (string, string, diag.Diagnost
 func resourceControlNodeCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	bootstrap := d.Get("bootstrap").(bool)
 
-	wgIp_ := d.Get("wg_address").(string)
-	wgIp := net.IP{}
-	if wgIp_ != "" {
-		var err error
-		wgIp, _, err = net.ParseCIDR(wgIp_)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-	}
-
-	pub, priv, diags := genKeypair(wgIp, d.Get("wg_private_key").(string))
-	if diags != nil {
-		return diags
-	}
-	d.Set("wg_public_key", pub)
-	d.Set("wg_private_key", priv)
-
-	cfg, diags := generateConfig(ctx, d)
+	patched, diags := generateConfig(ctx, d)
 	if diags != nil {
 		tflog.Error(ctx, "Error generating patched machineconfig")
 		return diags
 	}
 
-	patched, diags := generatePatched(ctx, d, cfg)
-	if diags != nil {
-		tflog.Error(ctx, "Error generating patched machineconfig")
-		return diags
-	}
+	network := d.Get("dhcp_network_cidr").(string)
+	mac := d.Get("macaddr").(string)
 
-	_, network, err := net.ParseCIDR(d.Get("dhcp_network_cidr").(string))
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	mac, err := net.ParseMAC(d.Get("macaddr").(string))
-	if err != nil {
-		return diag.FromErr(err)
-	}
 	dhcpIp, diags := lookupIP(ctx, network, mac)
 	if diags != nil {
 		tflog.Error(ctx, "Error looking up node IP")
@@ -610,10 +584,9 @@ func ipNetwork(ip net.IP, network net.IPNet) string {
 }
 
 func resourceControlNodeRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-
-	ip, _, err := net.ParseCIDR(d.Get("ip").(string))
-	if err != nil {
-		return diag.FromErr(err)
+	ip := net.ParseIP(d.Get("bootstrap_ip").(string))
+	if ip == nil {
+		return diag.Errorf("Unable to parse IP address from \"bootstrap_ip\", passed \"%s\",got \"%s\"", d.Get("bootstrap_ip").(string), ip.String())
 	}
 	host := net.JoinHostPort(ip.String(), strconv.Itoa(talos_port))
 
@@ -730,9 +703,9 @@ func resourceControlNodeUpdate(ctx context.Context, d *schema.ResourceData, m in
 }
 
 func resourceControlNodeDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	ip, _, err := net.ParseCIDR(d.Get("ip").(string))
-	if err != nil {
-		return diag.FromErr(err)
+	ip := net.ParseIP(d.Get("bootstrap_ip").(string))
+	if ip == nil {
+		return diag.Errorf("Invalid IP got %s", d.Get("bootstrap_ip").(string))
 	}
 	host := net.JoinHostPort(ip.String(), strconv.Itoa(talos_port))
 
