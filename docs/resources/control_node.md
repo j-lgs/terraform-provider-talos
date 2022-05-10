@@ -22,25 +22,37 @@ description: |-
 - `bootstrap_ip` (String)
 - `dhcp_network_cidr` (String)
 - `install_disk` (String)
-- `interface` (Block List, Min: 1) (see [below for nested schema](#nestedblock--interface))
+- `interface` (Block List, Min: 1) Describes a Talos Device configuration. (see [below for nested schema](#nestedblock--interface))
 - `macaddr` (String)
 - `name` (String)
-- `nameservers` (List of String)
 - `talos_image` (String)
 
 ### Optional
 
-- `cert_sans` (List of String)
-- `cluster_apiserver_args` (Map of String)
-- `cluster_proxy_args` (Map of String)
-- `file` (Block List) (see [below for nested schema](#nestedblock--file))
+- `allow_scheduling_on_masters` (Boolean) Allows running workload on master nodes.
+- `apiserver` (Block List, Max: 1) Represents the kube apiserver configuration options. (see [below for nested schema](#nestedblock--apiserver))
+- `cert_sans` (List of String) Extra certificate subject alternative names for the machine’s certificate.
+- `cluster_apiserver_args` (Map of String, Deprecated)
+- `cluster_proxy_args` (Map of String, Deprecated)
+- `control_plane` (Block List, Max: 1) Machine specific configuration options. (see [below for nested schema](#nestedblock--control_plane))
+- `control_plane_config` (Block List, Max: 1) Represents the control plane configuration options. (see [below for nested schema](#nestedblock--control_plane_config))
+- `env` (Map of String) Allows for the addition of environment variables. All environment variables are set on PID 1 in addition to every service.
+- `extra_host` (Block List) Allows the addition of user specified files. (see [below for nested schema](#nestedblock--extra_host))
+- `extra_manifests` (List of String) A list of urls that point to additional manifests. These will get automatically deployed as part of the bootstrap.
+- `file` (Block List) Allows the addition of user specified files. (see [below for nested schema](#nestedblock--file))
 - `kernel_args` (List of String)
-- `kubelet_extra_args` (Map of String)
-- `kubelet_extra_mount` (Block List) (see [below for nested schema](#nestedblock--kubelet_extra_mount))
-- `local_apiserver_port` (String)
-- `pod` (List of String)
-- `registry_mirrors` (Map of String)
-- `sysctls` (Map of String)
+- `kubelet` (Block List, Max: 1) Represents the kubelet config values. (see [below for nested schema](#nestedblock--kubelet))
+- `kubelet_extra_args` (Map of String, Deprecated)
+- `kubelet_extra_mount` (Block List) Wraps the OCI Mount specification. (see [below for nested schema](#nestedblock--kubelet_extra_mount))
+- `local_apiserver_port` (String, Deprecated)
+- `nameservers` (List of String) Used to statically set the nameservers for the machine.
+- `pod` (List of String) Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.
+- `proxy` (Block List, Max: 1) Represents the kube proxy configuration options. (see [below for nested schema](#nestedblock--proxy))
+- `registry` (Block List) Represents the image pull options. (see [below for nested schema](#nestedblock--registry))
+- `registry_mirrors` (Map of String, Deprecated)
+- `sysctls` (Map of String) Used to configure the machine’s sysctls.
+- `sysfs` (Map of String) Used to configure the machine’s sysctls.
+- `udev` (List of String) Configures the udev system.
 
 ### Read-Only
 
@@ -52,24 +64,138 @@ description: |-
 
 Required:
 
-- `addresses` (List of String)
-- `name` (String)
+- `addresses` (List of String) The addresses in CIDR notation or as plain IPs to use.
+- `name` (String) The interface name.
 
 Optional:
 
-- `route` (Block List) (see [below for nested schema](#nestedblock--interface--route))
-- `wireguard` (Block List, Max: 1) (see [below for nested schema](#nestedblock--interface--wireguard))
+- `bond` (Block List, Max: 1) Contains the various options for configuring a bonded interface. (see [below for nested schema](#nestedblock--interface--bond))
+- `dhcp` (Boolean) Indicates if DHCP should be used to configure the interface.
+- `dhcp_options` (Block List, Max: 1) Specifies DHCP specific options. (see [below for nested schema](#nestedblock--interface--dhcp_options))
+- `dummy` (Boolean) Indicates if the interface is a dummy interface..
+- `ignore` (Boolean) Indicates if the interface should be ignored (skips configuration).
+- `mtu` (Number) The interface’s MTU. If used in combination with DHCP, this will override any MTU settings returned from DHCP server.
+- `route` (Block List) Represents a list of routes. (see [below for nested schema](#nestedblock--interface--route))
+- `vip` (Block List, Max: 1) Contains settings for configuring a Virtual Shared IP on an interface.. (see [below for nested schema](#nestedblock--interface--vip))
+- `vlan` (Block List) Represents vlan settings for a device. (see [below for nested schema](#nestedblock--interface--vlan))
+- `wireguard` (Block List, Max: 1) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedblock--interface--wireguard))
+
+<a id="nestedblock--interface--bond"></a>
+### Nested Schema for `interface.bond`
+
+Required:
+
+- `mode` (String) A bond option. Please see the official kernel documentation.
+
+Optional:
+
+- `ad_actor_sys_prio` (Number) A bond option. Please see the official kernel documentation. Must be a 16 bit unsigned int.
+- `ad_actor_system` (String) A bond option. Please see the official kernel documentation.
+- `ad_select` (String) A bond option. Please see the official kernel documentation.
+- `ad_user_port_key` (Number) A bond option. Please see the official kernel documentation. Must be a 16 bit unsigned int.
+- `all_slaves_active` (Number) A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.
+- `arp_all_targets` (String) A bond option. Please see the official kernel documentation.
+- `arp_interval` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `arp_validate` (String) A bond option. Please see the official kernel documentation.
+- `down_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `failover_mac` (String) A bond option. Please see the official kernel documentation.
+- `lacp_rate` (String) A bond option. Please see the official kernel documentation.
+- `lp_interval` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `mii_mon` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `min_links` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `num_peer_notif` (Number) A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.
+- `packets_per_slave` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `peer_notify_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `primary` (String) A bond option. Please see the official kernel documentation.
+- `primary_reselect` (String) A bond option. Please see the official kernel documentation.
+- `resend_igmp` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `tlb_dynamic_lb` (Number) A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.
+- `up_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `use_carrier` (Boolean) A bond option. Please see the official kernel documentation.
+- `xmit_hash_policy` (String) A bond option. Please see the official kernel documentation.
+
+
+<a id="nestedblock--interface--dhcp_options"></a>
+### Nested Schema for `interface.dhcp_options`
+
+Required:
+
+- `route_metric` (Number) The priority of all routes received via DHCP. Must be castable to a uint32.
+
+Optional:
+
+- `ipv4` (Boolean) Enables DHCPv4 protocol for the interface.
+- `ipv6` (Boolean) Enables DHCPv6 protocol for the interface.
+
 
 <a id="nestedblock--interface--route"></a>
 ### Nested Schema for `interface.route`
 
 Required:
 
-- `gateway` (String)
+- `network` (String) The route’s network (destination).
 
 Optional:
 
-- `network` (String)
+- `gateway` (String) The route’s gateway (if empty, creates link scope route).
+- `metric` (Number) The optional metric for the route.
+- `source` (String) The route’s source address.
+
+
+<a id="nestedblock--interface--vip"></a>
+### Nested Schema for `interface.vip`
+
+Required:
+
+- `ip` (String) Specifies the IP address to be used.
+
+Optional:
+
+- `equinix_metal_api_token` (String) Specifies the Equinix Metal API Token.
+- `h_cloud_api_token` (String) Specifies the Hetzner Cloud API Token.
+
+
+<a id="nestedblock--interface--vlan"></a>
+### Nested Schema for `interface.vlan`
+
+Required:
+
+- `addresses` (List of String) The addresses in CIDR notation or as plain IPs to use.
+
+Optional:
+
+- `dhcp` (Boolean) Indicates if DHCP should be used.
+- `mtu` (Number) The VLAN’s MTU. Must be a 32 bit unsigned integer.
+- `routes` (Block List) Represents a list of routes. (see [below for nested schema](#nestedblock--interface--vlan--routes))
+- `vip` (Block List, Max: 1) Contains settings for configuring a Virtual Shared IP on an interface.. (see [below for nested schema](#nestedblock--interface--vlan--vip))
+- `vlan_id` (Number) The VLAN’s ID. Must be a 16 bit unsigned integer.
+
+<a id="nestedblock--interface--vlan--routes"></a>
+### Nested Schema for `interface.vlan.routes`
+
+Required:
+
+- `network` (String) The route’s network (destination).
+
+Optional:
+
+- `gateway` (String) The route’s gateway (if empty, creates link scope route).
+- `metric` (Number) The optional metric for the route.
+- `source` (String) The route’s source address.
+
+
+<a id="nestedblock--interface--vlan--vip"></a>
+### Nested Schema for `interface.vlan.vip`
+
+Required:
+
+- `ip` (String) Specifies the IP address to be used.
+
+Optional:
+
+- `equinix_metal_api_token` (String) Specifies the Equinix Metal API Token.
+- `h_cloud_api_token` (String) Specifies the Hetzner Cloud API Token.
+
 
 
 <a id="nestedblock--interface--wireguard"></a>
@@ -77,30 +203,96 @@ Optional:
 
 Required:
 
-- `peer` (Block List, Min: 1) (see [below for nested schema](#nestedblock--interface--wireguard--peer))
+- `peer` (Block List, Min: 1) A WireGuard device peer configuration. (see [below for nested schema](#nestedblock--interface--wireguard--peer))
 
 Optional:
 
-- `private_key` (String, Sensitive)
+- `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
 
 Read-Only:
 
-- `public_key` (String)
+- `public_key` (String) Automatically derived from the private_key field.
 
 <a id="nestedblock--interface--wireguard--peer"></a>
 ### Nested Schema for `interface.wireguard.peer`
 
 Required:
 
-- `allowed_ips` (List of String)
-- `endpoint` (String)
-- `public_key` (String)
+- `allowed_ips` (List of String) AllowedIPs specifies a list of allowed IP addresses in CIDR notation for this peer.
+- `endpoint` (String) Specifies the endpoint of this peer entry.
+- `public_key` (String) Specifies the public key of this peer.
 
 Optional:
 
-- `persistent_keepalive_interval` (Number)
+- `persistent_keepalive_interval` (Number) Specifies the persistent keepalive interval for this peer. Provided in seconds.
 
 
+
+
+<a id="nestedblock--apiserver"></a>
+### Nested Schema for `apiserver`
+
+Optional:
+
+- `admission_control` (Block List) Configure the API server admission plugins. (see [below for nested schema](#nestedblock--apiserver--admission_control))
+- `cert_sans` (List of String) Extra certificate subject alternative names for the API server’s certificate.
+- `disable_pod_security_policy` (Boolean) Disable PodSecurityPolicy in the API server and default manifests.
+- `env` (List of String) The env field allows for the addition of environment variables for the control plane component.
+- `extra_args` (Map of String) Extra arguments to supply to the API server.
+- `extra_volumes` (Block List) Extra volumes to mount to the API server static pod. (see [below for nested schema](#nestedblock--apiserver--extra_volumes))
+- `image` (String) The container image used in the API server manifest.
+
+<a id="nestedblock--apiserver--admission_control"></a>
+### Nested Schema for `apiserver.admission_control`
+
+Required:
+
+- `configuration` (String) Configuration is an embedded configuration object to be used as the plugin’s configuration.
+- `name` (String) Name is the name of the admission controller. It must match the registered admission plugin name.
+
+
+<a id="nestedblock--apiserver--extra_volumes"></a>
+### Nested Schema for `apiserver.extra_volumes`
+
+Required:
+
+- `host_path` (String) Path on the host.
+- `mount_path` (String) Path in the container.
+
+Optional:
+
+- `readonly` (Boolean) Mount the volume read only.
+
+
+
+<a id="nestedblock--control_plane"></a>
+### Nested Schema for `control_plane`
+
+Optional:
+
+- `controller_manager_disabled` (Boolean) Disable kube-controller-manager on the node.
+- `scheduler_disabled` (Boolean) Disable kube-scheduler on the node.
+
+
+<a id="nestedblock--control_plane_config"></a>
+### Nested Schema for `control_plane_config`
+
+Required:
+
+- `endpoint` (String) Endpoint is the canonical controlplane endpoint, which can be an IP address or a DNS hostname.
+
+Optional:
+
+- `local_api_server_port` (Number) The port that the API server listens on internally. This may be different than the port portion listed in the endpoint field.
+
+
+<a id="nestedblock--extra_host"></a>
+### Nested Schema for `extra_host`
+
+Required:
+
+- `aliases` (List of String) The host alias.
+- `ip` (String) The IP of the host.
 
 
 <a id="nestedblock--file"></a>
@@ -108,10 +300,41 @@ Optional:
 
 Required:
 
-- `content` (String)
-- `op` (String)
-- `path` (String)
-- `permissions` (Number)
+- `content` (String) The file's content. Not required to be base64 encoded.
+- `op` (String) Mode for the file. Can be one of create, append and overwrite.
+- `path` (String) Full path for the file to be created at.
+- `permissions` (Number) Unix permission for the file
+
+
+<a id="nestedblock--kubelet"></a>
+### Nested Schema for `kubelet`
+
+Required:
+
+- `cluster_dns` (List of String) An optional reference to an alternative kubelet clusterDNS ip list.
+- `node_ip_valid_subnets` (List of String) The validSubnets field configures the networks to pick kubelet node IP from.
+
+Optional:
+
+- `extra_args` (Map of String) Used to provide additional flags to the kubelet.
+- `extra_config` (String) The extraConfig field is used to provide kubelet configuration overrides. Must be valid YAML
+- `extra_mount` (Block List) Wraps the OCI Mount specification. (see [below for nested schema](#nestedblock--kubelet--extra_mount))
+- `image` (String) An optional reference to an alternative kubelet image.
+- `register_with_fqdn` (Boolean) Used to force kubelet to use the node FQDN for registration. This is required in clouds like AWS.
+
+<a id="nestedblock--kubelet--extra_mount"></a>
+### Nested Schema for `kubelet.extra_mount`
+
+Required:
+
+- `destination` (String) Destination of mount point: path inside container. This value MUST be an absolute path.
+- `source` (String) A device name, but can also be a file or directory name for bind mounts or a dummy. Path values for bind mounts are either absolute or relative to the bundle. A mount is a bind mount if it has either bind or rbind in the options.
+
+Optional:
+
+- `options` (List of String) Mount options of the filesystem to be used.
+- `type` (String) The type of the filesystem to be mounted.
+
 
 
 <a id="nestedblock--kubelet_extra_mount"></a>
@@ -119,12 +342,59 @@ Required:
 
 Required:
 
-- `destination` (String)
-- `source` (String)
+- `destination` (String) Destination of mount point: path inside container. This value MUST be an absolute path.
+- `source` (String) A device name, but can also be a file or directory name for bind mounts or a dummy. Path values for bind mounts are either absolute or relative to the bundle. A mount is a bind mount if it has either bind or rbind in the options.
 
 Optional:
 
-- `options` (List of String)
-- `type` (String)
+- `options` (List of String) Mount options of the filesystem to be used.
+- `type` (String) The type of the filesystem to be mounted.
+
+
+<a id="nestedblock--proxy"></a>
+### Nested Schema for `proxy`
+
+Optional:
+
+- `disabled` (Boolean) Disable kube-proxy deployment on cluster bootstrap.
+- `extra_args` (Map of String) Extra arguments to supply to kube-proxy.
+- `image` (String) The container image used in the kube-proxy manifest.
+- `mode` (String) The container image used in the kube-proxy manifest.
+
+
+<a id="nestedblock--registry"></a>
+### Nested Schema for `registry`
+
+Optional:
+
+- `config` (Block List) Specifies TLS & auth configuration for HTTPS image registries. The meaning of each auth_field is the same with the corresponding field in .docker/config.json. (see [below for nested schema](#nestedblock--registry--config))
+- `mirror` (Block List) Specifies mirror configuration for each registry. (see [below for nested schema](#nestedblock--registry--mirror))
+
+<a id="nestedblock--registry--config"></a>
+### Nested Schema for `registry.config`
+
+Required:
+
+- `registry_name` (String) The first segment of image identifier, with ‘docker.io’ being default one. To catch any registry names not specified explicitly, use ‘*’.
+
+Optional:
+
+- `auth` (String, Sensitive) Auth for optional registry authentication.
+- `ca` (String) CA registry certificate to add the list of trusted certificates. Should be Base64 encoded.
+- `client_identity_crt` (String, Sensitive) Enable mutual TLS authentication with the registry. Base64 encoded client certificate.
+- `client_identity_key` (String, Sensitive) Enable mutual TLS authentication with the registry. Base64 encoded client key.
+- `identity_token` (String, Sensitive) Identity token for optional registry authentication.
+- `insecure_skip_verify` (Boolean) Skip TLS server certificate verification (not recommended)..
+- `password` (String, Sensitive) Password for optional registry authentication.
+- `username` (String) Username for optional registry authentication.
+
+
+<a id="nestedblock--registry--mirror"></a>
+### Nested Schema for `registry.mirror`
+
+Required:
+
+- `endpoints` (List of String) List of endpoints (URLs) for registry mirrors to use.
+- `registry_name` (String) The first segment of image identifier, with ‘docker.io’ being default one. To catch any registry names not specified explicitly, use ‘*’.
 
 
