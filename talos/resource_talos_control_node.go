@@ -236,6 +236,14 @@ func resourceControlNode() *schema.Resource {
 				Type:      schema.TypeString,
 				Required:  true,
 				Sensitive: true,
+				ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
+					v := value.(string)
+					input := generate.Input{}
+					if err := json.Unmarshal([]byte(v), &input); err != nil {
+						errs = append(errs, fmt.Errorf("Failed to parse base_config. Do not set this value to anything other than the base_config value of a talos_cluster_config resource"))
+					}
+					return
+				},
 			},
 
 			// Generated
