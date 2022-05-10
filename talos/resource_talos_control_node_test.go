@@ -210,15 +210,17 @@ func testAccTalosControl_cluster(ip []string, rName string) string {
 
 func testAccTalosControl_pods(ip string, rName string) string {
 	cfg := talosConfig_basic(ip, "https://"+ip+":6443") + controlResource_basic("controlAcc_control", rName, true, ip, `
-  kubelet_extra_mount {
-	destination = "/var/static-confs"
-	type = "bind"
-	source = "/var/static-confs"
-	options = [
-	  "rbind",
-	  "rshared",
-	  "rw"
-	]
+  kubelet {
+    extra_mount {
+      destination = "/var/static-confs"
+      type = "bind"
+      source = "/var/static-confs"
+      options = [
+        "rbind",
+        "rshared",
+        "rw"
+      ]
+    }
   }
 
   file {

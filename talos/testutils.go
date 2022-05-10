@@ -222,12 +222,27 @@ resource "talos_worker_node" "{{ .name }}" {
     "{{ .nameserver }}"
   ]
 
-  registry_mirrors = {
-    "docker.io": "http://172.17.0.1:5000",
-    "k8s.gcr.io": "http://172.17.0.1:5001",
-    "quay.io": "http://172.17.0.1:5002",
-    "gcr.io": "http://172.17.0.1:5003",
-    "ghcr.io": "http://172.17.0.1:5004"
+  registry {
+    mirror {
+      registry_name = "docker.io"
+      endpoints     = [ "http://172.17.0.1:5000" ]
+    }
+    mirror {
+      registry_name = "k8s.gcr.io"
+      endpoints     = [ "http://172.17.0.1:5001" ]
+    }
+    mirror {
+      registry_name = "quay.io"
+      endpoints     = [ "http://172.17.0.1:5002" ]
+    }
+    mirror {
+      registry_name = "gcr.io"
+      endpoints     = [ "http://172.17.0.1:5003" ]
+    }
+    mirror {
+      registry_name = "ghcr.io"
+      endpoints     = [ "http://172.17.0.1:5004" ]
+    }
   }
 
   {{ .additional }}
@@ -316,12 +331,27 @@ resource "talos_control_node" "{{ .name }}" {
     "{{ .nameserver }}"
   ]
 
-  registry_mirrors = {
-    "docker.io": "http://172.17.0.1:5000",
-    "k8s.gcr.io": "http://172.17.0.1:5001",
-    "quay.io": "http://172.17.0.1:5002",
-    "gcr.io": "http://172.17.0.1:5003",
-    "ghcr.io": "http://172.17.0.1:5004"
+  registry {
+    mirror {
+      registry_name = "docker.io"
+      endpoints     = [ "http://172.17.0.1:5000" ]
+    }
+    mirror {
+      registry_name = "k8s.gcr.io"
+      endpoints     = [ "http://172.17.0.1:5001" ]
+    }
+    mirror {
+      registry_name = "quay.io"
+      endpoints     = [ "http://172.17.0.1:5002" ]
+    }
+    mirror {
+      registry_name = "gcr.io"
+      endpoints     = [ "http://172.17.0.1:5003" ]
+    }
+    mirror {
+      registry_name = "ghcr.io"
+      endpoints     = [ "http://172.17.0.1:5004" ]
+    }
   }
 
   base_config = talos_configuration.cluster.base_config
@@ -464,12 +494,27 @@ resource "talos_control_node" "single_example" {
     "192.168.122.1"
   ]
 
-  registry_mirrors = {
-    "docker.io": "http://172.17.0.1:5000",
-    "k8s.gcr.io": "http://172.17.0.1:5001",
-    "quay.io": "http://172.17.0.1:5002",
-    "gcr.io": "http://172.17.0.1:5003",
-    "ghcr.io": "http://172.17.0.1:5004"
+  registry {
+    mirror {
+      registry_name = "docker.io"
+      endpoints     = [ "http://172.17.0.1:5000" ]
+    }
+    mirror {
+      registry_name = "k8s.gcr.io"
+      endpoints     = [ "http://172.17.0.1:5001" ]
+    }
+    mirror {
+      registry_name = "quay.io"
+      endpoints     = [ "http://172.17.0.1:5002" ]
+    }
+    mirror {
+      registry_name = "gcr.io"
+      endpoints     = [ "http://172.17.0.1:5003" ]
+    }
+    mirror {
+      registry_name = "ghcr.io"
+      endpoints     = [ "http://172.17.0.1:5004" ]
+    }
   }
 
   # The talos image to install
