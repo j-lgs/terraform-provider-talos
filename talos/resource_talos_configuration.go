@@ -117,7 +117,7 @@ func resourceClusterCreate(ctx context.Context, d *schema.ResourceData, m interf
 		return diag.FromErr(err)
 	}
 
-	config, err := talosconfig.Bytes()
+	config, err := yaml.Marshal(talosconfig)
 	if err != nil {
 		tflog.Error(ctx, "Error getting talosconfig bytes.")
 		return diag.FromErr(err)

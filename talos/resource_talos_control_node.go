@@ -39,70 +39,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-func validateDomain(value interface{}, key string) (warns []string, errs []error) {
-	v := value.(string)
-	pattern := `[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*`
-	if !regexp.MustCompile(pattern).Match([]byte(v)) {
-		errs = append(errs, fmt.Errorf("Node name must be a lowercase RFC 1123 subdomain, got %s", v))
-	}
-	return
-}
-
-func validateMAC(value interface{}, key string) (warns []string, errs []error) {
-	v := value.(string)
-	if _, err := net.ParseMAC(v); err != nil {
-		errs = append(errs, fmt.Errorf("Must provide a valid MAC address, got %s, error %s", v, err.Error()))
-	}
-	return
-}
-
-func validateCIDR(value interface{}, key string) (warns []string, errs []error) {
-	v := value.(string)
-	if _, _, err := net.ParseCIDR(v); err != nil {
-		errs = append(errs, fmt.Errorf("Must provide a valid CIDR IP address, got %s, error %s", v, err.Error()))
-	}
-	return
-}
-
-func validateIP(value interface{}, key string) (warns []string, errs []error) {
-	v := value.(string)
-	if net.ParseIP(v) == nil {
-		errs = append(errs, fmt.Errorf("Must provide a valid IP address, got %s", v))
-	}
-	return
-}
-
-func validateHost(value interface{}, key string) (warns []string, errs []error) {
-	v := value.(string)
-	pattern := `[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*:[0-9]{2,}`
-	if !regexp.MustCompile(pattern).Match([]byte(v)) {
-		errs = append(errs, fmt.Errorf("Node name must be a lowercase RFC 1123 subdomain with a port appended, seperated by \":\", got %s", v))
-	}
-	return
-}
-
-func validateImage(value interface{}, key string) (warns []string, errs []error) {
-	v := value.(string)
-	pattern := `[^/]+\.[^/.]+/([^/.]+/)?[^/.]+(:.+)?`
-	if !regexp.MustCompile(pattern).Match([]byte(v)) {
-		errs = append(errs, fmt.Errorf("Node name must be a valid container image, got %s", v))
-	}
-	return
-}
-
-func validateState(value interface{}, key string) (warns []string, errs []error) {
-	v := value.(string)
-	switch v {
-	case
-		"MASTER",
-		"BACKUP":
-	default:
-		errs = append(errs, fmt.Errorf("Invalid keepalived node state, expected one of MASTER, BACKUP, got %s", v))
-	}
-
-	return
-}
-
 func resourceControlNode() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceControlNodeCreate,
@@ -115,8 +51,10 @@ func resourceControlNode() *schema.Resource {
 				Type:         schema.TypeString,
 				Required:     true,
 				ValidateFunc: validateDomain,
+				ForceNew:     true,
 			},
 
+			// Install arguments
 			"install_disk": {
 				Type:     schema.TypeString,
 				Required: true,
@@ -126,26 +64,56 @@ func resourceControlNode() *schema.Resource {
 				Required:     true,
 				ValidateFunc: validateImage,
 			},
-
+			"kernel_args": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
 			"macaddr": {
 				Type:         schema.TypeString,
 				Required:     true,
+				ForceNew:     true,
 				ValidateFunc: validateMAC,
-			},
-			"ip": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validateCIDR,
 			},
 			"dhcp_network_cidr": {
 				Type:         schema.TypeString,
 				Required:     true,
 				ValidateFunc: validateCIDR,
 			},
-			"gateway": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validateIP,
+
+			// cluster arguments
+			"cluster_apiserver_args": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"cluster_proxy_args": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"local_apiserver_port": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "",
+			},
+
+			// Network args
+			"interface": &networkInterfaceSchema,
+
+			"registry_mirrors": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type:         schema.TypeString,
+					ValidateFunc: validateEndpoint,
+				},
 			},
 			"nameservers": {
 				Type:     schema.TypeList,
@@ -153,10 +121,22 @@ func resourceControlNode() *schema.Resource {
 				MinItems: 1,
 				Elem: &schema.Schema{
 					Type:         schema.TypeString,
-					ValidateFunc: validateDomain,
+					ValidateFunc: validateEndpoint,
 				},
 			},
-			"peers": {
+
+			// Kubelet args
+			"kubelet_extra_mount": &kubeletExtraMountSchema,
+			"kubelet_extra_args": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+
+			// Cert args
+			"cert_sans": {
 				Type:     schema.TypeList,
 				MinItems: 0,
 				Optional: true,
@@ -166,101 +146,91 @@ func resourceControlNode() *schema.Resource {
 				},
 			},
 
+			// Machinefiles
+			"file": {
+				Type:     schema.TypeList,
+				MinItems: 0,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"content": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"permissions": {
+							Type:     schema.TypeInt,
+							Required: true,
+							ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
+								v := value.(int)
+								if v < 0 {
+									errs = append(errs, fmt.Errorf("Persistent keepalive interval must be a positive integer, got %d", v))
+								}
+								return
+							},
+						},
+						"path": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"op": {
+							Type:     schema.TypeString,
+							Required: true,
+							ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
+								v := value.(string)
+								switch v {
+								case
+									"create",
+									"append",
+									"overwrite":
+									return
+								default:
+									errs = append(errs, fmt.Errorf("Invalid file op, must be one of \"create\", \"append\" or \"overwrite\", got %s", v))
+								}
+								return
+							},
+						},
+					},
+				},
+			},
+
+			// pods
+			"pod": {
+				Type:     schema.TypeList,
+				MinItems: 0,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+					ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
+						v := value.(string)
+						config := kubeval.NewDefaultConfig()
+						schemaCache := kubeval.NewSchemaCache()
+						_, err := kubeval.ValidateWithCache([]byte(v), schemaCache, config)
+						if err != nil {
+							errs = append(errs, fmt.Errorf("Invalid kubernetes manifest provided"))
+							errs = append(errs, err)
+						}
+						return
+					},
+				},
+			},
+
+			// System args
+			"sysctls": {
+				Type:     schema.TypeMap,
+				Optional: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+
 			// Cluster bootstrap configuration
 			"bootstrap": {
 				Type:     schema.TypeBool,
 				Required: true,
 			},
-
-			// Wireguard optionals TODO make into typeset
-			"wg_address": {
+			"bootstrap_ip": {
 				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validateCIDR,
-			},
-			"wg_allowed_ips": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validateCIDR,
-			},
-			"wg_endpoint": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validateHost,
-			},
-			"wg_public_key": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"wg_private_key": {
-				Type:      schema.TypeString,
-				Sensitive: true,
-				Computed:  true,
-			},
-
-			// Haproxy wireguard ingress optionals
-			"ingress_port": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  8080,
-			},
-			"ingress_ssl_port": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  8443,
-			},
-			"ingress_ip": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validateIP,
-			},
-
-			// Load balancing API proxy optionals
-			"api_proxy_ip": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validateIP,
-			},
-			"api_proxy_port": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  6443,
-			},
-			"local_api_proxy_port": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  443,
-			},
-
-			// Shared IP optionals
-			"router_id": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-			"vrid": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "11",
-			},
-			"state": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ValidateFunc: validateState,
-			},
-			"priority": {
-				Type:     schema.TypeInt,
-				Optional: true,
-			},
-			"vip_pass": {
-				Type:      schema.TypeString,
-				Optional:  true,
-				Sensitive: true,
-			},
-
-			// Container registry optionals
-			"registry_ip": {
-				Type:         schema.TypeString,
-				Optional:     true,
+				Required:     true,
 				ValidateFunc: validateIP,
 			},
 
@@ -277,63 +247,11 @@ func resourceControlNode() *schema.Resource {
 				Computed:  true,
 				Sensitive: true,
 			},
-
-			// Container images
-			"haproxy_image": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Default:      "haproxy:2.4.14",
-				ValidateFunc: validateImage,
-			},
-			"keepalived_image": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Default:      "osixia/keepalived:1.3.5-1",
-				ValidateFunc: validateImage,
-			},
 		},
 	}
 }
 
-type ControlNodeSpec struct {
-	Name string
-
-	IP          string
-	IPNetwork   string
-	Hostname    string
-	Gateway     string
-	Nameservers []string
-	Peers       []string
-
-	WgIP         string
-	WgAddress    string
-	WgInterface  string
-	WgAllowedIPs string
-	WgEndpoint   string
-	WgPublicKey  string
-	WgPrivateKey string
-
-	IngressPort    int
-	IngressSSLPort int
-	IngressIP      string
-
-	RouterID string
-	VRID     string
-	State    string
-	Priority int
-	VIPPass  string
-
-	APIProxyIP        string
-	APIProxyPort      int
-	LocalAPIProxyPort int
-
-	RegistryIP string
-
-	KeepalivedImage string
-	HaproxyImage    string
-}
-
-func checkArp(mac net.HardwareAddr) (net.IP, diag.Diagnostics) {
+func checkArp(mac string) (net.IP, diag.Diagnostics) {
 	arp, err := os.Open("/proc/net/arp")
 	if err != nil {
 		return nil, diag.Errorf("%s\n", err)
@@ -442,132 +360,7 @@ func waitTillTalosMachineUp(ctx context.Context, tlsConfig tls.Config, host stri
 	return nil
 }
 
-func generatePatched(ctx context.Context, d *schema.ResourceData, config []byte) (string, diag.Diagnostics) {
-	nameservers := []string{}
-	for _, ns := range d.Get("nameservers").([]interface{}) {
-		nameservers = append(nameservers, ns.(string))
-	}
-
-	var t *template.Template
-
-	funcMap := template.FuncMap{
-		"templateFilesValue": func(name string, op string, path string, permissions int, data interface{}) string {
-			type ContentSpec struct {
-				Content     string `json:"content"`
-				Op          string `json:"op"`
-				Path        string `json:"path"`
-				Permissions int    `json:"permissions"`
-			}
-
-			buffer := &bytes.Buffer{}
-			if err := t.ExecuteTemplate(buffer, name, data); err != nil {
-				panic(err)
-			}
-
-			bytes, err := json.Marshal(ContentSpec{buffer.String(), op, path, permissions})
-			if err != nil {
-				panic(err)
-			}
-
-			if !json.Valid(bytes) {
-				panic("invalid JSON")
-			}
-
-			return string(bytes)
-		},
-	}
-
-	// template controlplane patches
-	t = template.Must(template.New("controlPlane").Funcs(funcMap).Parse(templateControl()))
-	t = template.Must(t.Parse(templateHaproxy()))
-	t = template.Must(t.Parse(templateKeepalived()))
-	t = template.Must(t.Parse(templateAPICheck()))
-
-	peerList := d.Get("peers").([]interface{})
-	peers := []string{}
-	for _, peer := range peerList {
-		peers = append(peers, peer.(string))
-	}
-
-	ip, network, err := net.ParseCIDR(d.Get("ip").(string))
-	if err != nil {
-		return "", diag.FromErr(err)
-	}
-
-	wgAddress := d.Get("wg_address").(string)
-	wgAddress_ := wgAddress
-	wgIp, wgNetwork := net.IP{}, &net.IPNet{}
-	if wgAddress != "" {
-		var err error
-		wgIp, wgNetwork, err = net.ParseCIDR(wgAddress)
-		if err != nil {
-			panic(err)
-		}
-		wgAddress_ = ipNetwork(wgIp, *wgNetwork)
-	}
-
-	buffer := new(strings.Builder)
-	err = t.ExecuteTemplate(buffer, "controlPlane", ControlNodeSpec{
-		Name:      d.Get("name").(string),
-		IP:        ip.String(),
-		IPNetwork: ipNetwork(ip, *network),
-
-		Hostname:    d.Get("name").(string),
-		Gateway:     d.Get("gateway").(string),
-		Nameservers: nameservers,
-		Peers:       peers,
-
-		WgIP:         wgIp.String(),
-		WgAddress:    wgAddress_,
-		WgInterface:  "wg0",
-		WgAllowedIPs: d.Get("wg_allowed_ips").(string),
-		WgEndpoint:   d.Get("wg_endpoint").(string),
-		WgPublicKey:  d.Get("wg_public_key").(string),
-		WgPrivateKey: d.Get("wg_private_key").(string),
-
-		IngressPort:    d.Get("ingress_port").(int),
-		IngressSSLPort: d.Get("ingress_ssl_port").(int),
-		IngressIP:      d.Get("ingress_ip").(string),
-
-		RouterID: d.Get("router_id").(string),
-		VRID:     d.Get("vrid").(string),
-		State:    d.Get("state").(string),
-		Priority: d.Get("priority").(int),
-		VIPPass:  d.Get("vip_pass").(string),
-
-		APIProxyIP:        d.Get("api_proxy_ip").(string),
-		APIProxyPort:      d.Get("api_proxy_port").(int),
-		LocalAPIProxyPort: d.Get("local_api_proxy_port").(int),
-
-		RegistryIP: d.Get("registry_ip").(string),
-
-		KeepalivedImage: d.Get("keepalived_image").(string),
-		HaproxyImage:    d.Get("haproxy_image").(string),
-	})
-	if err != nil {
-		tflog.Error(ctx, "Error running controlplane template.")
-		return "", diag.FromErr(err)
-	}
-
-	jsonpatch, err := jsonpatch.DecodePatch([]byte(buffer.String()))
-	if err != nil {
-		tflog.Error(ctx, "Error decoding jsonpatch: "+buffer.String())
-		return "", diag.FromErr(err)
-	}
-
-	patched, err := configpatcher.JSON6902(config, jsonpatch)
-	if err != nil {
-		tflog.Error(ctx, "Error attempting applying jsonpatch: "+buffer.String())
-		return "", diag.FromErr(err)
-	}
-
-	return string(patched), nil
-}
-
 func generateConfig(ctx context.Context, d *schema.ResourceData) ([]byte, diag.Diagnostics) {
-	disk := d.Get("install_disk").(string)
-	image := d.Get("talos_image").(string)
-
 	input := generate.Input{}
 	if err := json.Unmarshal([]byte(d.Get("base_config").(string)), &input); err != nil {
 		tflog.Error(ctx, "Failed to unmarshal input bundle: "+err.Error())
@@ -581,8 +374,54 @@ func generateConfig(ctx context.Context, d *schema.ResourceData) ([]byte, diag.D
 		return nil, diag.FromErr(err)
 	}
 
-	controlCfg.MachineConfig.MachineInstall.InstallDisk = disk
-	controlCfg.MachineConfig.MachineInstall.InstallImage = image
+	mc := controlCfg.MachineConfig
+	cc := controlCfg.ClusterConfig
+
+	mc.MachinePods = []v1alpha1.Unstructured{}
+	for _, v := range d.Get("pod").([]interface{}) {
+		var pod v1alpha1.Unstructured
+
+		if err = yaml.Unmarshal([]byte(v.(string)), &pod); err != nil {
+			tflog.Error(ctx, "failed to unmarshal static pod config into unstructured")
+			return nil, diag.FromErr(err)
+		}
+
+		mc.MachinePods = append(mc.MachinePods, v1alpha1.Unstructured{
+			Object: pod.Object,
+		})
+	}
+
+	mc.MachineFiles = []*v1alpha1.MachineFile{}
+	for _, v := range d.Get("file").([]interface{}) {
+		file := v.(map[string]interface{})
+		mc.MachineFiles = append(mc.MachineFiles, &v1alpha1.MachineFile{
+			FileContent:     file["content"].(string),
+			FilePermissions: v1alpha1.FileMode(file["permissions"].(int)),
+			FilePath:        file["path"].(string),
+			FileOp:          file["op"].(string),
+		})
+	}
+
+	mc.MachineCertSANs = []string{}
+	for _, v := range d.Get("cert_sans").([]interface{}) {
+		mc.MachineCertSANs = append(mc.MachineCertSANs, v.(string))
+	}
+
+	port := d.Get("local_apiserver_port").(string)
+	if port != "" {
+		p := 0
+		if p, err = strconv.Atoi(port); err != nil {
+			return nil, diag.FromErr(err)
+		}
+
+		cc.ControlPlane.LocalAPIServerPort = p
+
+	}
+
+	if diags := generateCommonConfig(d, controlCfg); diags != nil {
+		return []byte{}, diags
+	}
+
 	var controlYaml []byte
 
 	controlYaml, err = controlCfg.Bytes()
@@ -590,8 +429,12 @@ func generateConfig(ctx context.Context, d *schema.ResourceData) ([]byte, diag.D
 		log.Fatalf("failed to generate config" + err.Error())
 		return nil, diag.FromErr(err)
 	}
+	re := regexp.MustCompile(`\s*#.*`)
+	no_comments := re.ReplaceAll(controlYaml, nil)
 
-	return controlYaml, nil
+	tflog.Error(ctx, string(no_comments))
+
+	return no_comments, nil
 }
 
 func genKeypair(wgIp net.IP, wgPrivateKey string) (string, string, diag.Diagnostics) {
@@ -674,8 +517,8 @@ func resourceControlNodeCreate(ctx context.Context, d *schema.ResourceData, m in
 	}
 	defer conn.Close()
 	client := machine.NewMachineServiceClient(conn)
-	_, err = client.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
-		Data: []byte(patched),
+	_, err := client.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
+		Data: patched,
 		Mode: machine.ApplyConfigurationRequest_Mode(machine.ApplyConfigurationRequest_REBOOT),
 	})
 	if err != nil {
@@ -684,9 +527,9 @@ func resourceControlNodeCreate(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	if bootstrap {
-		ip, _, err := net.ParseCIDR(d.Get("ip").(string))
-		if err != nil {
-			return diag.FromErr(err)
+		ip := net.ParseIP(d.Get("bootstrap_ip").(string))
+		if ip == nil {
+			return diag.Errorf("Unable to parse bootstrap_ip")
 		}
 		host := net.JoinHostPort(ip.String(), strconv.Itoa(talos_port))
 		input := generate.Input{}
@@ -708,9 +551,7 @@ func resourceControlNodeCreate(ctx context.Context, d *schema.ResourceData, m in
 	}
 
 	d.SetId(d.Get("name").(string))
-	d.Set("wg_public_key", pub)
-	d.Set("wg_private_key", priv)
-	d.Set("patch", patched)
+	d.Set("patch", string(patched))
 
 	return nil
 }
@@ -815,58 +656,52 @@ func resourceControlNodeRead(ctx context.Context, d *schema.ResourceData, m inte
 	}
 
 	// Assume one regular interface and one wireguard interface. These will eventually be seperate types in terraform
-	talosInterfaces := conf.MachineConfig.MachineNetwork.NetworkInterfaces
+	//talosInterfaces := conf.MachineConfig.MachineNetwork.NetworkInterfaces
 	d.SetId(d.Get("name").(string))
 	d.Set("name", conf.MachineConfig.MachineNetwork.NetworkHostname)
 	d.Set("install_disk", conf.MachineConfig.MachineInstall.InstallDisk)
 	d.Set("talos_image", conf.MachineConfig.MachineInstall.InstallImage)
 
 	// Seperate wireguard and traditional interfaces
-	wireguard := []*v1alpha1.Device{}
-	networks := []*v1alpha1.Device{}
-	netdevs := conf.MachineConfig.MachineNetwork.NetworkInterfaces
-	for _, netdev := range netdevs {
-		if netdev.DeviceWireguardConfig != nil {
-			wireguard = append(wireguard, netdev)
-		} else {
-			networks = append(networks, netdev)
+	/*
+		wireguard := []*v1alpha1.Device{}
+		networks := []*v1alpha1.Device{}
+		netdevs := conf.MachineConfig.MachineNetwork.NetworkInterfaces
+		for _, netdev := range netdevs {
+			if netdev.DeviceWireguardConfig != nil {
+				wireguard = append(wireguard, netdev)
+			} else {
+				networks = append(networks, netdev)
+			}
 		}
-	}
 
-	d.Set("gateway", networks[0].DeviceRoutes[0].RouteGateway)
-	d.Set("ip", networks[0].DeviceAddresses[0])
-	d.Set("nameservers", nameservers)
+		d.Set("gateway", networks[0].DeviceRoutes[0].RouteGateway)
+		d.Set("ip", networks[0].DeviceAddresses[0])
+		d.Set("nameservers", nameservers)
 
-	if len(talosInterfaces) > 1 {
-		d.Set("wg_address", wireguard[0].DeviceAddresses[0])
-		d.Set("wg_allowed_ips", wireguard[0].DeviceWireguardConfig.WireguardPeers[0].WireguardAllowedIPs[0])
-		d.Set("wg_endpoint", wireguard[0].DeviceWireguardConfig.WireguardPeers[0].WireguardEndpoint)
-		d.Set("wg_public_key", wireguard[0].DeviceWireguardConfig.WireguardPeers[0].WireguardPublicKey)
-		d.Set("wf_private_key", wireguard[0].DeviceWireguardConfig.WireguardPrivateKey)
-	}
+		if len(talosInterfaces) > 1 {
+			d.Set("wg_address", wireguard[0].DeviceAddresses[0])
+			d.Set("wg_allowed_ips", wireguard[0].DeviceWireguardConfig.WireguardPeers[0].WireguardAllowedIPs[0])
+			d.Set("wg_endpoint", wireguard[0].DeviceWireguardConfig.WireguardPeers[0].WireguardEndpoint)
+			d.Set("wg_public_key", wireguard[0].DeviceWireguardConfig.WireguardPeers[0].WireguardPublicKey)
+			d.Set("wf_private_key", wireguard[0].DeviceWireguardConfig.WireguardPrivateKey)
+		}
 
-	d.Set("local_api_proxy_port", conf.ClusterConfig.APIServerConfig.ExtraArgsConfig["secure-port"])
-
+		d.Set("local_api_proxy_port", conf.ClusterConfig.APIServerConfig.ExtraArgsConfig["secure-port"])
+	*/
 	return nil
 }
 
 func resourceControlNodeUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	cfg, diags := generateConfig(ctx, d)
+	patched, diags := generateConfig(ctx, d)
 	if diags != nil {
 		tflog.Error(ctx, "Error generating patched machineconfig")
 		return diags
 	}
 
-	patched, diags := generatePatched(ctx, d, cfg)
-	if diags != nil {
-		tflog.Error(ctx, "Error generating patched configuration")
-		return diags
-	}
-
-	ip, _, err := net.ParseCIDR(d.Get("ip").(string))
-	if err != nil {
-		tflog.Error(ctx, "parsing IP CIDR")
-		return diag.FromErr(err)
+	ip := net.ParseIP(d.Get("bootstrap_ip").(string))
+	if ip == nil {
+		return diag.Errorf("parsing IP %s", ip.String())
 	}
 	host := net.JoinHostPort(ip.String(), strconv.Itoa(talos_port))
 	input := generate.Input{}
