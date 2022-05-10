@@ -10,6 +10,7 @@ require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.14.0
 	github.com/instrumenta/kubeval v0.16.1
 	github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d
+	github.com/talos-systems/crypto v0.3.5
 	github.com/talos-systems/talos/pkg/machinery v1.0.4
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220504211119-3d4a969bb56b
 	google.golang.org/grpc v1.46.0
@@ -66,7 +67,6 @@ require (
 	github.com/siderolabs/go-pointer v1.0.0 // indirect
 	github.com/spf13/cobra v0.0.0-20180820174524-ff0d02e85550 // indirect
 	github.com/spf13/pflag v1.0.3 // indirect
-	github.com/talos-systems/crypto v0.3.5 // indirect
 	github.com/talos-systems/go-blockdevice v0.3.2-0.20220405134045-d9c3a2738861 // indirect
 	github.com/talos-systems/go-debug v0.2.1 // indirect
 	github.com/talos-systems/net v0.3.2 // indirect

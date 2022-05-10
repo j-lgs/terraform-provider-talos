@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/talos-systems/crypto/x509"
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -1102,6 +1103,50 @@ func ExpandAPIServerConfig(apiServerArgs TypeMap) (apiServerConfig *v1alpha1.API
 	return
 }
 
+// ExpandRegistry safely extracts values from a singleton TypeList representing a container registry arguments into a pointer
+// to a Talos RegistriesConfig.
+func ExpandRegistry(registry TypeList) (registryConfig v1alpha1.RegistriesConfig, err error) {
+	registryConfig = v1alpha1.RegistriesConfig{}
+
+	if len(registry) != 1 {
+		err = fmt.Errorf("Invalid registry block count. Should be a singleton TypeList.")
+		return
+	}
+
+	registrySchema := registry[0].(TypeMap)
+	registryConfigs := registrySchema["config"].(TypeList)
+	registryConfig.RegistryConfig = map[string]*v1alpha1.RegistryConfig{}
+	for _, v := range registryConfigs {
+		conf := v.(TypeMap)
+		registryConfig.RegistryConfig[conf["registry_name"].(string)] = &v1alpha1.RegistryConfig{
+			RegistryTLS: &v1alpha1.RegistryTLSConfig{
+				TLSCA: v1alpha1.Base64Bytes(conf["ca"].(string)),
+				TLSClientIdentity: &x509.PEMEncodedCertificateAndKey{
+					Crt: []byte(conf["client_identity_crt"].(string)),
+					Key: []byte(conf["client_identity_key"].(string))},
+				TLSInsecureSkipVerify: conf["insecure_skip_verify"].(bool),
+			},
+			RegistryAuth: &v1alpha1.RegistryAuthConfig{
+				RegistryUsername:      conf["username"].(string),
+				RegistryPassword:      conf["password"].(string),
+				RegistryAuth:          conf["auth"].(string),
+				RegistryIdentityToken: conf["identity_token"].(string),
+			},
+		}
+	}
+
+	registryMirrors := registrySchema["mirror"].(TypeList)
+	registryConfig.RegistryMirrors = map[string]*v1alpha1.RegistryMirrorConfig{}
+	for _, v := range registryMirrors {
+		conf := v.(TypeMap)
+		registryConfig.RegistryMirrors[conf["registry_name"].(string)] = &v1alpha1.RegistryMirrorConfig{
+			MirrorEndpoints: ExpandTypeList[string](conf["endpoints"].(TypeList)),
+		}
+	}
+
+	return
+}
+
 // generateCommonConfig gets values from the schema's resourcedata and passes them into Talos's config data structure
 // for the purpose of node configuration file generation.
 func generateCommonConfig(d *schema.ResourceData, config *v1alpha1.Config) diag.Diagnostics {
@@ -1171,6 +1216,11 @@ func generateCommonConfig(d *schema.ResourceData, config *v1alpha1.Config) diag.
 			},
 		})
 	}
+
+	if mc.MachineRegistries, err = ExpandRegistry(d.Get("registry").(TypeList)); err != nil {
+		return diag.FromErr(err)
+	}
+
 	/*
 		mc.MachineRegistries.RegistryMirrors = GetTypeMapWrapEach(d.Get("registry_mirrors"), func(v string) *v1alpha1.RegistryMirrorConfig {
 			return &v1alpha1.RegistryMirrorConfig{
