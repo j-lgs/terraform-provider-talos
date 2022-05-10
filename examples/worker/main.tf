@@ -20,6 +20,8 @@ provider "libvirt" {
 }
 
 
+provider "talos" {}
+
 locals {
   nodes = {
     worker-node:  {ip: "192.168.122.201/24"}
@@ -92,23 +94,47 @@ resource "talos_control_node" "worker_example" {
   # The disk to install talos onto
   install_disk = "/dev/vdb"
 
-  # The primary interface's address in CIDR form
-  ip = "192.168.122.200/24"
-  # The primary interface's gateway address
-  gateway = "192.168.122.1"
+
   # The node's nameservers
   nameservers = [
     "192.168.122.1"
   ]
 
-  # Wireguard interface's eddress
-  wg_address = "10.123.0.10/24"
+  interface {
+    # The interface's name
+    name = "wg0"
+    # The interface's addresses in CIDR form
+    addresses = [
+      "10.123.0.10/24"
+    ]
+	wireguard {
+	  peers {
+		allowed_ips = [
+		  "10.123.0.0/24"
+		]
+		endpoint = "127.0.0.1:40000"
+		persistent_keepalive_interval = 25
+		public_key = ""
+	  }
+	}
+	route {
+      network = "0.0.0.0/0"
+      gateway = "192.168.122.1"
+    }
+  }
 
-  # IP addresses inside the network specified connect to the wireguard interface
-  wg_allowed_ips = "10.123.0.0/24"
-
-  # Wireguard endpoint for controlplane node to connect to
-  wg_endpoint = "127.0.0.1:40000"
+  interface {
+    # The interface's name
+    name = "eth0"
+    # The interface's addresses in CIDR form
+    addresses = [
+      "192.168.122.200/24"
+    ]
+    route {
+      network = "0.0.0.0/0"
+      gateway = "192.168.122.1"
+    }
+  }
 
   # The talos image to install
   talos_image = "ghcr.io/siderolabs/installer:v1.0.4"
