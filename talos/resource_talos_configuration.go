@@ -7,6 +7,7 @@ import (
 
 	"hash/fnv"
 
+	"github.com/ghodss/yaml"
 	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 

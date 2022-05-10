@@ -2,7 +2,6 @@ package talos
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,7 +13,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -26,10 +24,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/instrumenta/kubeval/kubeval"
 	"github.com/talos-systems/talos/pkg/machinery/api/machine"
 	"github.com/talos-systems/talos/pkg/machinery/api/resource"
-	"github.com/talos-systems/talos/pkg/machinery/config/configpatcher"
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	machinetype "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
@@ -354,7 +351,6 @@ func waitTillTalosMachineUp(ctx context.Context, tlsConfig tls.Config, host stri
 			tflog.Info(ctx, "Retrying connection to "+host+" reason "+err.Error())
 			time.Sleep(5 * time.Second)
 		}
-		tflog.Error(ctx, "a")
 	}
 
 	tflog.Info(ctx, "Waiting for talos machine to be up")

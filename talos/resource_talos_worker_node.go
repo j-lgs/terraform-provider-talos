@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/talos-systems/talos/pkg/machinery/api/machine"
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
