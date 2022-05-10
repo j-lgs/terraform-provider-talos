@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gopkg.in/yaml.v2"
 
 	"crypto/tls"
@@ -34,6 +33,151 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+)
+
+// Controlplane specific schema
+var (
+	// ControlPlaneSchema contains machine specific configuration options.
+	// See https://www.talos.dev/v1.0/reference/configuration/#machinecontrolplaneconfig for more information.
+	ControlPlaneSchema schema.Schema = schema.Schema{
+		Type:        schema.TypeList,
+		Optional:    true,
+		MaxItems:    1,
+		Description: "Machine specific configuration options.",
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"controller_manager_disabled": {
+					Type:     schema.TypeBool,
+					Optional: true,
+					Default:  false,
+					Description: "Disable kube-controller-manager on the node.	",
+				},
+				"scheduler_disabled": {
+					Type:        schema.TypeBool,
+					Optional:    true,
+					Default:     false,
+					Description: "Disable kube-scheduler on the node.",
+				},
+			},
+		},
+	}
+
+	AdmissionPluginConfigSchema schema.Resource = schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"name": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "Name is the name of the admission controller. It must match the registered admission plugin name.",
+				// TODO Validate it is a properly formed name
+			},
+			"configuration": {
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "Configuration is an embedded configuration object to be used as the plugin’s configuration.",
+				// TODO Validate it is a properly formed YAML
+			},
+		},
+	}
+
+	// See https://www.talos.dev/v1.0/reference/configuration/#proxyconfig
+	ProxyConfigSchema schema.Schema = schema.Schema{
+		Type:        schema.TypeList,
+		Optional:    true,
+		MaxItems:    1,
+		Description: "Represents the kube proxy configuration options.",
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"image": {
+					Type:         schema.TypeString,
+					Optional:     true,
+					Description:  "The container image used in the kube-proxy manifest.",
+					ValidateFunc: validateImage,
+				},
+				"mode": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					Description: "The container image used in the kube-proxy manifest.",
+					Default:     "iptables",
+					// TODO Validate it's a valid mode
+				},
+				"disabled": {
+					Type:        schema.TypeBool,
+					Optional:    true,
+					Description: "Disable kube-proxy deployment on cluster bootstrap.",
+					Default:     false,
+				},
+				"extra_args": Optional(StringMap("Extra arguments to supply to kube-proxy.")),
+			},
+		},
+	}
+
+	// See https://www.talos.dev/v1.0/reference/configuration/#controlplaneconfig
+	ControlPlaneConfigSchema schema.Schema = schema.Schema{
+		Type:        schema.TypeList,
+		Optional:    true,
+		MaxItems:    1,
+		Description: "Represents the control plane configuration options.",
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"endpoint": {
+					Type:        schema.TypeString,
+					Required:    true,
+					Description: "Endpoint is the canonical controlplane endpoint, which can be an IP address or a DNS hostname.",
+					// TODO Verify well formed endpoint
+				},
+				"local_api_server_port": {
+					Type:        schema.TypeInt,
+					Optional:    true,
+					Description: "The port that the API server listens on internally. This may be different than the port portion listed in the endpoint field.",
+					Default:     6443,
+					// TODO Verify in correct port range
+				},
+			},
+		},
+	}
+
+	// See https://www.talos.dev/v1.0/reference/configuration/#apiserverconfig
+	ApiServerConfigSchema schema.Schema = schema.Schema{
+		Type:        schema.TypeList,
+		Optional:    true,
+		MaxItems:    1,
+		Description: "Represents the kube apiserver configuration options.",
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				"image": {
+					Type:         schema.TypeString,
+					Optional:     true,
+					Description:  "The container image used in the API server manifest.",
+					ValidateFunc: validateImage,
+				},
+				"extra_args": Optional(StringMap("Extra arguments to supply to the API server.")),
+
+				"extra_volumes": {
+					Type:        schema.TypeList,
+					Optional:    true,
+					MinItems:    1,
+					Description: "Extra volumes to mount to the API server static pod.",
+					Elem:        &VolumeMountSchema,
+				},
+				"env":       Optional(StringList("The env field allows for the addition of environment variables for the control plane component.")),
+				"cert_sans": ValidateInner(Optional(StringList("Extra certificate subject alternative names for the API server’s certificate.")), validateIP),
+				"disable_pod_security_policy": {
+					Type:        schema.TypeBool,
+					Optional:    true,
+					Default:     true,
+					Description: "Disable PodSecurityPolicy in the API server and default manifests.",
+				},
+
+				"admission_control": {
+					Type:        schema.TypeList,
+					MinItems:    1,
+					Optional:    true,
+					Description: "Configure the API server admission plugins.",
+					Elem:        &AdmissionPluginConfigSchema,
+				},
+			},
+		},
+	}
 )
 
 func resourceControlNode() *schema.Resource {
@@ -82,81 +226,113 @@ func resourceControlNode() *schema.Resource {
 
 			// cluster arguments
 			"cluster_apiserver_args": {
-				Type:     schema.TypeMap,
-				Optional: true,
+				Type:       schema.TypeMap,
+				Deprecated: "Redundant",
+				Optional:   true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 			"cluster_proxy_args": {
-				Type:     schema.TypeMap,
-				Optional: true,
+				Type:       schema.TypeMap,
+				Deprecated: "Redundant",
+				Optional:   true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 			"local_apiserver_port": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "",
+				Type:       schema.TypeString,
+				Deprecated: "Redundant",
+				Optional:   true,
+				Default:    "",
 			},
 
-			// Network args
-			"interface": &networkInterfaceSchema,
-
+			// DEPRECATED registry_mirrors
 			"registry_mirrors": {
-				Type:     schema.TypeMap,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type:         schema.TypeString,
-					ValidateFunc: validateEndpoint,
-				},
-			},
-			"nameservers": {
-				Type:     schema.TypeList,
-				Required: true,
-				MinItems: 1,
+				Deprecated: "Redundant",
+				Type:       schema.TypeMap,
+				Optional:   true,
 				Elem: &schema.Schema{
 					Type:         schema.TypeString,
 					ValidateFunc: validateEndpoint,
 				},
 			},
 
-			// Kubelet args
+			// DEPRECATED Kubelet args
 			"kubelet_extra_mount": &kubeletExtraMountSchema,
 			"kubelet_extra_args": {
-				Type:     schema.TypeMap,
-				Optional: true,
+				Deprecated: "Redundant",
+				Type:       schema.TypeMap,
+				Optional:   true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
 			},
 
-			// Cert args
-			"cert_sans": {
-				Type:     schema.TypeList,
-				MinItems: 0,
-				Optional: true,
+			// --- MachineConfig.
+			// See https://www.talos.dev/v1.0/reference/configuration/#machineconfig for full spec.
+			"cert_sans":     ValidateInner(Optional(StringList("Extra certificate subject alternative names for the machine’s certificate.")), validateIP),
+			"control_plane": &ControlPlaneSchema,
+			"kubelet":       &KubeletConfigSchema,
+			"pod": {
+				Type:        schema.TypeList,
+				MinItems:    0,
+				Optional:    true,
+				Description: "Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.",
 				Elem: &schema.Schema{
-					Type:         schema.TypeString,
-					ValidateFunc: validateIP,
+					Type: schema.TypeString,
+					ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
+						v := value.(string)
+						config := kubeval.NewDefaultConfig()
+						schemaCache := kubeval.NewSchemaCache()
+						_, err := kubeval.ValidateWithCache([]byte(v), schemaCache, config)
+						if err != nil {
+							errs = append(errs, fmt.Errorf("Invalid kubernetes manifest provided"))
+							errs = append(errs, err)
+						}
+						return
+					},
 				},
 			},
-
-			// Machinefiles
+			// hostname derived from name
+			"interface":   &networkInterfaceSchema,
+			"nameservers": ValidateInner(Optional(StringList("Used to statically set the nameservers for the machine.")), validateEndpoint),
+			"extra_host": {
+				Type:        schema.TypeList,
+				MinItems:    1,
+				Optional:    true,
+				Description: "Allows the addition of user specified files.",
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"ip": {
+							Type:        schema.TypeString,
+							Required:    true,
+							Description: "The IP of the host.",
+						},
+						"aliases": ValidateInner(Required(StringList("The host alias.")), validateHost),
+					},
+				},
+			},
+			// kubespan not implemented
+			// disks not implemented
+			// install not implemented
 			"file": {
-				Type:     schema.TypeList,
-				MinItems: 0,
-				Optional: true,
+				Type:        schema.TypeList,
+				MinItems:    1,
+				Optional:    true,
+				Description: "Allows the addition of user specified files.",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"content": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Required:    true,
+							Description: "The file's content. Not required to be base64 encoded.",
 						},
 						"permissions": {
-							Type:     schema.TypeInt,
-							Required: true,
+							Type:        schema.TypeInt,
+							Required:    true,
+							Description: "Unix permission for the file",
 							ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
 								v := value.(int)
 								if v < 0 {
@@ -166,12 +342,15 @@ func resourceControlNode() *schema.Resource {
 							},
 						},
 						"path": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Required:    true,
+							Description: "Full path for the file to be created at.",
+							// TODO: Add validation for path correctness
 						},
 						"op": {
-							Type:     schema.TypeString,
-							Required: true,
+							Type:        schema.TypeString,
+							Required:    true,
+							Description: "Mode for the file. Can be one of create, append and overwrite.",
 							ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
 								v := value.(string)
 								switch v {
@@ -189,38 +368,44 @@ func resourceControlNode() *schema.Resource {
 					},
 				},
 			},
-
-			// pods
-			"pod": {
-				Type:     schema.TypeList,
-				MinItems: 0,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-					ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
-						v := value.(string)
-						config := kubeval.NewDefaultConfig()
-						schemaCache := kubeval.NewSchemaCache()
-						_, err := kubeval.ValidateWithCache([]byte(v), schemaCache, config)
-						if err != nil {
-							errs = append(errs, fmt.Errorf("Invalid kubernetes manifest provided"))
-							errs = append(errs, err)
-						}
-						return
-					},
-				},
+			"env": Optional(
+				StringMap(
+					"Allows for the addition of environment variables. All environment variables are set on PID 1 in addition to every service.")),
+			// time not implemented
+			"sysctls":  Optional(StringMap("Used to configure the machine’s sysctls.")),
+			"sysfs":    Optional(StringMap("Used to configure the machine’s sysctls.")),
+			"registry": &RegistryListSchema,
+			// system_disk_encryption not implemented
+			// features not implemented
+			"udev": Optional(StringList("Configures the udev system.")),
+			// logging not implemented
+			// kernel not implemented
+			// ----- MachineConfig End
+			// ----- ClusterConfig Start
+			"control_plane_config": &ControlPlaneConfigSchema,
+			// clustername already filled
+			// cluster_network not implemented
+			"apiserver": &ApiServerConfigSchema,
+			// controller manager not implemented
+			"proxy": &ProxyConfigSchema,
+			// scheduler not implemented
+			// discovery not implemented
+			// etcd not implemented
+			// coredns not implemented
+			// external_cloud_provider not implemented
+			"extra_manifests": Optional(StringList("A list of urls that point to additional manifests. These will get automatically deployed as part of the bootstrap.")),
+			// TODO Add verification function confirming it's a correct manifest that can be downloaded.
+			// inline_manifests not implemented
+			// admin_kubeconfig not implemented
+			"allow_scheduling_on_masters": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "Allows running workload on master nodes.",
 			},
+			// ----- ClusterConfig End
 
-			// System args
-			"sysctls": {
-				Type:     schema.TypeMap,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-
-			// Cluster bootstrap configuration
+			// ----- Resource Cluster bootstrap configuration
 			"bootstrap": {
 				Type:     schema.TypeBool,
 				Required: true,
@@ -441,33 +626,6 @@ func generateConfig(ctx context.Context, d *schema.ResourceData) ([]byte, diag.D
 	tflog.Error(ctx, string(no_comments))
 
 	return no_comments, nil
-}
-
-func genKeypair(wgIp net.IP, wgPrivateKey string) (string, string, diag.Diagnostics) {
-	// generate wireguard keypair
-	pubkey := ""
-	privkey := ""
-
-	if wgIp.String() != "" {
-		pk := wgPrivateKey
-		if pk == "" {
-			pk, err := wgtypes.GeneratePrivateKey()
-			if err != nil {
-				return "", "", diag.FromErr(err)
-			}
-			privkey = pk.String()
-			pubkey = pk.PublicKey().String()
-		} else {
-			pk, err := wgtypes.ParseKey(pk)
-			if err != nil {
-				return "", "", diag.FromErr(err)
-			}
-			privkey = pk.String()
-			pubkey = pk.PublicKey().String()
-		}
-	}
-
-	return pubkey, privkey, nil
 }
 
 func resourceControlNodeCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {

@@ -10,13 +10,21 @@ import (
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 )
 
-func TestGetTypeMap(t *testing.T) {
+func TestExpandProxyConfig(t *testing.T) {
+	t.Fatalf("Implement test")
+}
+
+func TestExpandApiConfig(t *testing.T) {
+	t.Fatalf("Implement test")
+}
+
+func TestExpandTypeMap(t *testing.T) {
 	cases := []struct {
-		input    map[string]interface{}
+		input    interface{}
 		expected map[string]string
 	}{
 		{
-			input:    nil,
+			input:    map[string]interface{}{},
 			expected: map[string]string{},
 		},
 		{
@@ -32,20 +40,23 @@ func TestGetTypeMap(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		val := GetTypeMap[string](c.input)
+		val := ExpandTypeMap[string](c.input.(TypeMap))
+		if val == nil {
+			t.Fatalf("Returned nil. Must return an empty data structure")
+		}
 		if !reflect.DeepEqual(val, c.expected) {
 			t.Fatalf("Error matching output and expected: %#v - %#v", val, c.expected)
 		}
 	}
 }
 
-func TestGetTypeList(t *testing.T) {
+func TestExpandTypeList(t *testing.T) {
 	cases := []struct {
-		input    []interface{}
+		input    interface{}
 		expected []string
 	}{
 		{
-			input:    nil,
+			input:    []interface{}{},
 			expected: []string{},
 		},
 		{
@@ -61,91 +72,10 @@ func TestGetTypeList(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		val := GetTypeList[string](c.input)
+		val := ExpandTypeList[string](c.input.(TypeList))
 		if val == nil {
-			t.Log("Nil value handled")
-			continue
+			t.Fatalf("Returned nil. Must return an empty data structure")
 		}
-		if !reflect.DeepEqual(val, c.expected) {
-			t.Fatalf("Error matching output and expected: %#v - %#v", val, c.expected)
-		}
-	}
-}
-
-func TestGetTypeMapWrapEach(t *testing.T) {
-	cases := []struct {
-		input    map[string]interface{}
-		wrapper  func(interface{}) *v1alpha1.RegistryMirrorConfig
-		expected map[string]*v1alpha1.RegistryMirrorConfig
-	}{
-		{
-			input: nil,
-			wrapper: func(vars interface{}) *v1alpha1.RegistryMirrorConfig {
-				return &v1alpha1.RegistryMirrorConfig{
-					MirrorEndpoints: []string{vars.(string)},
-				}
-			},
-			expected: make(map[string]*v1alpha1.RegistryMirrorConfig),
-		},
-		{
-			input: map[string]interface{}{
-				"key_a": "val_a",
-				"key_b": "val_b",
-			},
-			wrapper: func(vars interface{}) *v1alpha1.RegistryMirrorConfig {
-				return &v1alpha1.RegistryMirrorConfig{
-					MirrorEndpoints: []string{vars.(string)},
-				}
-			},
-			expected: map[string]*v1alpha1.RegistryMirrorConfig{
-				"key_a": {MirrorEndpoints: []string{"val_a"}},
-				"key_b": {MirrorEndpoints: []string{"val_b"}},
-			},
-		},
-	}
-	for _, c := range cases {
-		val := GetTypeMapWrapEach(c.input, c.wrapper)
-		if !reflect.DeepEqual(val, c.expected) {
-			t.Fatalf("Error matching output and expected: %#v - %#v", val, c.expected)
-		}
-	}
-}
-
-func TestGetTypeMapWrap(t *testing.T) {
-	cases := []struct {
-		input    map[string]interface{}
-		wrapper  func(map[string]string) v1alpha1.ProxyConfig
-		expected v1alpha1.ProxyConfig
-	}{
-		{
-			input: nil,
-			wrapper: func(vars map[string]string) v1alpha1.ProxyConfig {
-				return v1alpha1.ProxyConfig{
-					ExtraArgsConfig: vars,
-				}
-			},
-			expected: v1alpha1.ProxyConfig{ExtraArgsConfig: map[string]string{}},
-		},
-		{
-			input: map[string]interface{}{
-				"key_a": "val_a",
-				"key_b": "val_b",
-			},
-			wrapper: func(vars map[string]string) v1alpha1.ProxyConfig {
-				return v1alpha1.ProxyConfig{
-					ExtraArgsConfig: vars,
-				}
-			},
-			expected: v1alpha1.ProxyConfig{
-				ExtraArgsConfig: map[string]string{
-					"key_a": "val_a",
-					"key_b": "val_b",
-				},
-			},
-		},
-	}
-	for _, c := range cases {
-		val := GetTypeMapWrap(c.input, c.wrapper)
 		if !reflect.DeepEqual(val, c.expected) {
 			t.Fatalf("Error matching output and expected: %#v - %#v", val, c.expected)
 		}
@@ -166,7 +96,10 @@ func TestExpandDeviceList(t *testing.T) {
 						"192.168.0.122/24",
 						"192.168.0.123/24",
 					},
+					"vip":       []interface{}{},
 					"wireguard": []interface{}{},
+					"bond":      []interface{}{},
+					"vlan":      []interface{}{},
 					"route": []interface{}{
 						map[string]interface{}{
 							"gateway": "192.168.0.1",
@@ -184,7 +117,10 @@ func TestExpandDeviceList(t *testing.T) {
 						"192.168.0.122/24",
 						"192.168.0.123/24",
 					},
+					"vip":       []interface{}{},
 					"wireguard": []interface{}{},
+					"bond":      []interface{}{},
+					"vlan":      []interface{}{},
 					"route": []interface{}{
 						map[string]interface{}{
 							"gateway": "192.168.0.1",
@@ -238,6 +174,9 @@ func TestExpandDeviceList(t *testing.T) {
 						"192.168.0.123/24",
 					},
 					"wireguard": []interface{}{},
+					"vip":       []interface{}{},
+					"bond":      []interface{}{},
+					"vlan":      []interface{}{},
 					"route": []interface{}{
 						map[string]interface{}{
 							"gateway": "192.168.0.1",
@@ -255,6 +194,9 @@ func TestExpandDeviceList(t *testing.T) {
 						"192.168.123.10/24",
 						"192.168.123.20/24",
 					},
+					"vip":  []interface{}{},
+					"bond": []interface{}{},
+					"vlan": []interface{}{},
 					"wireguard": []interface{}{
 						map[string]interface{}{
 							"peer": []interface{}{
@@ -320,6 +262,65 @@ func TestExpandDeviceList(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "All options",
+			input: []interface{}{
+				map[string]interface{}{
+					"addresses": []interface{}{
+						"192.168.0.123/24",
+					},
+					"vip":  []interface{}{},
+					"bond": []interface{}{},
+					"vlan": []interface{}{},
+					"wireguard": []interface{}{
+						map[string]interface{}{
+							"peer": []interface{}{
+								map[string]interface{}{
+									"allowed_ips":                   []interface{}{"192.168.122.0/25"},
+									"endpoint":                      "wg_endpoint:44444",
+									"persistent_keepalive_interval": 25,
+									"public_key":                    "dGVzdGluZyB0ZXN0aW5nCg==",
+								},
+							},
+							"private_key": "c3VwZXIgc3VwZXIgc3VwZXIgc2VjcmV0IGtleQo=",
+						},
+					},
+					"route": []interface{}{
+						map[string]interface{}{
+							"gateway": "192.168.0.2",
+							"network": "0.0.0.0/0",
+						},
+					},
+					"name": "eth0",
+				},
+			},
+			expected: []*v1alpha1.Device{
+				{
+					DeviceInterface: "eth0",
+					DeviceAddresses: []string{"192.168.0.123/24"},
+					DeviceWireguardConfig: &v1alpha1.DeviceWireguardConfig{
+						WireguardPeers: []*v1alpha1.DeviceWireguardPeer{
+							{
+								WireguardAllowedIPs: []string{
+									"192.168.122.0/25",
+								},
+								WireguardEndpoint:                    "wg_endpoint:44444",
+								WireguardPersistentKeepaliveInterval: time.Second * 25,
+								WireguardPublicKey:                   "dGVzdGluZyB0ZXN0aW5nCg==",
+							},
+						},
+						WireguardPrivateKey: "c3VwZXIgc3VwZXIgc3VwZXIgc2VjcmV0IGtleQo=",
+					},
+
+					DeviceRoutes: []*v1alpha1.Route{
+						{
+							RouteGateway: "192.168.0.2",
+							RouteNetwork: "0.0.0.0/0",
+						},
+					},
+				},
+			},
+		},
 	}
 	errorCases := []struct {
 		name     string
@@ -333,6 +334,9 @@ func TestExpandDeviceList(t *testing.T) {
 					"addresses": []interface{}{
 						"192.168.123.20/24",
 					},
+					"vip":  []interface{}{},
+					"bond": []interface{}{},
+					"vlan": []interface{}{},
 					"wireguard": []interface{}{
 						map[string]interface{}{
 							"peer": []interface{}{
