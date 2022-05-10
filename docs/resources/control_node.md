@@ -19,10 +19,10 @@ description: |-
 
 - `base_config` (String, Sensitive)
 - `bootstrap` (Boolean)
+- `bootstrap_ip` (String)
 - `dhcp_network_cidr` (String)
-- `gateway` (String)
 - `install_disk` (String)
-- `ip` (String)
+- `interface` (Block List, Min: 1) (see [below for nested schema](#nestedblock--interface))
 - `macaddr` (String)
 - `name` (String)
 - `nameservers` (List of String)
@@ -30,30 +30,101 @@ description: |-
 
 ### Optional
 
-- `api_proxy_ip` (String)
-- `api_proxy_port` (Number)
-- `haproxy_image` (String)
-- `ingress_ip` (String)
-- `ingress_port` (Number)
-- `ingress_ssl_port` (Number)
-- `keepalived_image` (String)
-- `local_api_proxy_port` (Number)
-- `peers` (List of String)
-- `priority` (Number)
-- `registry_ip` (String)
-- `router_id` (String)
-- `state` (String)
-- `vip_pass` (String, Sensitive)
-- `vrid` (String)
-- `wg_address` (String)
-- `wg_allowed_ips` (String)
-- `wg_endpoint` (String)
+- `cert_sans` (List of String)
+- `cluster_apiserver_args` (Map of String)
+- `cluster_proxy_args` (Map of String)
+- `file` (Block List) (see [below for nested schema](#nestedblock--file))
+- `kernel_args` (List of String)
+- `kubelet_extra_args` (Map of String)
+- `kubelet_extra_mount` (Block List) (see [below for nested schema](#nestedblock--kubelet_extra_mount))
+- `local_apiserver_port` (String)
+- `pod` (List of String)
+- `registry_mirrors` (Map of String)
+- `sysctls` (Map of String)
 
 ### Read-Only
 
 - `id` (String) The ID of this resource.
 - `patch` (String, Sensitive)
-- `wg_private_key` (String, Sensitive)
-- `wg_public_key` (String)
+
+<a id="nestedblock--interface"></a>
+### Nested Schema for `interface`
+
+Required:
+
+- `addresses` (List of String)
+- `name` (String)
+
+Optional:
+
+- `route` (Block List) (see [below for nested schema](#nestedblock--interface--route))
+- `wireguard` (Block List, Max: 1) (see [below for nested schema](#nestedblock--interface--wireguard))
+
+<a id="nestedblock--interface--route"></a>
+### Nested Schema for `interface.route`
+
+Required:
+
+- `gateway` (String)
+
+Optional:
+
+- `network` (String)
+
+
+<a id="nestedblock--interface--wireguard"></a>
+### Nested Schema for `interface.wireguard`
+
+Required:
+
+- `peer` (Block List, Min: 1) (see [below for nested schema](#nestedblock--interface--wireguard--peer))
+
+Optional:
+
+- `private_key` (String, Sensitive)
+
+Read-Only:
+
+- `public_key` (String)
+
+<a id="nestedblock--interface--wireguard--peer"></a>
+### Nested Schema for `interface.wireguard.peer`
+
+Required:
+
+- `allowed_ips` (List of String)
+- `endpoint` (String)
+- `public_key` (String)
+
+Optional:
+
+- `persistent_keepalive_interval` (Number)
+
+
+
+
+<a id="nestedblock--file"></a>
+### Nested Schema for `file`
+
+Required:
+
+- `content` (String)
+- `op` (String)
+- `path` (String)
+- `permissions` (Number)
+
+
+<a id="nestedblock--kubelet_extra_mount"></a>
+### Nested Schema for `kubelet_extra_mount`
+
+Required:
+
+- `destination` (String)
+- `source` (String)
+
+Optional:
+
+- `options` (List of String)
+- `type` (String)
 
 
