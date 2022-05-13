@@ -1,897 +1,708 @@
 package talos
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
-	"math/bits"
 	"net"
-	"os"
-	"os/exec"
 	"regexp"
 	"strconv"
-	"strings"
-	"time"
 
+	"github.com/talos-systems/talos/pkg/machinery/api/resource"
+
+	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
+
+	"github.com/talos-systems/talos/pkg/machinery/api/machine"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gopkg.in/yaml.v2"
 
-	"crypto/tls"
-	"crypto/x509"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-
-	"github.com/instrumenta/kubeval/kubeval"
-	"github.com/talos-systems/talos/pkg/machinery/api/machine"
-	"github.com/talos-systems/talos/pkg/machinery/api/resource"
-	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	machinetype "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-// Controlplane specific schema
-var (
-	// ControlPlaneSchema contains machine specific configuration options.
-	// See https://www.talos.dev/v1.0/reference/configuration/#machinecontrolplaneconfig for more information.
-	ControlPlaneSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		MaxItems:    1,
-		Description: "Machine specific configuration options.",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"controller_manager_disabled": {
-					Type:     schema.TypeBool,
-					Optional: true,
-					Default:  false,
-					Description: "Disable kube-controller-manager on the node.	",
-				},
-				"scheduler_disabled": {
-					Type:        schema.TypeBool,
-					Optional:    true,
-					Default:     false,
-					Description: "Disable kube-scheduler on the node.",
-				},
-			},
-		},
-	}
+var _ tfsdk.ResourceType = talosControlNodeResourceType{}
+var _ tfsdk.Resource = talosControlNodeResource{}
+var _ tfsdk.ResourceWithImportState = talosControlNodeResource{}
 
-	AdmissionPluginConfigSchema schema.Resource = schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"name": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Name is the name of the admission controller. It must match the registered admission plugin name.",
-				// TODO Validate it is a properly formed name
-			},
-			"configuration": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Configuration is an embedded configuration object to be used as the plugin’s configuration.",
-				// TODO Validate it is a properly formed YAML
-			},
-		},
-	}
+type talosControlNodeResourceType struct{}
 
-	// See https://www.talos.dev/v1.0/reference/configuration/#proxyconfig
-	ProxyConfigSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		MaxItems:    1,
-		Description: "Represents the kube proxy configuration options.",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"image": {
-					Type:         schema.TypeString,
-					Optional:     true,
-					Description:  "The container image used in the kube-proxy manifest.",
-					ValidateFunc: validateImage,
-				},
-				"mode": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "The container image used in the kube-proxy manifest.",
-					Default:     "iptables",
-					// TODO Validate it's a valid mode
-				},
-				"disabled": {
-					Type:        schema.TypeBool,
-					Optional:    true,
-					Description: "Disable kube-proxy deployment on cluster bootstrap.",
-					Default:     false,
-				},
-				"extra_args": Optional(StringMap("Extra arguments to supply to kube-proxy.")),
-			},
-		},
-	}
+// Note: It will fail on runtime with a Terraform crash if either of required or optional aren't included.
+func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
+	return tfsdk.Schema{
+		MarkdownDescription: "Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. Contains information that is shared with, and essential for the creation of, worker and controlplane nodes.",
 
-	// See https://www.talos.dev/v1.0/reference/configuration/#controlplaneconfig
-	ControlPlaneConfigSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		MaxItems:    1,
-		Description: "Represents the control plane configuration options.",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"endpoint": {
-					Type:        schema.TypeString,
-					Required:    true,
-					Description: "Endpoint is the canonical controlplane endpoint, which can be an IP address or a DNS hostname.",
-					// TODO Verify well formed endpoint
-				},
-				"local_api_server_port": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "The port that the API server listens on internally. This may be different than the port portion listed in the endpoint field.",
-					Default:     6443,
-					// TODO Verify in correct port range
-				},
-			},
-		},
-	}
-
-	// See https://www.talos.dev/v1.0/reference/configuration/#apiserverconfig
-	ApiServerConfigSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		MaxItems:    1,
-		Description: "Represents the kube apiserver configuration options.",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"image": {
-					Type:         schema.TypeString,
-					Optional:     true,
-					Description:  "The container image used in the API server manifest.",
-					ValidateFunc: validateImage,
-				},
-				"extra_args": Optional(StringMap("Extra arguments to supply to the API server.")),
-
-				"extra_volumes": {
-					Type:        schema.TypeList,
-					Optional:    true,
-					MinItems:    1,
-					Description: "Extra volumes to mount to the API server static pod.",
-					Elem:        &VolumeMountSchema,
-				},
-				"env":       Optional(StringList("The env field allows for the addition of environment variables for the control plane component.")),
-				"cert_sans": ValidateInner(Optional(StringList("Extra certificate subject alternative names for the API server’s certificate.")), validateIP),
-				"disable_pod_security_policy": {
-					Type:        schema.TypeBool,
-					Optional:    true,
-					Default:     true,
-					Description: "Disable PodSecurityPolicy in the API server and default manifests.",
-				},
-
-				"admission_control": {
-					Type:        schema.TypeList,
-					MinItems:    1,
-					Optional:    true,
-					Description: "Configure the API server admission plugins.",
-					Elem:        &AdmissionPluginConfigSchema,
-				},
-			},
-		},
-	}
-)
-
-func resourceControlNode() *schema.Resource {
-	return &schema.Resource{
-		CreateContext: resourceControlNodeCreate,
-		ReadContext:   resourceControlNodeRead,
-		UpdateContext: resourceControlNodeUpdate,
-		DeleteContext: resourceControlNodeDelete,
-		Schema: map[string]*schema.Schema{
+		Attributes: map[string]tfsdk.Attribute{
 			// Mandatory for minimal template generation
 			"name": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validateDomain,
-				ForceNew:     true,
+				Type:     types.StringType,
+				Required: true,
+				// ValidateFunc: validateDomain,
+				// ForceNew: true,
+				// TODO validate and fix forcenew
 			},
-
 			// Install arguments
 			"install_disk": {
-				Type:     schema.TypeString,
+				Type:     types.StringType,
 				Required: true,
 			},
 			"talos_image": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validateImage,
+				Type:     types.StringType,
+				Required: true,
+				// TODO validate
+				// ValidateFunc: validateImage,
 			},
 			"kernel_args": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
+				Type: types.ListType{
+					ElemType: types.StringType,
 				},
+				Optional: true,
 			},
 			"macaddr": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validateMAC,
+				Type:     types.StringType,
+				Required: true,
+				// TODO validate and forcenew
+				// ForceNew: true,
+				// ValidateFunc: validateMAC,
 			},
 			"dhcp_network_cidr": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validateCIDR,
+				Type:     types.StringType,
+				Required: true,
+				// TODO validate
+				// ValidateFunc: validateCIDR,
 			},
-
-			// cluster arguments
-			"cluster_apiserver_args": {
-				Type:       schema.TypeMap,
-				Deprecated: "Redundant",
-				Optional:   true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"cluster_proxy_args": {
-				Type:       schema.TypeMap,
-				Deprecated: "Redundant",
-				Optional:   true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-			"local_apiserver_port": {
-				Type:       schema.TypeString,
-				Deprecated: "Redundant",
-				Optional:   true,
-				Default:    "",
-			},
-
-			// DEPRECATED registry_mirrors
-			"registry_mirrors": {
-				Deprecated: "Redundant",
-				Type:       schema.TypeMap,
-				Optional:   true,
-				Elem: &schema.Schema{
-					Type:         schema.TypeString,
-					ValidateFunc: validateEndpoint,
-				},
-			},
-
-			// DEPRECATED Kubelet args
-			"kubelet_extra_mount": &kubeletExtraMountSchema,
-			"kubelet_extra_args": {
-				Deprecated: "Redundant",
-				Type:       schema.TypeMap,
-				Optional:   true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-			},
-
 			// --- MachineConfig.
 			// See https://www.talos.dev/v1.0/reference/configuration/#machineconfig for full spec.
-			"cert_sans":     ValidateInner(Optional(StringList("Extra certificate subject alternative names for the machine’s certificate.")), validateIP),
-			"control_plane": &ControlPlaneSchema,
-			"kubelet":       &KubeletConfigSchema,
-			"pod": {
-				Type:        schema.TypeList,
-				MinItems:    0,
-				Optional:    true,
-				Description: "Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.",
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-					ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
-						v := value.(string)
-						config := kubeval.NewDefaultConfig()
-						schemaCache := kubeval.NewSchemaCache()
-						_, err := kubeval.ValidateWithCache([]byte(v), schemaCache, config)
-						if err != nil {
-							errs = append(errs, fmt.Errorf("Invalid kubernetes manifest provided"))
-							errs = append(errs, err)
-						}
-						return
-					},
+
+			"cert_sans": {
+				Type: types.ListType{
+					ElemType: types.StringType,
 				},
+				Optional: true,
+				// TODO validation
+				Description: "Extra certificate subject alternative names for the machine’s certificate.",
+			},
+
+			"control_plane": {
+				Optional:    true,
+				Description: ControlPlaneConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(ControlPlaneConfigSchema.Attributes),
+			},
+
+			"kubelet": {
+				Optional:    true,
+				Description: KubeletConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(KubeletConfigSchema.Attributes),
+			},
+
+			"pod": {
+				Type: types.ListType{
+					ElemType: types.StringType,
+				},
+				Optional: true,
+				// TODO validation
+				Description: "Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.",
 			},
 			// hostname derived from name
-			"interface":   &networkInterfaceSchema,
-			"nameservers": ValidateInner(Optional(StringList("Used to statically set the nameservers for the machine.")), validateEndpoint),
+			"devices": {
+				Required:    true,
+				Description: NetworkDeviceSchema.Description,
+				Attributes:  tfsdk.MapNestedAttributes(NetworkDeviceSchema.Attributes, tfsdk.MapNestedAttributesOptions{}),
+			},
+			"nameservers": {
+				Type: types.ListType{
+					ElemType: types.StringType,
+				},
+				Optional: true,
+				// TODO validation
+				// validateEndpoint
+				Description: "Used to statically set the nameservers for the machine.",
+			},
 			"extra_host": {
-				Type:        schema.TypeList,
-				MinItems:    1,
-				Optional:    true,
-				Description: "Allows the addition of user specified files.",
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"ip": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Description: "The IP of the host.",
-						},
-						"aliases": ValidateInner(Required(StringList("The host alias.")), validateHost),
+				Type: types.MapType{
+					ElemType: types.ListType{
+						ElemType: types.StringType,
 					},
 				},
+				Optional:    true,
+				Description: "Allows the addition of user specified files.",
+				// TODO validate
 			},
 			// kubespan not implemented
 			// disks not implemented
 			// install not implemented
-			"file": {
-				Type:        schema.TypeList,
-				MinItems:    1,
+			"files": {
 				Optional:    true,
-				Description: "Allows the addition of user specified files.",
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"content": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Description: "The file's content. Not required to be base64 encoded.",
-						},
-						"permissions": {
-							Type:        schema.TypeInt,
-							Required:    true,
-							Description: "Unix permission for the file",
-							ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
-								v := value.(int)
-								if v < 0 {
-									errs = append(errs, fmt.Errorf("Persistent keepalive interval must be a positive integer, got %d", v))
-								}
-								return
-							},
-						},
-						"path": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Description: "Full path for the file to be created at.",
-							// TODO: Add validation for path correctness
-						},
-						"op": {
-							Type:        schema.TypeString,
-							Required:    true,
-							Description: "Mode for the file. Can be one of create, append and overwrite.",
-							ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
-								v := value.(string)
-								switch v {
-								case
-									"create",
-									"append",
-									"overwrite":
-									return
-								default:
-									errs = append(errs, fmt.Errorf("Invalid file op, must be one of \"create\", \"append\" or \"overwrite\", got %s", v))
-								}
-								return
-							},
-						},
-					},
-				},
+				Description: FileSchema.Description,
+				Attributes:  tfsdk.ListNestedAttributes(FileSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			},
-			"env": Optional(
-				StringMap(
-					"Allows for the addition of environment variables. All environment variables are set on PID 1 in addition to every service.")),
+
+			"env": {
+				Type: types.MapType{
+					ElemType: types.StringType,
+				},
+				Optional:    true,
+				Description: "Allows for the addition of environment variables. All environment variables are set on PID 1 in addition to every service.",
+			},
 			// time not implemented
-			"sysctls":  Optional(StringMap("Used to configure the machine’s sysctls.")),
-			"sysfs":    Optional(StringMap("Used to configure the machine’s sysctls.")),
-			"registry": &RegistryListSchema,
+			"sysctls": {
+				Type: types.MapType{
+					ElemType: types.StringType,
+				},
+				Optional:    true,
+				Description: "Used to configure the machine’s sysctls.",
+			},
+			"sysfs": {
+				Type: types.MapType{
+					ElemType: types.StringType,
+				},
+				Optional:    true,
+				Description: "Used to configure the machine’s sysctls.",
+			},
+
+			"registry": {
+				Optional:    true,
+				Description: RegistrySchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(RegistrySchema.Attributes),
+			},
+
 			// system_disk_encryption not implemented
 			// features not implemented
-			"udev": Optional(StringList("Configures the udev system.")),
+			"udev": {
+				Type: types.MapType{
+					ElemType: types.StringType,
+				},
+				Description: "Configures the udev system.",
+				Optional:    true,
+			},
+
 			// logging not implemented
 			// kernel not implemented
 			// ----- MachineConfig End
 			// ----- ClusterConfig Start
-			"control_plane_config": &ControlPlaneConfigSchema,
+
+			"control_plane_config": {
+				Optional:    true,
+				Description: MachineControlPlaneSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(MachineControlPlaneSchema.Attributes),
+			},
+
 			// clustername already filled
 			// cluster_network not implemented
-			"apiserver": &ApiServerConfigSchema,
+			"apiserver": {
+				Optional:    true,
+				Description: APIServerConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(APIServerConfigSchema.Attributes),
+			},
+
 			// controller manager not implemented
-			"proxy": &ProxyConfigSchema,
+			"proxy_config": {
+				Optional:    true,
+				Description: ProxyConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(ProxyConfigSchema.Attributes),
+			},
+
 			// scheduler not implemented
 			// discovery not implemented
 			// etcd not implemented
 			// coredns not implemented
 			// external_cloud_provider not implemented
-			"extra_manifests": Optional(StringList("A list of urls that point to additional manifests. These will get automatically deployed as part of the bootstrap.")),
+			"extra_manifests": {
+				Type: types.MapType{
+					ElemType: types.StringType,
+				},
+				Description: "A list of urls that point to additional manifests. These will get automatically deployed as part of the bootstrap.",
+				Optional:    true,
+			},
+
 			// TODO Add verification function confirming it's a correct manifest that can be downloaded.
 			// inline_manifests not implemented
 			// admin_kubeconfig not implemented
 			"allow_scheduling_on_masters": {
-				Type:        schema.TypeBool,
+				Type:        types.BoolType,
 				Optional:    true,
-				Default:     false,
 				Description: "Allows running workload on master nodes.",
 			},
 			// ----- ClusterConfig End
 
 			// ----- Resource Cluster bootstrap configuration
 			"bootstrap": {
-				Type:     schema.TypeBool,
+				Type:     types.BoolType,
 				Required: true,
 			},
 			"bootstrap_ip": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validateIP,
+				Type:     types.StringType,
+				Required: true,
+				// ValidateFunc: validateIP,
 			},
 
 			// From the cluster provider
 			"base_config": {
-				Type:      schema.TypeString,
+				Type:      types.StringType,
 				Required:  true,
 				Sensitive: true,
-				ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
-					v := value.(string)
-					input := generate.Input{}
-					if err := json.Unmarshal([]byte(v), &input); err != nil {
-						errs = append(errs, fmt.Errorf("Failed to parse base_config. Do not set this value to anything other than the base_config value of a talos_cluster_config resource"))
-					}
-					return
-				},
+				/*
+					ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
+						v := value.(string)
+						input := generate.Input{}
+						if err := json.Unmarshal([]byte(v), &input); err != nil {
+							errs = append(errs, fmt.Errorf("Failed to  base_config. Do not set this value to anything other than the base_config value of a talos_cluster_config resource"))
+						}
+						return
+					},
+				*/
 			},
 
 			// Generated
 			"patch": {
-				Type:      schema.TypeString,
+				Type:      types.StringType,
 				Computed:  true,
 				Sensitive: true,
 			},
+			"id": {
+				Computed:            true,
+				MarkdownDescription: "Identifier hash, derived from the node's name.",
+				PlanModifiers: tfsdk.AttributePlanModifiers{
+					tfsdk.UseStateForUnknown(),
+				},
+				Type: types.StringType,
+			},
 		},
-	}
-}
-
-func checkArp(mac string) (net.IP, diag.Diagnostics) {
-	arp, err := os.Open("/proc/net/arp")
-	if err != nil {
-		return nil, diag.Errorf("%s\n", err)
-	}
-	defer arp.Close()
-
-	scanner := bufio.NewScanner(arp)
-	for scanner.Scan() {
-		f := strings.Fields(scanner.Text())
-		if strings.EqualFold(f[3], mac) {
-			return net.ParseIP(f[0]), nil
-		}
-	}
-
-	return nil, nil
-}
-
-func lookupIP(ctx context.Context, network string, mac string) (net.IP, diag.Diagnostics) {
-	// Check if it's in the initial table
-
-	ip := net.IP{}
-	diags := diag.Diagnostics{}
-
-	if ip, diags = checkArp(mac); diags != nil {
-		return nil, diags
-	}
-	if ip != nil {
-		return ip, diags
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, 180*time.Second)
-	defer cancel()
-
-	for poll := true; poll; poll = (ip == nil) {
-		select {
-		case <-ctx.Done():
-			return nil, diag.FromErr(ctx.Err())
-		default:
-			err := exec.CommandContext(ctx, "nmap", "-sP", network).Run()
-			if err != nil {
-				return nil, diag.Errorf("%s\n", err)
-			}
-			if ip, diags = checkArp(mac); diags != nil {
-				return nil, diags
-			}
-			tflog.Error(ctx, ip.String())
-			tflog.Error(ctx, mac)
-			if ip != nil {
-				return ip, nil
-			}
-			time.Sleep(5 * time.Second)
-		}
-	}
-
-	return ip, nil
-}
-
-func makeTlsConfig(certs generate.Certs, secure bool) (tls.Config, diag.Diagnostics) {
-	tlsConfig := &tls.Config{}
-	if secure {
-		clientCert, err := tls.X509KeyPair(certs.Admin.Crt, certs.Admin.Key)
-		if err != nil {
-			return tls.Config{}, diag.FromErr(err)
-		}
-
-		certPool := x509.NewCertPool()
-		if ok := certPool.AppendCertsFromPEM(certs.OS.Crt); !ok {
-			return tls.Config{}, diag.Errorf("Unable to append certs from PEM")
-		}
-
-		return tls.Config{
-			RootCAs:      certPool,
-			Certificates: []tls.Certificate{clientCert},
-		}, nil
-	}
-
-	tlsConfig.InsecureSkipVerify = true
-	return tls.Config{
-		InsecureSkipVerify: true,
 	}, nil
-
 }
 
-func waitTillTalosMachineUp(ctx context.Context, tlsConfig tls.Config, host string, secure bool) diag.Diagnostics {
-	tflog.Info(ctx, "Waiting for talos machine to be up")
-	// overall timeout should be 5 mins
+type talosControlNodeResourceData struct {
+	Name                     types.String              `tfsdk:"name"`
+	InstallDisk              types.String              `tfsdk:"install_disk"`
+	TalosImage               types.String              `tfsdk:"talos_image"`
+	KernelArgs               map[string]types.String   `tfsdk:"kernel_args"`
+	Macaddr                  types.String              `tfsdk:"macaddr"`
+	DHCPNetworkCidr          types.String              `tfsdk:"dhcp_network_cidr"`
+	CertSANS                 []types.String            `tfsdk:"cert_sans"`
+	ControlPlane             *ControlPlaneConfig       `tfsdk:"control_plane"`
+	Kubelet                  *KubeletConfig            `tfsdk:"kubelet"`
+	Pod                      []types.String            `tfsdk:"pod"`
+	NetworkDevices           map[string]NetworkDevice  `tfsdk:"devices"`
+	Nameservers              []types.String            `tfsdk:"nameservers"`
+	ExtraHost                map[string][]types.String `tfsdk:"extra_host"`
+	Files                    []File                    `tfsdk:"files"`
+	Env                      map[string]types.String   `tfsdk:"env"`
+	Sysctls                  map[string]types.String   `tfsdk:"sysctls"`
+	Sysfs                    map[string]types.String   `tfsdk:"sysfs"`
+	Registry                 *Registry                 `tfsdk:"registry"`
+	Udev                     map[string]types.String   `tfsdk:"udev"`
+	MachineControlPlane      *MachineControlPlane      `tfsdk:"control_plane_config"`
+	APIServer                *APIServerConfig          `tfsdk:"apiserver"`
+	Proxy                    *ProxyConfig              `tfsdk:"proxy_config"`
+	ExtraManifests           map[string]types.String   `tfsdk:"extra_manifests"`
+	AllowSchedulingOnMasters types.Bool                `tfsdk:"allow_scheduling_on_masters"`
+	Bootstrap                types.Bool                `tfsdk:"bootstrap"`
+	BootstrapIP              types.String              `tfsdk:"bootstrap_ip"`
+	BaseConfig               types.String              `tfsdk:"base_config"`
+	Patch                    types.String              `tfsdk:"patch"`
+	Id                       types.String              `tfsdk:"id"`
+}
 
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(&tlsConfig)),
-		grpc.WithBlock(),
-	}
-	ctx, cancel := context.WithTimeout(ctx, 180*time.Second)
-	defer cancel()
+func (plan talosControlNodeResourceData) Generate() (err error) {
+	// Generate wireguard keys.
+	for _, device := range plan.NetworkDevices {
+		// If the device's wireguard configuration exists, derive the public key from it's private key.
+		if device.Wireguard != nil {
+			var pk wgtypes.Key
 
-	for _, err := grpc.Dial(host, opts...); err != nil; {
-		select {
-		case <-ctx.Done():
-			return diag.FromErr(ctx.Err())
-		default:
-			tflog.Info(ctx, "Retrying connection to "+host+" reason "+err.Error())
-			time.Sleep(5 * time.Second)
+			// If a key doesn't exist make one, otherwise generate one.
+			if device.Wireguard.PrivateKey.Null {
+				pk, err = wgtypes.GeneratePrivateKey()
+				device.Wireguard.PrivateKey = types.String{Value: pk.String()}
+			} else {
+				pk, err = wgtypes.ParseKey(device.Wireguard.PrivateKey.Value)
+			}
+
+			if err != nil {
+				return err
+			}
+
+			device.Wireguard.PublicKey = types.String{Value: pk.PublicKey().String()}
 		}
 	}
 
-	tflog.Info(ctx, "Waiting for talos machine to be up")
-
-	return nil
+	return
 }
 
-func generateConfig(ctx context.Context, d *schema.ResourceData) ([]byte, diag.Diagnostics) {
+func (plan talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err error) {
+	return
+}
+
+func (plan talosControlNodeResourceData) TalosData(in v1alpha1.Config) (out v1alpha1.Config, err error) {
+	in.DeepCopyInto(&out)
+	cd := out.ClusterConfig
+	if plan.ControlPlane != nil {
+		/* Refrain from setting this for now because it's set in the cluster config resource
+		if !plan.ControlPlane.Endpoint.Null {
+			cd.ControlPlane.Endpoint = plan.ControlPlane.Endpoint
+		}
+		*/
+		if !plan.ControlPlane.LocalAPIServerPort.Null {
+			cd.ControlPlane.LocalAPIServerPort = int(plan.ControlPlane.LocalAPIServerPort.Value)
+		}
+	}
+
+	if plan.APIServer != nil {
+		apiserver, err := plan.APIServer.Data()
+		if err != nil {
+			return v1alpha1.Config{}, err
+		}
+		cd.APIServerConfig = apiserver.(*v1alpha1.APIServerConfig)
+
+	}
+
+	md := out.MachineConfig
+	for _, san := range plan.CertSANS {
+		md.MachineCertSANs = append(md.MachineCertSANs, san.Value)
+	}
+
+	// Kubelet
+	kubelet, err := plan.Kubelet.Data()
+	if err != nil {
+		return v1alpha1.Config{}, err
+	}
+	md.MachineKubelet = kubelet.(*v1alpha1.KubeletConfig)
+
+	// NetworkDevices
+	md.MachineNetwork = &v1alpha1.NetworkConfig{}
+	md.MachineNetwork.NetworkHostname = plan.Name.Value
+	md.MachineNetwork.NetworkInterfaces = []*v1alpha1.Device{}
+	// set device interfaces after get as it's the map key
+	for netInterface, device := range plan.NetworkDevices {
+		dev, err := device.Data()
+		if err != nil {
+			return v1alpha1.Config{}, err
+		}
+		dev.(*v1alpha1.Device).DeviceInterface = netInterface
+		md.MachineNetwork.NetworkInterfaces = append(md.MachineNetwork.NetworkInterfaces, dev.(*v1alpha1.Device))
+	}
+
+	md.MachineNetwork.ExtraHostEntries = []*v1alpha1.ExtraHost{}
+	for hostname, addresses := range plan.ExtraHost {
+		host := &v1alpha1.ExtraHost{
+			HostIP: hostname,
+		}
+		md.MachineNetwork.ExtraHostEntries = append(md.MachineNetwork.ExtraHostEntries, host)
+		for _, address := range addresses {
+			host.HostAliases = append(host.HostAliases, address.Value)
+		}
+	}
+
+	md.MachineInstall = &v1alpha1.InstallConfig{
+		InstallDisk:  plan.InstallDisk.Value,
+		InstallImage: plan.TalosImage.Value,
+	}
+	if plan.KernelArgs != nil {
+		md.MachineInstall.InstallExtraKernelArgs = []string{}
+		for k, arg := range plan.KernelArgs {
+			md.MachineInstall.InstallExtraKernelArgs = append(md.MachineInstall.InstallExtraKernelArgs, k+"="+arg.Value)
+		}
+	}
+
+	if plan.MachineControlPlane != nil {
+
+	}
+
+	for _, pod := range plan.Pod {
+		var talosPod v1alpha1.Unstructured
+
+		if err = yaml.Unmarshal([]byte(pod.Value), &talosPod); err != nil {
+			return
+		}
+
+		md.MachinePods = append(md.MachinePods, talosPod)
+	}
+
+	md.MachineEnv = map[string]string{}
+	for name, value := range plan.Env {
+		md.MachineEnv[name] = value.Value
+	}
+
+	for _, planFile := range plan.Files {
+		file, err := planFile.Data()
+		if err != nil {
+			return v1alpha1.Config{}, err
+		}
+		md.MachineFiles = append(md.MachineFiles, file.(*v1alpha1.MachineFile))
+	}
+
+	md.MachineSysctls = map[string]string{}
+	for name, value := range plan.Sysctls {
+		md.MachineSysctls[name] = value.Value
+	}
+
+	md.MachineSysfs = map[string]string{}
+	for path, value := range plan.Sysfs {
+		md.MachineSysfs[path] = value.Value
+	}
+
+	registries, err := plan.Registry.Data()
+	if err != nil {
+		return v1alpha1.Config{}, err
+	}
+	md.MachineRegistries = *registries.(*v1alpha1.RegistriesConfig)
+
+	md.MachineUdev = &v1alpha1.UdevConfig{}
+	for _, rule := range plan.Udev {
+		md.MachineUdev.UdevRules = append(md.MachineUdev.UdevRules, rule.Value)
+	}
+
+	for _, manifestUrl := range plan.ExtraManifests {
+		cd.ExtraManifests = append(cd.ExtraManifests, manifestUrl.Value)
+	}
+
+	return
+}
+
+func (t talosControlNodeResourceType) NewResource(ctx context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
+	provider, diags := convertProviderType(in)
+	return talosControlNodeResource{
+		provider: provider,
+	}, diags
+}
+
+type talosControlNodeResource struct {
+	provider provider
+}
+
+func (r talosControlNodeResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+	var (
+		plan talosControlNodeResourceData
+	)
+
+	// Error is here. Look into it.
+	diags := req.Config.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	input := generate.Input{}
-	if err := json.Unmarshal([]byte(d.Get("base_config").(string)), &input); err != nil {
-		tflog.Error(ctx, "Failed to unmarshal input bundle: "+err.Error())
-		return nil, diag.FromErr(err)
+	if err := json.Unmarshal([]byte(plan.BaseConfig.Value), &input); err != nil {
+		resp.Diagnostics.AddError("Failed to unmarshal input bundle", err.Error())
+		return
 	}
 
 	var controlCfg *v1alpha1.Config
 	controlCfg, err := generate.Config(machinetype.TypeControlPlane, &input)
 	if err != nil {
-		tflog.Error(ctx, "failed to generate config for node: "+err.Error())
-		return nil, diag.FromErr(err)
+		resp.Diagnostics.AddError("Failed to generate Talos configuration struct for node.", err.Error())
+		return
 	}
 
-	mc := controlCfg.MachineConfig
-	cc := controlCfg.ClusterConfig
-
-	mc.MachinePods = []v1alpha1.Unstructured{}
-	for _, v := range d.Get("pod").([]interface{}) {
-		var pod v1alpha1.Unstructured
-
-		if err = yaml.Unmarshal([]byte(v.(string)), &pod); err != nil {
-			tflog.Error(ctx, "failed to unmarshal static pod config into unstructured")
-			return nil, diag.FromErr(err)
-		}
-
-		mc.MachinePods = append(mc.MachinePods, v1alpha1.Unstructured{
-			Object: pod.Object,
-		})
+	newCfg, err := plan.TalosData(*controlCfg)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to generate configuration", err.Error())
+		return
 	}
-
-	mc.MachineFiles = []*v1alpha1.MachineFile{}
-	for _, v := range d.Get("file").([]interface{}) {
-		file := v.(map[string]interface{})
-		mc.MachineFiles = append(mc.MachineFiles, &v1alpha1.MachineFile{
-			FileContent:     file["content"].(string),
-			FilePermissions: v1alpha1.FileMode(file["permissions"].(int)),
-			FilePath:        file["path"].(string),
-			FileOp:          file["op"].(string),
-		})
-	}
-
-	mc.MachineCertSANs = []string{}
-	for _, v := range d.Get("cert_sans").([]interface{}) {
-		mc.MachineCertSANs = append(mc.MachineCertSANs, v.(string))
-	}
-
-	port := d.Get("local_apiserver_port").(string)
-	if port != "" {
-		p := 0
-		if p, err = strconv.Atoi(port); err != nil {
-			return nil, diag.FromErr(err)
-		}
-
-		cc.ControlPlane.LocalAPIServerPort = p
-
-	}
-
-	if diags := generateCommonConfig(d, controlCfg); diags != nil {
-		return []byte{}, diags
-	}
+	plan.Generate()
 
 	var controlYaml []byte
-
-	controlYaml, err = controlCfg.Bytes()
+	controlYaml, err = newCfg.Bytes()
 	if err != nil {
-		log.Fatalf("failed to generate config" + err.Error())
-		return nil, diag.FromErr(err)
+		resp.Diagnostics.AddError("failed to generate config yaml.", err.Error())
+		return
 	}
+
 	re := regexp.MustCompile(`\s*#.*`)
 	no_comments := re.ReplaceAll(controlYaml, nil)
-
+	plan.Patch.Value = string(no_comments)
 	tflog.Error(ctx, string(no_comments))
 
-	return no_comments, nil
-}
+	bootstrap := plan.Bootstrap.Value
+	network := plan.DHCPNetworkCidr.Value
+	mac := plan.Macaddr.Value
 
-func resourceControlNodeCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	bootstrap := d.Get("bootstrap").(bool)
-
-	patched, diags := generateConfig(ctx, d)
-	if diags != nil {
-		tflog.Error(ctx, "Error generating patched machineconfig")
-		return diags
+	dhcpIp, err := lookupIP(ctx, network, mac)
+	if err != nil {
+		resp.Diagnostics.AddError("Error looking up node IP", err.Error())
+		return
 	}
-
-	network := d.Get("dhcp_network_cidr").(string)
-	mac := d.Get("macaddr").(string)
-
-	dhcpIp, diags := lookupIP(ctx, network, mac)
-	if diags != nil {
-		tflog.Error(ctx, "Error looking up node IP")
-		return diags
-	}
-
 	host := net.JoinHostPort(dhcpIp.String(), strconv.Itoa(talos_port))
-	conn, diags := insecureConn(ctx, host)
-	if diags != nil {
-		return diags
+	conn, err := insecureConn(ctx, host)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to make insecure connection to Talos machine. Ensure it is in maintainence mode.", err.Error())
+		return
 	}
 	defer conn.Close()
 	client := machine.NewMachineServiceClient(conn)
-	_, err := client.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
-		Data: patched,
+	_, err = client.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
+		Data: []byte(plan.Patch.Value),
 		Mode: machine.ApplyConfigurationRequest_Mode(machine.ApplyConfigurationRequest_REBOOT),
 	})
 	if err != nil {
-		tflog.Error(ctx, "Error applying configuration")
-		return diag.FromErr(err)
+		resp.Diagnostics.AddError("Error applying configuration", err.Error())
+		return
 	}
 
 	if bootstrap {
-		ip := net.ParseIP(d.Get("bootstrap_ip").(string))
-		if ip == nil {
-			return diag.Errorf("Unable to parse bootstrap_ip")
-		}
-		host := net.JoinHostPort(ip.String(), strconv.Itoa(talos_port))
+		ip := plan.BootstrapIP.Value
+		host := net.JoinHostPort(ip, strconv.Itoa(talos_port))
 		input := generate.Input{}
-		if err := json.Unmarshal([]byte(d.Get("base_config").(string)), &input); err != nil {
-			return diag.FromErr(err)
+		if err := json.Unmarshal([]byte(plan.BaseConfig.Value), &input); err != nil {
+			resp.Diagnostics.AddError("Unable to unmarshal BaseConfig json into a Talos Input struct.", err.Error())
+			return
 		}
 
-		conn, diags := secureConn(ctx, input, host)
-		if diags != nil {
-			return diags
+		conn, err := secureConn(ctx, input, host)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to make secure connection to the Talos machine.", err.Error())
+			return
 		}
 		defer conn.Close()
 		client := machine.NewMachineServiceClient(conn)
 		_, err = client.Bootstrap(ctx, &machine.BootstrapRequest{})
 		if err != nil {
-			tflog.Error(ctx, "Error getting Machine Configuration")
-			return diag.FromErr(err)
+			resp.Diagnostics.AddError("Error attempting to bootstrap the machine.", err.Error())
+			return
 		}
 	}
 
-	d.SetId(d.Get("name").(string))
-	d.Set("patch", string(patched))
-
-	return nil
+	plan.Id = types.String{Value: string(plan.Name.Value)}
+	diags = resp.State.Set(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	return
 }
 
-func insecureConn(ctx context.Context, host string) (*grpc.ClientConn, diag.Diagnostics) {
-	tlsConfig, diags := makeTlsConfig(generate.Certs{}, false)
-	if diags != nil {
-		return nil, diags
+func (r talosControlNodeResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+	var (
+		plan talosControlNodeResourceData
+	)
+
+	// Error is here. Look into it.
+	diags := req.State.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		resp.Diagnostics.AddError("Error getting plan state.", "")
+		return
 	}
 
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(&tlsConfig)),
-	}
-
-	waitTillTalosMachineUp(ctx, tlsConfig, host, false)
-
-	conn, err := grpc.DialContext(ctx, host, opts...)
-	if err != nil {
-		tflog.Error(ctx, "Error dailing talos.")
-		return nil, diag.FromErr(err)
-	}
-
-	return conn, nil
-}
-
-func secureConn(ctx context.Context, input generate.Input, host string) (*grpc.ClientConn, diag.Diagnostics) {
-	tlsConfig, diags := makeTlsConfig(*input.Certs, true)
-	if diags != nil {
-		return nil, diags
-	}
-
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(&tlsConfig)),
-	}
-
-	waitTillTalosMachineUp(ctx, tlsConfig, host, true)
-
-	conn, err := grpc.DialContext(ctx, host, opts...)
-	if err != nil {
-		tflog.Error(ctx, "Error securely dailing talos.")
-		return nil, diag.FromErr(err)
-	}
-
-	return conn, nil
-}
-
-func ipNetwork(ip net.IP, network net.IPNet) string {
-	// Return interface IP followed by count of host identifier bits
-	mask := network.Mask
-	sum := 0
-	for _, b := range mask {
-		sum += bits.OnesCount8(uint8(b))
-	}
-
-	return ip.String() + "/" + strconv.Itoa(sum)
-}
-
-func resourceControlNodeRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	ip := net.ParseIP(d.Get("bootstrap_ip").(string))
-	if ip == nil {
-		return diag.Errorf("Unable to parse IP address from \"bootstrap_ip\", passed \"%s\",got \"%s\"", d.Get("bootstrap_ip").(string), ip.String())
-	}
-	host := net.JoinHostPort(ip.String(), strconv.Itoa(talos_port))
+	host := net.JoinHostPort(plan.BootstrapIP.Value, strconv.Itoa(talos_port))
 
 	input := generate.Input{}
-	if err := json.Unmarshal([]byte(d.Get("base_config").(string)), &input); err != nil {
-		return diag.FromErr(err)
+	if err := json.Unmarshal([]byte(plan.BaseConfig.Value), &input); err != nil {
+		resp.Diagnostics.AddError("Unable to marshal node's base_config data into it's generate.Input struct.", err.Error())
+		return
 	}
 
-	conn, diags := secureConn(ctx, input, host)
-	if diags != nil {
-		return diags
+	conn, err := secureConn(ctx, input, host)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to make a secure connection to read the node's Talos config.", err.Error())
+		return
 	}
 
 	defer conn.Close()
 	client := resource.NewResourceServiceClient(conn)
-	resp, err := client.Get(ctx, &resource.GetRequest{
+	resourceResp, err := client.Get(ctx, &resource.GetRequest{
 		Type:      "MachineConfig",
 		Namespace: "config",
 		Id:        "v1alpha1",
 	})
 	if err != nil {
-		tflog.Error(ctx, "Error getting Machine Configuration")
-		return diag.FromErr(err)
+		resp.Diagnostics.AddError("Error getting Machine Configuration", err.Error())
+		return
 	}
 
-	if len(resp.Messages) < 1 {
-		return diag.Errorf("Invalid message count recieved. Expected > 1 but got %d", len(resp.Messages))
+	if len(resourceResp.Messages) < 1 {
+		resp.Diagnostics.AddError("Invalid message count.",
+			fmt.Sprintf("Invalid message count from the Talos resource get request. Expected > 1 but got %d", len(resourceResp.Messages)))
+		return
 	}
 
 	conf := v1alpha1.Config{}
-	err = yaml.Unmarshal(resp.Messages[0].Resource.Spec.Yaml, &conf)
+	err = yaml.Unmarshal(resourceResp.Messages[0].Resource.Spec.Yaml, &conf)
 	if err != nil {
-		return diag.FromErr(err)
+		resp.Diagnostics.AddError("Unable to unmarshal Talos configuration into it's struct.", err.Error())
+		return
 	}
 
-	confNameservers := conf.MachineConfig.MachineNetwork.NameServers
-	nameservers := make([](interface{}), len(confNameservers))
-	for i := range confNameservers {
-		nameservers[i] = confNameservers[i]
-	}
+	plan.ReadInto(&conf)
 
-	// Assume one regular interface and one wireguard interface. These will eventually be seperate types in terraform
-	//talosInterfaces := conf.MachineConfig.MachineNetwork.NetworkInterfaces
-	d.SetId(d.Get("name").(string))
-	d.Set("name", conf.MachineConfig.MachineNetwork.NetworkHostname)
-	d.Set("install_disk", conf.MachineConfig.MachineInstall.InstallDisk)
-	d.Set("talos_image", conf.MachineConfig.MachineInstall.InstallImage)
-
-	// Seperate wireguard and traditional interfaces
-	/*
-		wireguard := []*v1alpha1.Device{}
-		networks := []*v1alpha1.Device{}
-		netdevs := conf.MachineConfig.MachineNetwork.NetworkInterfaces
-		for _, netdev := range netdevs {
-			if netdev.DeviceWireguardConfig != nil {
-				wireguard = append(wireguard, netdev)
-			} else {
-				networks = append(networks, netdev)
-			}
-		}
-
-		d.Set("gateway", networks[0].DeviceRoutes[0].RouteGateway)
-		d.Set("ip", networks[0].DeviceAddresses[0])
-		d.Set("nameservers", nameservers)
-
-		if len(talosInterfaces) > 1 {
-			d.Set("wg_address", wireguard[0].DeviceAddresses[0])
-			d.Set("wg_allowed_ips", wireguard[0].DeviceWireguardConfig.WireguardPeers[0].WireguardAllowedIPs[0])
-			d.Set("wg_endpoint", wireguard[0].DeviceWireguardConfig.WireguardPeers[0].WireguardEndpoint)
-			d.Set("wg_public_key", wireguard[0].DeviceWireguardConfig.WireguardPeers[0].WireguardPublicKey)
-			d.Set("wf_private_key", wireguard[0].DeviceWireguardConfig.WireguardPrivateKey)
-		}
-
-		d.Set("local_api_proxy_port", conf.ClusterConfig.APIServerConfig.ExtraArgsConfig["secure-port"])
-	*/
-	return nil
+	diags = resp.State.Set(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	return
 }
 
-func resourceControlNodeUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	patched, diags := generateConfig(ctx, d)
-	if diags != nil {
-		tflog.Error(ctx, "Error generating patched machineconfig")
-		return diags
+func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+	var (
+		plan talosControlNodeResourceData
+	)
+
+	// Error is here. Look into it.
+	diags := req.Config.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	ip := net.ParseIP(d.Get("bootstrap_ip").(string))
-	if ip == nil {
-		return diag.Errorf("parsing IP %s", ip.String())
-	}
-	host := net.JoinHostPort(ip.String(), strconv.Itoa(talos_port))
 	input := generate.Input{}
-	if err := json.Unmarshal([]byte(d.Get("base_config").(string)), &input); err != nil {
-		return diag.FromErr(err)
+	if err := json.Unmarshal([]byte(plan.BaseConfig.Value), &input); err != nil {
+		resp.Diagnostics.AddError("Failed to unmarshal input bundle", err.Error())
+		return
 	}
 
-	conn, diags := secureConn(ctx, input, host)
-	if diags != nil {
-		return diags
+	var controlCfg *v1alpha1.Config
+	controlCfg, err := generate.Config(machinetype.TypeControlPlane, &input)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to generate Talos configuration struct for node.", err.Error())
+		return
+	}
+
+	newCfg, err := plan.TalosData(*controlCfg)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to generate configuration", err.Error())
+		return
+	}
+	plan.Generate()
+
+	var controlYaml []byte
+	controlYaml, err = newCfg.Bytes()
+	if err != nil {
+		resp.Diagnostics.AddError("failed to generate config yaml.", err.Error())
+		return
+	}
+
+	re := regexp.MustCompile(`\s*#.*`)
+	no_comments := re.ReplaceAll(controlYaml, nil)
+	plan.Patch.Value = string(no_comments)
+	tflog.Error(ctx, string(no_comments))
+
+	ip := plan.BootstrapIP.Value
+	host := net.JoinHostPort(ip, strconv.Itoa(talos_port))
+
+	conn, err := secureConn(ctx, input, host)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to make secure connection to the Talos machine.", err.Error())
+		return
 	}
 	defer conn.Close()
 
 	client := machine.NewMachineServiceClient(conn)
-	resp, err := client.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
-		Data: []byte(patched),
+	talosResp, err := client.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
+		Data: no_comments,
 		Mode: machine.ApplyConfigurationRequest_Mode(machine.ApplyConfigurationRequest_AUTO),
 	})
 	if err != nil {
-		tflog.Error(ctx, "Error applying configuration")
-		return diag.FromErr(err)
+		resp.Diagnostics.AddError("Error while attempting to update the node's configuration.", err.Error()+"\n"+talosResp.String())
+		return
 	}
-	log.Printf(resp.String())
 
-	return nil
+	return
 }
 
-func resourceControlNodeDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	ip := net.ParseIP(d.Get("bootstrap_ip").(string))
-	if ip == nil {
-		return diag.Errorf("Invalid IP got %s", d.Get("bootstrap_ip").(string))
-	}
-	host := net.JoinHostPort(ip.String(), strconv.Itoa(talos_port))
+func (r talosControlNodeResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+}
 
-	input := generate.Input{}
-	if err := json.Unmarshal([]byte(d.Get("base_config").(string)), &input); err != nil {
-		return diag.FromErr(err)
-	}
-
-	conn, diags := secureConn(ctx, input, host)
-	if diags != nil {
-		return diags
-	}
-	defer conn.Close()
-
-	client := machine.NewMachineServiceClient(conn)
-	resp, err := client.Reset(ctx, &machine.ResetRequest{
-		Graceful: false,
-		Reboot:   true,
-	})
-	if err != nil {
-		tflog.Error(ctx, "Error resetting machine")
-		return diag.FromErr(err)
-	}
-	log.Printf(resp.String())
-
-	return nil
+func (r talosControlNodeResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
+	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("id"), req, resp)
 }

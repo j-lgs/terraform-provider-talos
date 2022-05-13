@@ -11,137 +11,188 @@ import (
 	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 
-	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	//	"github.com/hashicorp/terraform-plugin-log/tflog"
+	//"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	//"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
-func resourceClusterConfiguration() *schema.Resource {
-	return &schema.Resource{
-		CreateContext: resourceClusterCreate,
-		ReadContext:   resourceClusterRead,
-		UpdateContext: resourceClusterUpdate,
-		DeleteContext: resourceClusterDelete,
-		Schema: map[string]*schema.Schema{
+var _ tfsdk.ResourceType = talosClusterConfigResourceType{}
+var _ tfsdk.Resource = talosClusterConfigResource{}
+var _ tfsdk.ResourceWithImportState = talosClusterConfigResource{}
+
+type talosClusterConfigResourceType struct{}
+
+func (t talosClusterConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
+	return tfsdk.Schema{
+		MarkdownDescription: "Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. Contains information that is shared with, and essential for the creation of, worker and controlplane nodes.",
+
+		Attributes: map[string]tfsdk.Attribute{
 			"target_version": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "The version of the Talos cluster configuration that will be generated.",
+				MarkdownDescription: "The version of the Talos cluster configuration that will be generated.",
+				Required:            true,
+				Type:                types.StringType,
 			},
-			"cluster_name": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Configures the cluster's name",
+			"name": {
+				Type:                types.StringType,
+				Required:            true,
+				MarkdownDescription: "Configures the cluster's name",
 			},
-			"endpoints": {
-				Type:     schema.TypeList,
-				MinItems: 1,
-				Required: true,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
+			"talos_endpoints": {
+				Type: types.ListType{
+					ElemType: types.StringType,
 				},
-				Description: "A list of that the talosctl client will connect to. Can be a DNS hostname or an IP address and may include a port number. Must begin with \"https://\".",
+				Required:            true,
+				MarkdownDescription: "A list of that the talosctl client will connect to. Can be a DNS hostname or an IP address and may include a port number. Must begin with \"https://\".",
 			},
 			"kubernetes_endpoint": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "The kubernetes endpoint that the nodes and the kubectl client will connect to. Can be a DNS hostname or an IP address and may include a port number. Must begin with \"https://\".",
+				Type:                types.StringType,
+				Required:            true,
+				MarkdownDescription: "The kubernetes endpoint that the nodes and the kubectl client will connect to. Can be a DNS hostname or an IP address and may include a port number. Must begin with \"https://\".",
 			},
 			"kubernetes_version": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "The version of kubernetes and all it's components (kube-apiserver, kubelet, kube-scheduler, etc) that will be deployed onto the cluster.",
+				Type:                types.StringType,
+				Required:            true,
+				MarkdownDescription: "The version of kubernetes and all it's components (kube-apiserver, kubelet, kube-scheduler, etc) that will be deployed onto the cluster.",
 			},
 
-			"talosconfig": {
-				Type:        schema.TypeString,
-				Sensitive:   true,
-				Computed:    true,
-				Description: "Talosconfig YAML that can be used by the talosctl client to communicate with the cluster.",
+			"talos_config": {
+				Type:                types.StringType,
+				Sensitive:           true,
+				Computed:            true,
+				MarkdownDescription: "Talosconfig YAML that can be used by the talosctl client to communicate with the cluster.",
 			},
 			"base_config": {
-				Sensitive:   true,
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "JSON Serialised object that contains information needed to create controlplane and worker node configurations.",
+				Sensitive:           true,
+				Type:                types.StringType,
+				Computed:            true,
+				MarkdownDescription: "JSON Serialised object that contains information needed to create controlplane and worker node configurations.",
+			},
+			"id": {
+				Computed:            true,
+				MarkdownDescription: "Identifier hash, derived from the cluster's name.",
+				PlanModifiers: tfsdk.AttributePlanModifiers{
+					tfsdk.UseStateForUnknown(),
+				},
+				Type: types.StringType,
 			},
 		},
-	}
+	}, nil
 }
 
-func resourceClusterCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	targetVersion := d.Get("target_version").(string)
-	kubernetesVersion := d.Get("kubernetes_version").(string)
-	clusterName := d.Get("cluster_name").(string)
-	endpoint := d.Get("kubernetes_endpoint").(string)
+func (t talosClusterConfigResourceType) NewResource(ctx context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
+	provider, diags := convertProviderType(in)
+	return talosClusterConfigResource{
+		provider: provider,
+	}, diags
+}
 
+type talosClusterConfigResourceData struct {
+	TargetVersion      types.String `tfsdk:"target_version"`
+	ClusterName        types.String `tfsdk:"name"`
+	Endpoints          types.List   `tfsdk:"talos_endpoints"`
+	KubernetesEndpoint types.String `tfsdk:"kubernetes_endpoint"`
+	KubernetesVersion  types.String `tfsdk:"kubernetes_version"`
+	TalosConfig        types.String `tfsdk:"talos_config"`
+	BaseConfig         types.String `tfsdk:"base_config"`
+	Id                 types.String `tfsdk:"id"`
+}
+
+type talosClusterConfigResource struct {
+	provider provider
+}
+
+func (r talosClusterConfigResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
 	var (
 		versionContract = config.TalosVersionCurrent //nolint:wastedassign,ineffassign
 		err             error
+		data            talosClusterConfigResourceData
 	)
+
+	diags := req.Config.Get(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	targetVersion := data.TargetVersion.Value
+	kubernetesVersion := data.KubernetesVersion.Value
+	clusterName := data.ClusterName.Value
+	endpoints := []string{}
+	diags = data.Endpoints.ElementsAs(ctx, &endpoints, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if err != nil {
+		diags.AddError("Unable to generate secrets bundle", err.Error())
+		resp.Diagnostics.Append(diags...)
+	}
 
 	versionContract, err = config.ParseContractFromVersion(targetVersion)
 	if err != nil {
-		tflog.Error(ctx, "failed to parse version contract: "+err.Error())
-		return diag.FromErr(err)
+		diags.AddError("Unable to parse versionContract", err.Error())
+		resp.Diagnostics.Append(diags...)
+		return
 	}
 
 	secrets, err := generate.NewSecretsBundle(generate.NewClock(), generate.WithVersionContract(versionContract))
 	if err != nil {
-		tflog.Error(ctx, "failed to generate secrets bundle: "+err.Error())
-		return diag.FromErr(err)
+		diags.AddError("Unable to generate secrets bundle", err.Error())
+		resp.Diagnostics.Append(diags...)
+		return
 	}
 
-	endpointList := d.Get("endpoints").([]interface{})
-	endpoints := []string{}
-	for _, endpoint := range endpointList {
-		endpoints = append(endpoints, endpoint.(string))
-	}
-
-	input, err := generate.NewInput(clusterName, endpoint, kubernetesVersion, secrets,
+	input, err := generate.NewInput(clusterName, data.KubernetesEndpoint.Value, kubernetesVersion, secrets,
 		generate.WithVersionContract(versionContract),
 	)
 	if err != nil {
-		tflog.Error(ctx, "Error generating input.")
-		return diag.FromErr(err)
+		diags.AddError("Error generating input bundle", err.Error())
+		return
 	}
 	input_json, err := json.Marshal(input)
 	if err != nil {
-		tflog.Error(ctx, "failed to unmarshal secrets bundle: "+err.Error())
-		return diag.FromErr(err)
+		diags.AddError("failed to unmarshal to secrets bundle to a json string: ", err.Error())
+		return
 	}
-	d.Set("base_config", string(input_json))
+	data.BaseConfig = types.String{Value: string(input_json)}
 
 	talosconfig, err := generate.Talosconfig(input, generate.WithEndpointList(endpoints))
 	if err != nil {
-		tflog.Error(ctx, "Error generating talosconfig.")
-		return diag.FromErr(err)
+		diags.AddError("Error generating talosconfig.", err.Error())
+		return
 	}
 
 	config, err := yaml.Marshal(talosconfig)
 	if err != nil {
-		tflog.Error(ctx, "Error getting talosconfig bytes.")
-		return diag.FromErr(err)
+		diags.AddError("Error getting talosconfig bytes.", err.Error())
+		return
 	}
-	d.Set("talosconfig", string(config))
+	data.TalosConfig = types.String{Value: string(config)}
 
 	hash := fnv.New128().Sum([]byte(clusterName))
 	b64 := make([]byte, base64.StdEncoding.EncodedLen(len(hash)))
 	base64.StdEncoding.Encode(b64, hash)
 
-	d.SetId(string(b64))
+	data.Id = types.String{Value: string(b64)}
 
-	return nil
+	diags = resp.State.Set(ctx, &data)
+	resp.Diagnostics.Append(diags...)
+	return
 }
 
-func resourceClusterRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	return nil
+func (r talosClusterConfigResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+}
+func (r talosClusterConfigResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+}
+func (r talosClusterConfigResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
 }
 
-func resourceClusterUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	return nil
-}
-
-func resourceClusterDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	return nil
+func (r talosClusterConfigResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
+	tfsdk.ResourceImportStatePassthroughID(ctx, tftypes.NewAttributePath().WithAttributeName("id"), req, resp)
 }

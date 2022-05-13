@@ -1,23 +1,6 @@
 package talos
 
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"log"
-	"strconv"
-
-	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/talos-systems/talos/pkg/machinery/api/machine"
-	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
-	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
-	machinetype "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-)
-
+/*
 func validateGpu(value interface{}, key string) (warns []string, errs []error) {
 	v := value.(string)
 	switch v {
@@ -245,3 +228,4 @@ func resourceWorkerNodeDelete(ctx context.Context, d *schema.ResourceData, m int
 func resourceWorkerNodeRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	return nil
 }
+*/

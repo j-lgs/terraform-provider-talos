@@ -1,20 +1,48 @@
 package talos
 
 import (
+	"bufio"
+	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
+	"os"
+	"os/exec"
 	"regexp"
+	"strings"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/talos-systems/crypto/x509"
+	talosx509 "github.com/talos-systems/crypto/x509"
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
+	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"gopkg.in/yaml.v2"
+
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 // Schema validation helpers
+
+/*
+	ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
+		v := value.(string)
+		config := kubeval.NewDefaultConfig()
+		schemaCache := kubeval.NewSchemaCache()
+		_, err := kubeval.ValidateWithCache([]byte(v), schemaCache, config)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("Invalid kubernetes manifest provided"))
+			errs = append(errs, err)
+		}
+		return
+	},
+*/
 
 // validateDomain checks whether the provided schema value is a valid domain name.
 func validateDomain(value interface{}, key string) (warns []string, errs []error) {
@@ -98,6 +126,7 @@ func StringListSchema(desc string) schema.Schema {
 		Required:    true,
 		MinItems:    1,
 		Description: desc,
+		Default:     []string{},
 		Elem: &schema.Schema{
 			Type: schema.TypeString,
 		},
@@ -115,6 +144,18 @@ func StringListSchemaValidate(desc string, validate schema.SchemaValidateFunc) *
 			ValidateFunc: validate,
 		},
 	}
+}
+
+func listSuppressor(key string, old string, new string, d *schema.ResourceData) bool {
+
+	return true
+}
+
+// Suppresses output according to the provided suppressListFunc
+func Suppress(suppress schema.SchemaDiffSuppressFunc, in *schema.Schema) (out *schema.Schema) {
+	out = in
+	out.DiffSuppressFunc = suppress
+	return
 }
 
 // Validate is a helper for building terraform resource schemas that denotes the passed schema is Required.
@@ -145,6 +186,15 @@ func ValidateInner(in *schema.Schema, validate schema.SchemaValidateFunc) (out *
 	return
 }
 
+func IsValidPath(value interface{}) (ok bool, err error) {
+	v := value.(string)
+	// A valid filesystem path must not contain spaces
+	if ok = !regexp.MustCompile(`\s`).Match([]byte(v)); !ok {
+		err = fmt.Errorf("%s: Invalid mount path, must not contain spaces.", v)
+	}
+	return
+}
+
 // StringList is a helper for building terraform resource schemas that creates a basic string TypeList.
 func StringList(desc string) *schema.Schema {
 	return &schema.Schema{
@@ -168,1068 +218,1715 @@ func StringMap(desc string) *schema.Schema {
 	}
 }
 
-// Common schemas used by the controlplane and worker node resources
-var (
-	// VolumeMountSchema Describes extra volume mount for the static pods.
-	// See https://www.talos.dev/v1.0/reference/configuration/#volumemountconfig for more information.
-	VolumeMountSchema schema.Resource = schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"host_path": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Path on the host.",
-				// TODO validate it is a well formed path
-			},
-			"mount_path": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Path in the container.",
-				// TODO validate it is a well formed path
-			},
-			"readonly": {
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     false,
-				Description: "Mount the volume read only.",
-			},
-		},
-	}
-
-	// ExtraMountListSchema wraps the OCI mount specification
-	// For more information see https://github.com/opencontainers/runtime-spec/blob/main/config.md#mounts
-	ExtraMountListSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		Description: "Wraps the OCI Mount specification.",
-		MinItems:    1,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"destination": {
-					Type:        schema.TypeString,
-					Required:    true,
-					Description: "Destination of mount point: path inside container. This value MUST be an absolute path.",
-				},
-				"type": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "The type of the filesystem to be mounted.",
-					ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
-						v := value.(string)
-						// Must not contain spaces
-						pattern := `\s`
-						if regexp.MustCompile(pattern).Match([]byte(v)) {
-							errs = append(errs, fmt.Errorf("%s: Invalid mount type, must be a valid platform filesystem type, got \"%s\"\nSee OCI mount specs for more information", key, v))
-						}
-						return
-					},
-				},
-				"source": {
-					Type:        schema.TypeString,
-					Required:    true,
-					Description: "A device name, but can also be a file or directory name for bind mounts or a dummy. Path values for bind mounts are either absolute or relative to the bundle. A mount is a bind mount if it has either bind or rbind in the options.",
-					//ValidateFunc: validatePath,
-				},
-				"options": {
-					Type:        schema.TypeList,
-					Optional:    true,
-					Description: "Mount options of the filesystem to be used.",
-					Elem: &schema.Schema{
-						Type: schema.TypeString,
-						ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
-							v := value.(string)
-							// Must not contain spaces
-							pattern := `\s`
-							if regexp.MustCompile(pattern).Match([]byte(v)) {
-								errs = append(errs, fmt.Errorf("%s: Invalid mount option, must be a valid platform mount option, got \"%s\"\nSee OCI mount specs for more information", key, v))
-							}
-							return
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// KubeletConfigSchema represents the kubelet config values.
-	// see https://www.talos.dev/v1.0/reference/configuration/#kubeletconfig for more information
-	KubeletConfigSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		MaxItems:    1,
-		Description: "Represents the kubelet config values.",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"image": {
-					Type:         schema.TypeString,
-					Optional:     true,
-					Description:  "An optional reference to an alternative kubelet image.",
-					ValidateFunc: validateImage,
-				},
-				"cluster_dns": StringListSchemaValidate("An optional reference to an alternative kubelet clusterDNS ip list.", validateIP),
-				"extra_args": {
-					Type:        schema.TypeMap,
-					Optional:    true,
-					Description: "Used to provide additional flags to the kubelet.",
-					Elem: &schema.Schema{
-						Type: schema.TypeString,
-					},
-				},
-				"extra_mount": &ExtraMountListSchema,
-				// TODO Add yaml validation function
-				"extra_config": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "The extraConfig field is used to provide kubelet configuration overrides. Must be valid YAML",
-				},
-				"register_with_fqdn": {
-					Type:        schema.TypeBool,
-					Optional:    true,
-					Default:     false,
-					Description: "Used to force kubelet to use the node FQDN for registration. This is required in clouds like AWS.",
-				},
-				"node_ip_valid_subnets": StringListSchemaValidate("The validSubnets field configures the networks to pick kubelet node IP from.", validateCIDR),
-			},
-		},
-	}
-
-	kubeletExtraMountSchema schema.Schema = ExtraMountListSchema
-
-	// RegistryListSchema represents the image pull options.
-	// See https://www.talos.dev/v1.0/reference/configuration/#registriesconfig for more information
-	RegistryListSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		MinItems:    1,
-		Description: "Represents the image pull options.",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"mirror": {
-					Type:        schema.TypeList,
-					Optional:    true,
-					MinItems:    0,
-					Description: "Specifies mirror configuration for each registry.",
-					Elem: &schema.Resource{
-						Schema: map[string]*schema.Schema{
-							"registry_name": {
-								Type:        schema.TypeString,
-								Required:    true,
-								Description: "The first segment of image identifier, with ‘docker.io’ being default one. To catch any registry names not specified explicitly, use ‘*’.",
-							},
-							"endpoints": ValidateInner(Required(StringList("List of endpoints (URLs) for registry mirrors to use.")), validateEndpoint),
-						},
-					},
-				},
-				"config": {
-					Type:        schema.TypeList,
-					Optional:    true,
-					MinItems:    0,
-					Description: "Specifies TLS & auth configuration for HTTPS image registries. The meaning of each auth_field is the same with the corresponding field in .docker/config.json.",
-					Elem: &schema.Resource{
-						Schema: map[string]*schema.Schema{
-							"registry_name": {
-								Type:        schema.TypeString,
-								Required:    true,
-								Description: "The first segment of image identifier, with ‘docker.io’ being default one. To catch any registry names not specified explicitly, use ‘*’.",
-							},
-							"username": {
-								Type:        schema.TypeString,
-								Optional:    true,
-								Description: "Username for optional registry authentication.",
-							},
-							"password": {
-								Type:        schema.TypeString,
-								Optional:    true,
-								Sensitive:   true,
-								Description: "Password for optional registry authentication.",
-							},
-							"auth": {
-								Type:        schema.TypeString,
-								Optional:    true,
-								Sensitive:   true,
-								Description: "Auth for optional registry authentication.",
-							},
-							"identity_token": {
-								Type:        schema.TypeString,
-								Optional:    true,
-								Sensitive:   true,
-								Description: "Identity token for optional registry authentication.",
-							},
-							"client_identity_crt": {
-								Type:        schema.TypeString,
-								Optional:    true,
-								Sensitive:   true,
-								Description: "Enable mutual TLS authentication with the registry. Base64 encoded client certificate.",
-								// TODO: validate it's a correctly encoded PEM certificate
-							},
-							"client_identity_key": {
-								Type:        schema.TypeString,
-								Optional:    true,
-								Sensitive:   true,
-								Description: "Enable mutual TLS authentication with the registry. Base64 encoded client key.",
-								// TODO: validate it's a correctly encoded PEM key
-							},
-							"ca": {
-								Type:        schema.TypeString,
-								Optional:    true,
-								Description: "CA registry certificate to add the list of trusted certificates. Should be Base64 encoded.",
-								// TODO: Verify CA is base64 encoded
-							},
-							"insecure_skip_verify": {
-								Type:        schema.TypeBool,
-								Optional:    true,
-								Default:     false,
-								Description: "Skip TLS server certificate verification (not recommended)..",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	// AddressesSchema describes a list of IP addresses
-	AddressesListSchema schema.Schema = *StringListSchemaValidate("The addresses in CIDR notation or as plain IPs to use.", validateCIDR)
-
-	// networkInterfaceSchema describes a Talos Device configuration.
-	// For more information refer to https://www.talos.dev/v1.0/reference/configuration/#device
-	networkInterfaceSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Required:    true,
-		MinItems:    1,
-		Description: "Describes a Talos Device configuration.",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"name": {
-					Type:        schema.TypeString,
-					Required:    true,
-					Description: "The interface name.",
-				},
-				"addresses": &AddressesListSchema,
-				"route":     &RouteListSchema,
-				"bond":      &BondSchema,
-				"vlan":      &VlanListSchema,
-				"mtu": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "The interface’s MTU. If used in combination with DHCP, this will override any MTU settings returned from DHCP server.",
-				},
-				"dhcp": {
-					Type:        schema.TypeBool,
-					Optional:    true,
-					Default:     false,
-					Description: "Indicates if DHCP should be used to configure the interface.",
-				},
-				"ignore": {
-					Type:        schema.TypeBool,
-					Optional:    true,
-					Default:     false,
-					Description: "Indicates if the interface should be ignored (skips configuration).",
-				},
-				"dummy": {
-					Type:        schema.TypeBool,
-					Optional:    true,
-					Default:     false,
-					Description: "Indicates if the interface is a dummy interface..",
-				},
-				"dhcp_options": &DHCPOptionsSchema,
-				"wireguard":    &WireguardConfigSchema,
-				"vip":          &VipSchema,
-			},
-		},
-	}
-
-	// BondSchema contains the various options for configuring a bonded interface.
-	// See https://www.talos.dev/v1.0/reference/configuration/#bond for more information about the Bond configuration options.
-	BondSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		MaxItems:    1,
-		Description: "Contains the various options for configuring a bonded interface.",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"mode": {
-					Type:        schema.TypeString,
-					Required:    true,
-					Description: "A bond option. Please see the official kernel documentation.",
-				},
-				"xmit_hash_policy": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation.",
-				},
-				"lacp_rate": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation.",
-				},
-				"ad_actor_system": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation.",
-				},
-				"arp_validate": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation.",
-				},
-				"arp_all_targets": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation.",
-				},
-				"primary": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation.",
-				},
-				"primary_reselect": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation.",
-				},
-				"failover_mac": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation.",
-				},
-				"ad_select": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation.",
-				},
-				"mii_mon": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
-				},
-				"up_delay": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
-				},
-				"down_delay": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
-				},
-				"arp_interval": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
-				},
-				"resend_igmp": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
-				},
-				"min_links": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
-				},
-				"lp_interval": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
-				},
-				"packets_per_slave": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
-				},
-				"num_peer_notif": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.",
-				},
-				"tlb_dynamic_lb": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.",
-				},
-				"all_slaves_active": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.",
-				},
-				"use_carrier": {
-					Type:        schema.TypeBool,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation.",
-				},
-				"ad_actor_sys_prio": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 16 bit unsigned int.",
-				},
-				"ad_user_port_key": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 16 bit unsigned int.",
-				},
-				"peer_notify_delay": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
-				},
-			},
-		},
-	}
-
-	// DHCPOptionsSchema specifies DHCP specific options.
-	DHCPOptionsSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		MaxItems:    1,
-		Description: "Specifies DHCP specific options.",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"route_metric": {
-					Type:        schema.TypeInt,
-					Required:    true,
-					Description: "The priority of all routes received via DHCP. Must be castable to a uint32.",
-				},
-				"ipv4": {
-					Type:        schema.TypeBool,
-					Optional:    true,
-					Default:     true,
-					Description: "Enables DHCPv4 protocol for the interface.",
-				},
-				"ipv6": {
-					Type:        schema.TypeBool,
-					Optional:    true,
-					Default:     false,
-					Description: "Enables DHCPv6 protocol for the interface.",
-				},
-			}},
-	}
-
-	// VlanSchema represents vlan settings for a device.
-	VlanListSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		MinItems:    1,
-		Description: "Represents vlan settings for a device.",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"addresses": &AddressesListSchema,
-				"routes":    &RouteListSchema,
-				"dhcp": {
-					Type:        schema.TypeBool,
-					Optional:    true,
-					Description: "Indicates if DHCP should be used.",
-				},
-				"vlan_id": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "The VLAN’s ID. Must be a 16 bit unsigned integer.",
-				},
-				"mtu": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "The VLAN’s MTU. Must be a 32 bit unsigned integer.",
-				},
-				"vip": &VipSchema,
-			},
-		},
-	}
-
-	// See https://www.talos.dev/v1.0/reference/configuration/#devicevipconfig for more information.
-	VipSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		MaxItems:    1,
-		Description: "Contains settings for configuring a Virtual Shared IP on an interface..",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"ip": {
-					Type:         schema.TypeString,
-					Required:     true,
-					ValidateFunc: validateIP,
-					Description:  "Specifies the IP address to be used.",
-				},
-				"equinix_metal_api_token": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "Specifies the Equinix Metal API Token.",
-				},
-				"h_cloud_api_token": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					Description: "Specifies the Hetzner Cloud API Token.",
-				},
-			},
-		},
-	}
-
-	// RouteSchema represents a network route.
-	// See https://www.talos.dev/v1.0/reference/configuration/#route for more information
-	RouteListSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		MinItems:    1,
-		Description: "Represents a list of routes.",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"network": {
-					Type:         schema.TypeString,
-					Required:     true,
-					ValidateFunc: validateCIDR,
-					Description:  "The route’s network (destination).",
-				},
-				"gateway": {
-					Type:         schema.TypeString,
-					Optional:     true,
-					ValidateFunc: validateIP,
-					Description:  "The route’s gateway (if empty, creates link scope route).",
-				},
-				"source": {
-					Type:         schema.TypeString,
-					Optional:     true,
-					ValidateFunc: validateIP,
-					Description:  "The route’s source address.",
-				},
-				"metric": {
-					Type:        schema.TypeInt,
-					Optional:    true,
-					Description: "The optional metric for the route.",
-				},
-			},
-		},
-	}
-
-	// WireguardConfigSchema describes a Talos network interface wireguard configuration
-	// for more information refer to https://www.talos.dev/v1.0/reference/configuration/#devicewireguardconfig
-	WireguardConfigSchema schema.Schema = schema.Schema{
-		Type:        schema.TypeList,
-		Optional:    true,
-		MaxItems:    1,
-		Description: "Contains settings for configuring Wireguard network interface.",
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				"peer": {
-					Type:        schema.TypeList,
-					Required:    true,
-					MinItems:    1,
-					Description: "A WireGuard device peer configuration.",
-					Elem: &schema.Resource{
-						Schema: map[string]*schema.Schema{
-							"allowed_ips": {
-								Type:        schema.TypeList,
-								Required:    true,
-								MinItems:    1,
-								Description: "AllowedIPs specifies a list of allowed IP addresses in CIDR notation for this peer.",
-								Elem: &schema.Schema{
-									Type:         schema.TypeString,
-									ValidateFunc: validateCIDR,
-								},
-							},
-							"endpoint": {
-								Type:         schema.TypeString,
-								Required:     true,
-								ValidateFunc: validateEndpoint,
-								Description:  "Specifies the endpoint of this peer entry.",
-							},
-							"persistent_keepalive_interval": {
-								Type:     schema.TypeInt,
-								Optional: true,
-								ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
-									v := value.(int)
-									if v < 0 {
-										errs = append(errs, fmt.Errorf("%s: Persistent keepalive interval must be a positive integer, got %d", key, v))
-									}
-									return
-								},
-								Description: "Specifies the persistent keepalive interval for this peer. Provided in seconds.",
-								Default:     0,
-							},
-							"public_key": {
-								Type:         schema.TypeString,
-								Required:     true,
-								ValidateFunc: validateKey,
-								Description:  "Specifies the public key of this peer.",
-							},
-						},
-					},
-				},
-				"public_key": {
-					Type:        schema.TypeString,
-					Computed:    true,
-					Description: "Automatically derived from the private_key field.",
-				},
-				"private_key": {
-					Type:         schema.TypeString,
-					Sensitive:    true,
-					Optional:     true,
-					Computed:     true,
-					ValidateFunc: validateKey,
-					Description:  "Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field",
-				},
-			},
-		},
-	}
-)
-
-// Type aliases to ease working with interfaces
-type TypeMap = map[string]interface{}
-type TypeList = []interface{}
-
-// Valid primitive types that can be inside a Terraform TypeList
-type TypeListT interface {
-	string | int | bool
+type talosAttributeValidator struct {
+	description         string
+	markdownDescription string
+	validate            func(context.Context, tfsdk.ValidateAttributeRequest, *tfsdk.ValidateAttributeResponse)
 }
 
-// Valid primitive types that can be values of a Terraform TypeMap
-type TypeMapT interface {
-	string | int | bool
+type TalosAttributeValidator interface {
+	tfsdk.AttributeValidator
 }
 
-// Helpers for simple assignment of key/value maps and lists of primitive types
-
-// ExpandTypeList safely extracts values from an interface list (TypeList) that contains primitve types (specified by TypeListT)
-// and returns a list of that primitive type. It's used to extract values from TypeList fields of Resource schemas.
-func ExpandTypeList[T TypeListT](typelist TypeList) (result []T) {
-	result = []T{}
-	for _, val := range typelist {
-		result = append(result, val.(T))
-	}
-	return
+func (v *talosAttributeValidator) Description(context.Context) string {
+	return v.description
 }
 
-// ExpandTypeMap safely extracts values from a map of string keys to interfaces (TypeMap) that contains primitve types
-// (specified by TypeListT) and returns a map of string keys to that primitive type. It's used to extract values from TypeMap fields
-// of Resource schemas.
-func ExpandTypeMap[T TypeMapT](typelist TypeMap) (result map[string]T) {
-	result = map[string]T{}
-	for k, val := range typelist {
-		result[k] = val.(T)
-	}
-	return
+func (v *talosAttributeValidator) MarkdownDescription(context.Context) string {
+	return v.markdownDescription
 }
 
-// Errors for the ExpandDeviceList function
-var (
-	WireguardExtraFieldError = fmt.Errorf("There can only be one wireguard field in each network device.")
-)
+func (v *talosAttributeValidator) Validate(ctx context.Context, req tfsdk.ValidateAttributeRequest, resp *tfsdk.ValidateAttributeResponse) {
+	v.validate(ctx, req, resp)
+}
 
-// ExpandRoutes extracts the values from the "route" schema value used in network interfaces and returns a list of pointers to Talos routes.
-func ExpandRoutes(interfaces TypeList) (routes []*v1alpha1.Route) {
-	// Expand the list of interface maps that form's the "route" schema
-	for _, resourceRoute := range interfaces {
-		r := resourceRoute.(map[string]interface{})
-
-		route := &v1alpha1.Route{
-			RouteGateway: r["gateway"].(string),
-			RouteNetwork: r["network"].(string),
+// AllElemsValid takes a function that returns false whenever the field fails validation and returns a function that validates a ListType.
+func AllElemsValid(f func(interface{}) (bool, error)) TalosAttributeValidator {
+	val := new(talosAttributeValidator)
+	val.description = "AllElemsValid takes a function that returns false whenever the field fails validation uses it to check all fields of a ListType."
+	val.markdownDescription = val.description
+	val.validate = func(ctx context.Context, req tfsdk.ValidateAttributeRequest, resp *tfsdk.ValidateAttributeResponse) {
+		l, err := req.AttributeConfig.ToTerraformValue(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("Unable to transform given typeList %s to a terraform value.", req.AttributePath.String()), err.Error())
+			return
 		}
+		list := []interface{}{}
+		l.As(list)
 
-		if r["metric"] != nil {
-			route.RouteMetric = uint32(r["metric"].(int))
-		}
-
-		routes = append(routes, route)
-	}
-
-	return
-}
-
-// ExpandBondConfig extracts the values from the "bond" schema used in the network interface schema and returns
-// a pointer to a Talos Bond. Despite returning an error it currently has no error conditions, the value
-// is there for future use.
-func ExpandBondConfig(bondSchema TypeMap) (bond *v1alpha1.Bond, err error) {
-	for _, iface := range bondSchema["interfaces"].(TypeList) {
-		bond.BondInterfaces = append(bond.BondInterfaces, iface.(string))
-	}
-
-	bond.BondMode = bondSchema["mode"].(string)
-
-	if bondSchema["xmit_hash_policy"] != nil {
-		bond.BondHashPolicy = bondSchema["xmit_hash_policy"].(string)
-	}
-
-	bond.BondLACPRate = bondSchema["lacp_rate"].(string)
-
-	if bondSchema["arp_ip_targets"] != nil {
-		for _, arpIpTarget := range bondSchema["arp_ip_targets"].(TypeList) {
-			bond.BondARPIPTarget = append(bond.BondARPIPTarget, arpIpTarget.(string))
+		for _, v := range list {
+			if ok, err := f(v); !ok {
+				resp.Diagnostics.AddAttributeError(req.AttributePath, "List object failed validation, error from validator function shown below.", err.Error())
+				return
+			}
 		}
 	}
-
-	if bondSchema["ad_actor_system"] != nil {
-		bond.BondADActorSystem = bondSchema["ad_actor_system"].(string)
-	}
-	if bondSchema["arp_validate"] != nil {
-		bond.BondARPValidate = bondSchema["arp_validate"].(string)
-	}
-	if bondSchema["arp_all_targets"] != nil {
-		bond.BondARPAllTargets = bondSchema["arp_all_targets"].(string)
-	}
-	if bondSchema["primary"] != nil {
-		bond.BondPrimary = bondSchema[""].(string)
-	}
-	if bondSchema["primary_reselect"] != nil {
-		bond.BondPrimaryReselect = bondSchema["primary_reselect"].(string)
-	}
-	if bondSchema["failover_mac"] != nil {
-		bond.BondFailOverMac = bondSchema["failover_mac"].(string)
-	}
-	if bondSchema["ad_select"] != nil {
-		bond.BondADSelect = bondSchema["ad_select"].(string)
-	}
-	if bondSchema["mii_mon"] != nil {
-		bond.BondMIIMon = uint32(bondSchema["mii_mon"].(int))
-	}
-	if bondSchema["up_delay"] != nil {
-		bond.BondUpDelay = uint32(bondSchema["up_delay"].(int))
-	}
-	if bondSchema["down_delay"] != nil {
-		bond.BondDownDelay = uint32(bondSchema["down_delay"].(int))
-	}
-	if bondSchema["arp_interval"] != nil {
-		bond.BondARPInterval = uint32(bondSchema["arp_interval"].(int))
-	}
-	if bondSchema["resend_igmp"] != nil {
-		bond.BondResendIGMP = uint32(bondSchema["resend_igmp"].(int))
-	}
-	if bondSchema["min_links"] != nil {
-		bond.BondMinLinks = uint32(bondSchema["min_links"].(int))
-	}
-	if bondSchema["lp_interval"] != nil {
-		bond.BondLPInterval = uint32(bondSchema["lp_interval"].(int))
-	}
-	if bondSchema["packets_per_slave"] != nil {
-		bond.BondPacketsPerSlave = uint32(bondSchema["packets_per_slave"].(int))
-	}
-	if bondSchema["num_peer_notif"] != nil {
-		bond.BondNumPeerNotif = uint8(bondSchema["num_peer_notif"].(int))
-	}
-	if bondSchema["tlb_dynamic_lb"] != nil {
-		bond.BondTLBDynamicLB = uint8(bondSchema["tlb_dynamic_lb"].(int))
-	}
-	if bondSchema["all_slaves_active"] != nil {
-		bond.BondAllSlavesActive = uint8(bondSchema["all_slaves_active"].(int))
-	}
-	if bondSchema["use_carrier"] != nil {
-		*bond.BondUseCarrier = bondSchema["use_carrier"].(bool)
-	}
-	if bondSchema["ad_actor_sys_prio"] != nil {
-		bond.BondADActorSysPrio = uint16(bondSchema["ad_actor_sys_prio"].(int))
-	}
-	if bondSchema["ad_user_port_key"] != nil {
-		bond.BondADUserPortKey = uint16(bondSchema["ad_user_port_key"].(int))
-	}
-	if bondSchema["peer_notify_delay"] != nil {
-		bond.BondPeerNotifyDelay = uint32(bondSchema["peer_notify_delay"].(int))
-	}
-
-	return
+	return val
 }
 
-// ExpandWireguardConfig extracts the values from the "wireguard" schema value used in network interfaces and returns
-// a pointer to a Talos DeviceWireguardConfig. If a private key is not provided it will generate one using the generator
-// from the wgtypes library.
-func ExpandWireguardConfig(wireguardConfig TypeMap) (wgConfig *v1alpha1.DeviceWireguardConfig, err error) {
-	wg := wireguardConfig
+// Type structs used to marshal data to and from Terraform and Talos.
+type planToAPI interface {
+	Data() (interface{}, error)
+	Read(interface{}) error
+}
 
-	// Expand the list of interface maps that form's the "wireguard" schema's "peer" element
-	peers := []*v1alpha1.DeviceWireguardPeer{}
-	for _, peer := range wg["peer"].([]interface{}) {
-		p := peer.(map[string]interface{})
+// VolumeMount Describes extra volume mounts for controlplane static pods.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#volumemountconfig for more information.
+type VolumeMount struct {
+	HostPath  types.String `tfsdk:"host_path"`
+	MountPath types.String `tfsdk:"mount_path"`
+	Readonly  types.Bool   `tfsdk:"readonly"`
+}
 
-		peers = append(peers, &v1alpha1.DeviceWireguardPeer{
-			WireguardAllowedIPs:                  ExpandTypeList[string](p["allowed_ips"].(TypeList)),
-			WireguardEndpoint:                    p["endpoint"].(string),
-			WireguardPersistentKeepaliveInterval: time.Duration(p["persistent_keepalive_interval"].(int)) * time.Second,
-			WireguardPublicKey:                   p["public_key"].(string),
-		})
+var VolumeMountSchema tfsdk.Schema = tfsdk.Schema{
+	MarkdownDescription: "Describes extra volume mouns for controlplane static pods.",
+	Attributes: map[string]tfsdk.Attribute{
+		"host_path": {
+			Type:                types.StringType,
+			Required:            true,
+			MarkdownDescription: "Path on the host.",
+			// TODO validate it is a well formed path
+		},
+		"mount_path": {
+			Type:                types.StringType,
+			Required:            true,
+			MarkdownDescription: "Path in the container.",
+			// TODO validate it is a well formed path
+		},
+		"readonly": {
+			Type:                types.BoolType,
+			Optional:            true,
+			MarkdownDescription: "Mount the volume read only.",
+		},
+	},
+}
+
+func (mount VolumeMount) Data() (interface{}, error) {
+	vol := v1alpha1.VolumeMountConfig{
+		VolumeHostPath:  mount.HostPath.Value,
+		VolumeMountPath: mount.MountPath.Value,
+	}
+	if !mount.Readonly.Null {
+		vol.VolumeReadOnly = mount.Readonly.Value
 	}
 
-	pk := wg["private_key"].(string)
-	if pk == "" {
-		pk_, err := wgtypes.GeneratePrivateKey()
+	return vol, nil
+}
+
+func (mount *VolumeMount) Read(vol interface{}) error {
+	volume := vol.(v1alpha1.VolumeMountConfig)
+
+	mount.HostPath = types.String{Value: volume.VolumeHostPath}
+	mount.MountPath = types.String{Value: volume.VolumeMountPath}
+	mount.Readonly = types.Bool{Value: volume.VolumeReadOnly}
+
+	return nil
+}
+
+// ExtraMount wraps the OCI mount specification.
+// Refer to https://github.com/opencontainers/runtime-spec/blob/main/config.md#mounts for more information.
+type ExtraMount struct {
+	Destination types.String   `tfsdk:"destination"`
+	Type        types.String   `tfsdk:"type"`
+	Source      types.String   `tfsdk:"source"`
+	Options     []types.String `tfsdk:"options"`
+}
+
+var ExtraMountSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Wraps the OCI Mount specification.",
+	Attributes: map[string]tfsdk.Attribute{
+		"destination": {
+			Type:        types.StringType,
+			Required:    true,
+			Description: "Destination of mount point: path inside container. This value MUST be an absolute path.",
+		},
+		"type": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "The type of the filesystem to be mounted.",
+			//			ValidateFunc:
+		},
+		"source": {
+			Type:        types.StringType,
+			Required:    true,
+			Description: "A device name, but can also be a file or directory name for bind mounts or a dummy. Path values for bind mounts are either absolute or relative to the bundle. A mount is a bind mount if it has either bind or rbind in the options.",
+			// TODO: Add singleton validator. IsValid(f),
+			//Validators: []tfsdk.AttributeValidator{
+			//	AllElemsValid(IsValidPath),
+			//},
+		},
+		"options": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "Mount options of the filesystem to be used.",
+			// TODO: Replace validator with proper one for mount options.
+			//Validators: []tfsdk.AttributeValidator{
+			//	AllElemsValid(IsValidPath),
+			//},
+		},
+	},
+}
+
+func (mount ExtraMount) Data() (interface{}, error) {
+	extraMount := v1alpha1.ExtraMount{
+		Mount: specs.Mount{
+			Destination: mount.Destination.Value,
+			Source:      mount.Source.Value,
+			Type:        mount.Type.Value,
+		},
+	}
+
+	for _, opt := range mount.Options {
+		extraMount.Options = append(extraMount.Options, opt.Value)
+	}
+
+	return extraMount, nil
+}
+
+func (mount *ExtraMount) Read(mnt interface{}) error {
+	talosMount := mnt.(v1alpha1.ExtraMount)
+	mount.Destination = types.String{Value: talosMount.Destination}
+	mount.Source = types.String{Value: talosMount.Source}
+
+	if talosMount.Type != "" {
+		mount.Type = types.String{Value: talosMount.Type}
+	}
+
+	for _, opt := range talosMount.Options {
+		mount.Options = append(mount.Options, types.String{Value: opt})
+	}
+
+	return nil
+}
+
+// KubeletConfig represents the kubelet's config values.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#kubeletconfig for more information.
+type KubeletConfig struct {
+	Image              types.String            `tfsdk:"image"`
+	ClusterDNS         []types.String          `tfsdk:"cluster_dns"`
+	ExtraArgs          map[string]types.String `tfsdk:"extra_args"`
+	ExtraMounts        []ExtraMount            `tfsdk:"extra_mount"`
+	ExtraConfig        types.String            `tfsdk:"extra_config"`
+	RegisterWithFQDN   types.Bool              `tfsdk:"register_with_fqdn"`
+	NodeIPValidSubnets []types.String          `tfsdk:"node_ip_valid_subnets"`
+}
+
+var KubeletConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Represents the kubelet's config values.",
+	Attributes: map[string]tfsdk.Attribute{
+		"image": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "An optional reference to an alternative kubelet image.",
+			//			ValidateFunc: validateImage,
+		},
+		// TODO: Add validator for IP
+		"cluster_dns": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Description: "An optional reference to an alternative kubelet clusterDNS ip list.",
+			Optional:    true,
+		},
+		"extra_args": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "Used to provide additional flags to the kubelet.",
+		},
+		"extra_mount": {
+			Optional:    true,
+			Attributes:  tfsdk.ListNestedAttributes(ExtraMountSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Description: ExtraMountSchema.Description,
+		},
+		// TODO Add yaml validation function
+		"extra_config": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "The extraConfig field is used to provide kubelet configuration overrides. Must be valid YAML",
+		},
+		"register_with_fqdn": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Used to force kubelet to use the node FQDN for registration. This is required in clouds like AWS.",
+		},
+		// TODO: Add validator
+		"node_ip_valid_subnets": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "The validSubnets field configures the networks to pick kubelet node IP from.",
+		},
+	},
+}
+
+func (kubelet KubeletConfig) Data() (interface{}, error) {
+	talosKubelet := &v1alpha1.KubeletConfig{}
+	if !kubelet.Image.Null {
+		talosKubelet.KubeletImage = kubelet.Image.Value
+	}
+	if !kubelet.RegisterWithFQDN.Null {
+		talosKubelet.KubeletRegisterWithFQDN = kubelet.RegisterWithFQDN.Value
+	}
+	if !kubelet.ExtraConfig.Null {
+		var conf v1alpha1.Unstructured
+		if err := yaml.Unmarshal([]byte(kubelet.ExtraConfig.Value), &conf); err != nil {
+			return nil, nil
+		}
+
+		talosKubelet.KubeletExtraConfig = conf
+	}
+	for _, dns := range kubelet.ClusterDNS {
+		talosKubelet.KubeletClusterDNS = append(talosKubelet.KubeletClusterDNS, dns.Value)
+	}
+	for _, mount := range kubelet.ExtraMounts {
+		m, err := mount.Data()
 		if err != nil {
 			return nil, err
 		}
-		pk = pk_.String()
+		talosKubelet.KubeletExtraMounts = append(talosKubelet.KubeletExtraMounts, m.(v1alpha1.ExtraMount))
 	}
-
-	wgConfig = &v1alpha1.DeviceWireguardConfig{
-		WireguardPrivateKey: pk,
-		WireguardPeers:      peers,
+	for _, subnet := range kubelet.NodeIPValidSubnets {
+		talosKubelet.KubeletNodeIP.KubeletNodeIPValidSubnets = append(talosKubelet.KubeletClusterDNS, subnet.Value)
 	}
-
-	if wg["firewall_mark"] != nil {
-		wgConfig.WireguardFirewallMark = wg["firewall_mark"].(int)
-	}
-
-	if wg["listen_port"] != nil {
-		wgConfig.WireguardListenPort = wg["listen_port"].(int)
-	}
-
-	return
+	return talosKubelet, nil
 }
 
-// ExpandsDeviceList extracts the values from the "interface" schema value shared between node resources and returns
-// a list of pointers to Talos network devices. It needs to handle an optional "wireguard" field, max of one, and optional route fields.
-// See https://www.talos.dev/v1.0/reference/configuration/#device for more information about the output spec.
-func ExpandDeviceList(interfaces []interface{}) (devices []*v1alpha1.Device, err error) {
-	for _, netInterface := range interfaces {
-		n := netInterface.(map[string]interface{})
-		dev := &v1alpha1.Device{}
+// Registry represents the image pull options.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#registriesconfig for more information.
+type Registry struct {
+	Mirrors map[string][]types.String `tfsdk:"mirrors"`
+	Configs map[string]RegistryConfig `tfsdk:"configs"`
+}
 
-		// The interface name
-		dev.DeviceInterface = n["name"].(string)
-		// Static IP addresses for the interface
-		dev.DeviceAddresses = ExpandTypeList[string](n["addresses"].(TypeList))
+var RegistrySchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Represents the image pull options.",
+	Attributes: map[string]tfsdk.Attribute{
+		"mirrors": {
+			Optional: true,
+			Type: types.MapType{
+				ElemType: types.ListType{
+					ElemType: types.StringType,
+				},
+			},
+			Description: "Specifies mirror configuration for each registry.",
+		},
+		"configs": {
+			Optional:    true,
+			Description: RegistryConfigSchema.Description,
+			Attributes:  tfsdk.MapNestedAttributes(RegistryConfigSchema.Attributes, tfsdk.MapNestedAttributesOptions{}),
+		},
+	},
+}
 
-		if len(n["route"].(TypeList)) > 0 {
-			dev.DeviceRoutes = ExpandRoutes(n["route"].(TypeList))
+func (registry Registry) Data() (interface{}, error) {
+	regs := &v1alpha1.RegistriesConfig{}
+
+	regs.RegistryMirrors = map[string]*v1alpha1.RegistryMirrorConfig{}
+	for registry, endpoints := range registry.Mirrors {
+		regs.RegistryMirrors[registry] = &v1alpha1.RegistryMirrorConfig{}
+		for _, endpoint := range endpoints {
+			regs.RegistryMirrors[registry].MirrorEndpoints = append(regs.RegistryMirrors[registry].MirrorEndpoints, endpoint.Value)
 		}
+	}
 
-		// The interface's MTU
-		if n["mtu"] != nil {
-			dev.DeviceMTU = n["mtu"].(int)
-		}
-
-		// Does the interface use DHCP for auto configuration?
-		if n["dhcp"] != nil {
-			dev.DeviceDHCP = n["dhcp"].(bool)
-		}
-
-		if n["dhcpOptions"] != nil {
-			d := n["dhcpOptions"].(map[string]interface{})
-			dhcp := &v1alpha1.DHCPOptions{
-				DHCPRouteMetric: uint32(d["route_metric"].(int)),
-			}
-
-			if d["ipv4"] != nil {
-				*dhcp.DHCPIPv4 = d["ipv4"].(bool)
-			}
-
-			if d["ipv6"] != nil {
-				*dhcp.DHCPIPv6 = d["ipv6"].(bool)
-			}
-
-			dev.DeviceDHCPOptions = dhcp
-		}
-
-		wg_ := n["wireguard"].(TypeList)
-		// Ensure there can only be one instance of the wireguard interface, Return an error if there are more
-		if len(wg_) > 1 {
-			return nil, WireguardExtraFieldError
-		}
-		if len(wg_) == 1 {
-			dev.DeviceWireguardConfig, err = ExpandWireguardConfig(wg_[0].(TypeMap))
+	if registry.Configs != nil {
+		regs.RegistryConfig = map[string]*v1alpha1.RegistryConfig{}
+		for registry, conf := range registry.Configs {
+			config, err := conf.Data()
 			if err != nil {
 				return nil, err
 			}
+			regs.RegistryConfig[registry] = config.(*v1alpha1.RegistryConfig)
+
 		}
-
-		if len(n["vip"].(TypeList)) == 1 {
-			vipSchema := n["vip"].(TypeList)[0].(TypeMap)
-			vip := v1alpha1.DeviceVIPConfig{
-				SharedIP: vipSchema["ip"].(string),
-			}
-
-			// Would be nice if I could acceptance test these
-			if vipSchema["equinix_metal"] != nil {
-				equinix := vipSchema["equinix_metal"].(TypeMap)
-				vip.EquinixMetalConfig = &v1alpha1.VIPEquinixMetalConfig{
-					EquinixMetalAPIToken: equinix["api_token"].(string),
-				}
-			}
-
-			if vipSchema["hcloud"] != nil {
-				hetzner := vipSchema["hcloud"].(TypeMap)
-				vip.HCloudConfig = &v1alpha1.VIPHCloudConfig{
-					HCloudAPIToken: hetzner["api_token"].(string),
-				}
-			}
-
-			dev.DeviceVIPConfig = &vip
-		}
-
-		if len(n["bond"].(TypeList)) == 1 {
-			dev.DeviceBond, err = ExpandBondConfig(n["bond"].(TypeMap))
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		if len(n["vlan"].(TypeList)) == 1 {
-			for _, vlanSchema := range n["vlan"].(TypeList) {
-				vlan := vlanSchema.(TypeMap)
-				dev.DeviceVlans = append(dev.DeviceVlans, &v1alpha1.Vlan{
-					VlanAddresses: ExpandTypeList[string](vlan["addresses"].(TypeList)),
-					VlanRoutes:    ExpandRoutes(vlan["route"].(TypeList)),
-					VlanDHCP:      vlan["dhcp"].(bool),
-					VlanID:        uint16(vlan["id"].(int)),
-					VlanMTU:       uint32(vlan["mtu"].(int)),
-				})
-			}
-		}
-
-		devices = append(devices, dev)
 	}
 
-	return
+	return regs, nil
 }
 
-// ExpandProxyConfig safely extracts values from a map of string keys denoting proxy server arguments into a pointer to a Talos ProxyConfig.
-// TODO change argument type to handle a whole ProxyConfig.
-// More info https://www.talos.dev/v1.0/reference/configuration/#proxyconfig
-func ExpandProxyConfig(proxyArgs TypeMap) (proxyConfig *v1alpha1.ProxyConfig, err error) {
-	proxyConfig = &v1alpha1.ProxyConfig{}
-
-	proxyConfig.ExtraArgsConfig = map[string]string{}
-	for k, v := range proxyArgs {
-		proxyConfig.ExtraArgsConfig[k] = v.(string)
-	}
-
-	return
+// RegistryConfig specifies TLS & auth configuration for HTTPS image registries. The meaning of each
+// auth_field is the same with the corresponding field in .docker/config.json."
+type RegistryConfig struct {
+	Username           types.String `tfsdk:"username"`
+	Password           types.String `tfsdk:"password"`
+	Auth               types.String `tfsdk:"auth"`
+	IdentityToken      types.String `tfsdk:"identity_token"`
+	ClientCRT          types.String `tfsdk:"client_identity_crt"`
+	ClientKey          types.String `tfsdk:"client_identity_key"`
+	CA                 types.String `tfsdk:"ca"`
+	InsecureSkipVerify types.Bool   `tfsdk:"insecure_skip_verify"`
 }
 
-// ExpandProxyConfig safely extracts values from a map of string keys denoting API server arguments into a pointer to a Talos APIServerConfig.
-// TODO change input argument type to handle a whole APIServerConfig, merge with certSANs handler.
-// More info https://www.talos.dev/v1.0/reference/configuration/#proxyconfig
-func ExpandAPIServerConfig(apiServerArgs TypeMap) (apiServerConfig *v1alpha1.APIServerConfig, err error) {
-	apiServerConfig = &v1alpha1.APIServerConfig{}
+var RegistryConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: `Specifies TLS & auth configuration for HTTPS image registries. The meaning of each auth_field is the same with the corresponding field in .docker/config.json.
 
-	apiServerConfig.ExtraArgsConfig = map[string]string{}
-	for k, v := range apiServerArgs {
-		apiServerConfig.ExtraArgsConfig[k] = v.(string)
-	}
-
-	return
+Key description: The first segment of an image identifier, with ‘docker.io’ being default one. To catch any registry names not specified explicitly, use ‘*’.`,
+	Attributes: map[string]tfsdk.Attribute{
+		"username": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "Username for optional registry authentication.",
+		},
+		"password": {
+			Type:        types.StringType,
+			Optional:    true,
+			Sensitive:   true,
+			Description: "Password for optional registry authentication.",
+		},
+		"auth": {
+			Type:        types.StringType,
+			Optional:    true,
+			Sensitive:   true,
+			Description: "Auth for optional registry authentication.",
+		},
+		"identity_token": {
+			Type:        types.StringType,
+			Optional:    true,
+			Sensitive:   true,
+			Description: "Identity token for optional registry authentication.",
+		},
+		"client_identity_crt": {
+			Type:        types.StringType,
+			Optional:    true,
+			Sensitive:   true,
+			Description: "Enable mutual TLS authentication with the registry. Base64 encoded client certificate.",
+			// TODO: validate it's a correctly encoded PEM certificate
+		},
+		"client_identity_key": {
+			Type:        types.StringType,
+			Optional:    true,
+			Sensitive:   true,
+			Description: "Enable mutual TLS authentication with the registry. Base64 encoded client key.",
+			// TODO: validate it's a correctly encoded PEM key
+		},
+		"ca": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "CA registry certificate to add the list of trusted certificates. Should be Base64 encoded.",
+			// TODO: Verify CA is base64 encoded
+		},
+		"insecure_skip_verify": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Skip TLS server certificate verification (not recommended)..",
+		},
+	},
 }
 
-// ExpandRegistry safely extracts values from a singleton TypeList representing a container registry arguments into a pointer
-// to a Talos RegistriesConfig.
-func ExpandRegistry(registry TypeList) (registryConfig v1alpha1.RegistriesConfig, err error) {
-	registryConfig = v1alpha1.RegistriesConfig{}
+func (config RegistryConfig) Data() (interface{}, error) {
+	conf := &v1alpha1.RegistryConfig{}
 
-	if len(registry) != 1 {
-		err = fmt.Errorf("Invalid registry block count. Should be a singleton TypeList.")
-		return
+	conf.RegistryTLS = &v1alpha1.RegistryTLSConfig{}
+	conf.RegistryTLS.TLSClientIdentity = &talosx509.PEMEncodedCertificateAndKey{}
+	conf.RegistryAuth = &v1alpha1.RegistryAuthConfig{}
+	if !config.ClientCRT.Null {
+		conf.RegistryTLS.TLSClientIdentity.Crt = []byte(config.ClientCRT.Value)
+	}
+	if !config.ClientKey.Null {
+		conf.RegistryTLS.TLSClientIdentity.Key = []byte(config.ClientKey.Value)
+	}
+	if !config.InsecureSkipVerify.Null {
+		conf.RegistryTLS.TLSInsecureSkipVerify = config.InsecureSkipVerify.Value
 	}
 
-	registrySchema := registry[0].(TypeMap)
-	registryConfigs := registrySchema["config"].(TypeList)
-	registryConfig.RegistryConfig = map[string]*v1alpha1.RegistryConfig{}
-	for _, v := range registryConfigs {
-		conf := v.(TypeMap)
-		registryConfig.RegistryConfig[conf["registry_name"].(string)] = &v1alpha1.RegistryConfig{
-			RegistryTLS: &v1alpha1.RegistryTLSConfig{
-				TLSCA: v1alpha1.Base64Bytes(conf["ca"].(string)),
-				TLSClientIdentity: &x509.PEMEncodedCertificateAndKey{
-					Crt: []byte(conf["client_identity_crt"].(string)),
-					Key: []byte(conf["client_identity_key"].(string))},
-				TLSInsecureSkipVerify: conf["insecure_skip_verify"].(bool),
+	if !config.Username.Null && !config.Password.Null {
+		conf.RegistryAuth.RegistryUsername = config.Username.Value
+		conf.RegistryAuth.RegistryPassword = config.Password.Value
+	}
+
+	if !config.Auth.Null && !config.IdentityToken.Null {
+		conf.RegistryAuth.RegistryAuth = config.Auth.Value
+		conf.RegistryAuth.RegistryIdentityToken = config.IdentityToken.Value
+	}
+
+	return conf, nil
+}
+
+// NetworkDevice  describes a Talos Device configuration.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#device for more information.
+type NetworkDevice struct {
+	Addresses []types.String `tfsdk:"addresses"`
+	Routes    []Route        `tfsdk:"routes"`
+	//	BondData    *BondData      `tfsdk:"bond_data"`
+	VLANs       []VLAN       `tfsdk:"vlans"`
+	MTU         types.Int64  `tfsdk:"mtu"`
+	DHCP        types.Bool   `tfsdk:"dhcp"`
+	DHCPOptions *DHCPOptions `tfsdk:"dhcp_options"`
+	Ignore      types.Bool   `tfsdk:"ignore"`
+	Dummy       types.Bool   `tfsdk:"dummy"`
+	Wireguard   *Wireguard   `tfsdk:"wireguard"`
+	VIP         *VIP         `tfsdk:"vip"`
+}
+
+var NetworkDeviceSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Describes a Talos network device configuration. The map's key is the interface name.",
+	Attributes: map[string]tfsdk.Attribute{
+		"addresses": {
+			Type: types.ListType{
+				ElemType: types.StringType,
 			},
-			RegistryAuth: &v1alpha1.RegistryAuthConfig{
-				RegistryUsername:      conf["username"].(string),
-				RegistryPassword:      conf["password"].(string),
-				RegistryAuth:          conf["auth"].(string),
-				RegistryIdentityToken: conf["identity_token"].(string),
+			Required:    true,
+			Description: "A list of IP addresses for the interface.",
+			// TODO Add field validation
+		},
+
+		"routes": {
+			Required:    true,
+			Attributes:  tfsdk.ListNestedAttributes(RouteSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Description: RouteSchema.Description,
+		},
+		// Broken in a way I cannot currently comprehend.
+		// TODO Find a fix for this schema breaking terraform.
+		/*
+			"bond": {
+				Optional:    true,
+				Attributes:  tfsdk.SingleNestedAttributes(BondSchema.Attributes),
+				Description: BondSchema.Description,
 			},
-		}
-	}
+		*/
+		"vlans": {
+			Optional:    true,
+			Attributes:  tfsdk.ListNestedAttributes(VLANSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Description: VLANSchema.Description,
+		},
 
-	registryMirrors := registrySchema["mirror"].(TypeList)
-	registryConfig.RegistryMirrors = map[string]*v1alpha1.RegistryMirrorConfig{}
-	for _, v := range registryMirrors {
-		conf := v.(TypeMap)
-		registryConfig.RegistryMirrors[conf["registry_name"].(string)] = &v1alpha1.RegistryMirrorConfig{
-			MirrorEndpoints: ExpandTypeList[string](conf["endpoints"].(TypeList)),
-		}
-	}
+		"mtu": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "The interface’s MTU. If used in combination with DHCP, this will override any MTU settings returned from DHCP server.",
+		},
+		"dhcp": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Indicates if DHCP should be used to configure the interface.",
+		},
+		"ignore": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Indicates if the interface should be ignored (skips configuration).",
+		},
+		"dummy": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Indicates if the interface is a dummy interface..",
+		},
 
-	return
+		"dhcp_options": {
+			Optional:    true,
+			Attributes:  tfsdk.SingleNestedAttributes(WireguardSchema.Attributes),
+			Description: WireguardSchema.Description,
+		},
+		"wireguard": {
+			Optional:    true,
+			Attributes:  tfsdk.SingleNestedAttributes(WireguardSchema.Attributes),
+			Description: WireguardSchema.Description,
+		},
+		"vip": {
+			Optional:    true,
+			Attributes:  tfsdk.SingleNestedAttributes(VIPSchema.Attributes),
+			Description: VIPSchema.Description,
+		},
+	},
 }
 
-// generateCommonConfig gets values from the schema's resourcedata and passes them into Talos's config data structure
-// for the purpose of node configuration file generation.
-func generateCommonConfig(d *schema.ResourceData, config *v1alpha1.Config) diag.Diagnostics {
-	mc := config.MachineConfig
-	cc := config.ClusterConfig
+func (planDevice NetworkDevice) Data() (interface{}, error) {
+	device := &v1alpha1.Device{}
 
-	// Install configuration
-	mc.MachineInstall.InstallDisk = d.Get("install_disk").(string)
-	mc.MachineInstall.InstallImage = d.Get("talos_image").(string)
-	mc.MachineInstall.InstallExtraKernelArgs = ExpandTypeList[string](d.Get("kernel_args").(TypeList))
-
-	var err error
-	if cc.ProxyConfig, err = ExpandProxyConfig(d.Get("cluster_proxy_args").(TypeMap)); err != nil {
-		return diag.FromErr(err)
+	for _, address := range planDevice.Addresses {
+		device.DeviceAddresses = append(device.DeviceAddresses, address.Value)
 	}
 
-	if cc.APIServerConfig, err = ExpandAPIServerConfig(d.Get("cluster_apiserver_args").(TypeMap)); err != nil {
-		return diag.FromErr(err)
-	}
-
-	// Network configuration
-	mc.MachineNetwork.NetworkHostname = d.Get("name").(string)
-	mc.MachineNetwork.NameServers = ExpandTypeList[string](d.Get("nameservers").(TypeList))
-
-	ifs, err := ExpandDeviceList(d.Get("interface").([]interface{}))
-	if err != nil {
-		return diag.FromErr(err)
-	}
-	mc.MachineNetwork.NetworkInterfaces = ifs
-
-	interfaces_ := d.Get("interface").([]interface{})
-	for i, iface := range mc.MachineNetwork.NetworkInterfaces {
-		// If the device's wireguard configuration exists, derive the public key from it's private key.
-		if iface.DeviceWireguardConfig != nil {
-			priv := iface.DeviceWireguardConfig.WireguardPrivateKey
-
-			var pk wgtypes.Key
-			if pk, err = wgtypes.ParseKey(priv); err != nil {
-				return diag.FromErr(err)
-			}
-
-			interfaces_[i].(map[string]interface{})["wireguard"].([]interface{})[0].(map[string]interface{})["public_key"] =
-				pk.PublicKey().String()
-			interfaces_[i].(map[string]interface{})["wireguard"].([]interface{})[0].(map[string]interface{})["private_key"] =
-				priv
+	for _, planRoute := range planDevice.Routes {
+		route, err := planRoute.Data()
+		if err != nil {
+			return &v1alpha1.Device{}, err
 		}
+		device.DeviceRoutes = append(device.DeviceRoutes, route.(*v1alpha1.Route))
 	}
-	// Set the value of the schema's interface field to the previously modified network interface list.
-	if err := d.Set("interface", interfaces_); err != nil {
-		return diag.FromErr(err)
-	}
-
-	for _, mount := range d.Get("kubelet_extra_mount").([]interface{}) {
-		m := mount.(map[string]interface{})
-
-		mountOptions := []string{}
-		for _, option := range m["options"].([]interface{}) {
-			mountOptions = append(mountOptions, option.(string))
-		}
-
-		mc.MachineKubelet.KubeletExtraMounts = append(mc.MachineKubelet.KubeletExtraMounts, v1alpha1.ExtraMount{
-			Mount: specs.Mount{
-				Destination: m["destination"].(string),
-				Type:        m["type"].(string),
-				Source:      m["source"].(string),
-				Options:     mountOptions,
-			},
-		})
-	}
-
-	if mc.MachineRegistries, err = ExpandRegistry(d.Get("registry").(TypeList)); err != nil {
-		return diag.FromErr(err)
-	}
-
 	/*
-		mc.MachineRegistries.RegistryMirrors = GetTypeMapWrapEach(d.Get("registry_mirrors"), func(v string) *v1alpha1.RegistryMirrorConfig {
-			return &v1alpha1.RegistryMirrorConfig{
-				MirrorEndpoints: []string{v},
+		if planDevice.Bond != nil {
+			bond, err := planDevice.Bond.Data()
+			if err != nil {
+				return nil, err
 			}
-		})
+			device.DeviceBond = bond.(*v1alpha1.Bond)
+		}
 	*/
-	mc.MachineKubelet.KubeletExtraArgs = ExpandTypeMap[string](d.Get("kubelet_extra_args").(TypeMap))
-	mc.MachineSysctls = ExpandTypeMap[string](d.Get("sysctls").(TypeMap))
+
+	if !planDevice.DHCP.Null {
+		device.DeviceDHCP = planDevice.DHCP.Value
+	}
+
+	if planDevice.DHCPOptions != nil {
+		dhcpopts, err := planDevice.DHCPOptions.Data()
+		if err != nil {
+			return &v1alpha1.Device{}, err
+		}
+		device.DeviceDHCPOptions = dhcpopts.(*v1alpha1.DHCPOptions)
+	}
+
+	for _, planVLAN := range planDevice.VLANs {
+		vlan, err := planVLAN.Data()
+		if err != nil {
+			return &v1alpha1.Device{}, err
+		}
+		device.DeviceVlans = append(device.DeviceVlans, vlan.(*v1alpha1.Vlan))
+	}
+
+	if !planDevice.MTU.Null {
+		device.DeviceMTU = int(planDevice.MTU.Value)
+	}
+
+	if !planDevice.DHCP.Null {
+		device.DeviceDHCP = planDevice.DHCP.Value
+	}
+
+	if !planDevice.Ignore.Null {
+		device.DeviceIgnore = planDevice.Ignore.Value
+	}
+
+	if !planDevice.Dummy.Null {
+		device.DeviceDummy = planDevice.Dummy.Value
+	}
+	if planDevice.Wireguard != nil {
+		wireguard, err := planDevice.Wireguard.Data()
+		if err != nil {
+			return v1alpha1.Device{}, err
+		}
+		device.DeviceWireguardConfig = wireguard.(*v1alpha1.DeviceWireguardConfig)
+	}
+	if planDevice.VIP != nil {
+		vip, err := planDevice.VIP.Data()
+		if err != nil {
+			return v1alpha1.Device{}, err
+		}
+		device.DeviceVIPConfig = vip.(*v1alpha1.DeviceVIPConfig)
+	}
+
+	return device, nil
+}
+
+// Bond contains the various options for configuring a bonded interface.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#bond for more information.
+type BondData struct {
+	Interfaces      []types.String `tfsdk:"interfaces"`
+	ARPIPTarget     []types.String `tfsdk:"arp_ip_target"`
+	Mode            types.String   `tfsdk:"mode"`
+	XmitHashPolicy  types.String   `tfsdk:"xmit_hash_policy"`
+	LacpRate        types.String   `tfsdk:"lacp_rate"`
+	AdActorSystem   types.String   `tfsdk:"ad_actor_system"`
+	ArpValidate     types.String   `tfsdk:"arp_validate"`
+	ArpAllTargets   types.String   `tfsdk:"arp_all_targets"`
+	Primary         types.String   `tfsdk:"primary"`
+	PrimaryReselect types.String   `tfsdk:"primary_reselect"`
+	FailoverMac     types.String   `tfsdk:"failover_mac"`
+	AdSelect        types.String   `tfsdk:"ad_select"`
+	MiiMon          types.Int64    `tfsdk:"mii_mon"`
+	UpDelay         types.Int64    `tfsdk:"up_delay"`
+	DownDelay       types.Int64    `tfsdk:"down_delay"`
+	ArpInterval     types.Int64    `tfsdk:"arp_interval"`
+	ResendIgmp      types.Int64    `tfsdk:"resend_igmp"`
+	MinLinks        types.Int64    `tfsdk:"min_links"`
+	LpInterval      types.Int64    `tfsdk:"lp_interval"`
+	PacketsPerSlave types.Int64    `tfsdk:"packets_per_slave"`
+	NumPeerNotif    types.Int64    `tfsdk:"num_peer_notif"`
+	TlbDynamicLb    types.Int64    `tfsdk:"tlb_dynamic_lb"`
+	AllSlavesActive types.Int64    `tfsdk:"all_slaves_active"`
+	UseCarrier      types.Bool     `tfsdk:"use_carrier"`
+	AdActorSysPrio  types.Int64    `tfsdk:"ad_actor_sys_prio"`
+	AdUserPortKey   types.Int64    `tfsdk:"ad_user_port_key"`
+	PeerNotifyDelay types.Int64    `tfsdk:"peer_notify_delay"`
+}
+
+var BondSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Contains the various options for configuring a bonded interface.",
+	Attributes: map[string]tfsdk.Attribute{
+		"interfaces": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+		},
+		"arp_ip_target": {
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation.",
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+		},
+		"mode": {
+			Type:        types.StringType,
+			Required:    true,
+			Description: "A bond option. Please see the official kernel documentation.",
+		},
+		"xmit_hash_policy": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation.",
+		},
+		"lacp_rate": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation.",
+		},
+		"ad_actor_system": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation.",
+		},
+		"arp_validate": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation.",
+		},
+		"arp_all_targets": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation.",
+		},
+		"primary": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation.",
+		},
+		"primary_reselect": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation.",
+		},
+		"failover_mac": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation.",
+		},
+		"ad_select": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation.",
+		},
+		"mii_mon": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
+		},
+		"up_delay": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
+		},
+		"down_delay": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
+		},
+		"arp_interval": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
+		},
+		"resend_igmp": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
+		},
+		"min_links": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
+		},
+		"lp_interval": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
+		},
+		"packets_per_slave": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
+		},
+		"num_peer_notif": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.",
+		},
+		"tlb_dynamic_lb": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.",
+		},
+		"all_slaves_active": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.",
+		},
+		"use_carrier": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation.",
+		},
+		"ad_actor_sys_prio": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 16 bit unsigned int.",
+		},
+		"ad_user_port_key": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 16 bit unsigned int.",
+		},
+		"peer_notify_delay": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.",
+		},
+	},
+}
+
+func (planBond BondData) Data() (interface{}, error) {
+	bond := &v1alpha1.Bond{}
+	for _, netInterface := range planBond.Interfaces {
+		bond.BondInterfaces = append(bond.BondInterfaces, netInterface.Value)
+	}
+	for _, arpIpTarget := range planBond.ARPIPTarget {
+		bond.BondARPIPTarget = append(bond.BondARPIPTarget, arpIpTarget.Value)
+	}
+	b := planBond
+	bond.BondMode = b.Mode.Value
+
+	if !b.XmitHashPolicy.Null {
+		bond.BondHashPolicy = b.XmitHashPolicy.Value
+	}
+	if !b.LacpRate.Null {
+		bond.BondLACPRate = b.LacpRate.Value
+	}
+	if !b.AdActorSystem.Null {
+		bond.BondADActorSystem = b.AdActorSystem.Value
+	}
+	if !b.ArpValidate.Null {
+		bond.BondARPValidate = b.ArpValidate.Value
+	}
+	if !b.ArpAllTargets.Null {
+		bond.BondARPAllTargets = b.ArpAllTargets.Value
+	}
+	if !b.Primary.Null {
+		bond.BondPrimary = b.Primary.Value
+	}
+	if !b.PrimaryReselect.Null {
+		bond.BondPrimaryReselect = b.PrimaryReselect.Value
+	}
+	if !b.FailoverMac.Null {
+		bond.BondFailOverMac = b.FailoverMac.Value
+	}
+	if !b.AdSelect.Null {
+		bond.BondADSelect = b.AdSelect.Value
+	}
+	if !b.MiiMon.Null {
+		bond.BondMIIMon = uint32(b.MiiMon.Value)
+	}
+	if !b.UpDelay.Null {
+		bond.BondUpDelay = uint32(b.UpDelay.Value)
+	}
+	if !b.DownDelay.Null {
+		bond.BondDownDelay = uint32(b.DownDelay.Value)
+	}
+	if !b.ArpInterval.Null {
+		bond.BondARPInterval = uint32(b.ArpInterval.Value)
+	}
+	if !b.ResendIgmp.Null {
+		bond.BondResendIGMP = uint32(b.ResendIgmp.Value)
+	}
+	if !b.MinLinks.Null {
+		bond.BondMinLinks = uint32(b.MinLinks.Value)
+	}
+	if !b.LpInterval.Null {
+		bond.BondLPInterval = uint32(b.LpInterval.Value)
+	}
+	if !b.PacketsPerSlave.Null {
+		bond.BondPacketsPerSlave = uint32(b.PacketsPerSlave.Value)
+	}
+	if !b.NumPeerNotif.Null {
+		bond.BondNumPeerNotif = uint8(b.NumPeerNotif.Value)
+	}
+	if !b.TlbDynamicLb.Null {
+		bond.BondTLBDynamicLB = uint8(b.TlbDynamicLb.Value)
+	}
+	if !b.AllSlavesActive.Null {
+		bond.BondAllSlavesActive = uint8(b.AllSlavesActive.Value)
+	}
+	if !b.UseCarrier.Null {
+		*bond.BondUseCarrier = b.UseCarrier.Value
+	}
+	if !b.AdActorSysPrio.Null {
+		bond.BondADActorSysPrio = uint16(b.AdActorSysPrio.Value)
+	}
+	if !b.AdUserPortKey.Null {
+		bond.BondADUserPortKey = uint16(b.AdUserPortKey.Value)
+	}
+	if !b.PeerNotifyDelay.Null {
+		bond.BondPeerNotifyDelay = uint32(b.PeerNotifyDelay.Value)
+	}
+
+	return bond, nil
+}
+
+// DHCPOptions specificies DHCP specific options.
+type DHCPOptions struct {
+	RouteMetric types.Int64 `tfsdk:"route_metric"`
+	IPV4        types.Bool  `tfsdk:"ipv4"`
+	IPV6        types.Bool  `tfsdk:"ipv6"`
+}
+
+var DHCPOptionsSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Specifies DHCP specific options.",
+	Attributes: map[string]tfsdk.Attribute{
+		"route_metric": {
+			Type:        types.Int64Type,
+			Required:    true,
+			Description: "The priority of all routes received via DHCP. Must be castable to a uint32.",
+		},
+		"ipv4": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Enables DHCPv4 protocol for the interface.",
+			// TODO: Set default to true
+		},
+		"ipv6": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Enables DHCPv6 protocol for the interface.",
+		},
+	},
+}
+
+// TODO add DHCPUIDv6 from struct, and add it to the Talos config documentation.
+func (planDHCPOptions DHCPOptions) Data() (interface{}, error) {
+	dhcpOptions := &v1alpha1.DHCPOptions{}
+
+	if !planDHCPOptions.IPV4.Null {
+		*dhcpOptions.DHCPIPv4 = planDHCPOptions.IPV4.Value
+	}
+	if !planDHCPOptions.IPV6.Null {
+		*dhcpOptions.DHCPIPv6 = planDHCPOptions.IPV6.Value
+	}
+	if !planDHCPOptions.RouteMetric.Null {
+		dhcpOptions.DHCPRouteMetric = uint32(planDHCPOptions.RouteMetric.Value)
+	}
+
+	return dhcpOptions, nil
+}
+
+// VLAN represents vlan settings for a network device.
+type VLAN struct {
+	Addresses []types.String `tfsdk:"addresses"`
+	Routes    []Route        `tfsdk:"routes"`
+	DHCP      types.Bool     `tfsdk:"dhcp"`
+	VLANId    types.Int64    `tfsdk:"vlan_id"`
+	MTU       types.Int64    `tfsdk:"mtu"`
+	VIP       *VIP           `tfsdk:"vip"`
+}
+
+var VLANSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Represents vlan settings for a device.",
+	Attributes: map[string]tfsdk.Attribute{
+		"addresses": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Description: "A list of IP addresses for the interface.",
+			Required:    true,
+			// TODO Add field validation
+		},
+		"routes": {
+			Required:    true,
+			Attributes:  tfsdk.ListNestedAttributes(RouteSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Description: RouteSchema.Description,
+		},
+		"dhcp": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Indicates if DHCP should be used.",
+		},
+		"vlan_id": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "The VLAN’s ID. Must be a 16 bit unsigned integer.",
+		},
+		"mtu": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "The VLAN’s MTU. Must be a 32 bit unsigned integer.",
+		},
+		"vip": {
+			Optional:    true,
+			Attributes:  tfsdk.SingleNestedAttributes(VIPSchema.Attributes),
+			Description: VIPSchema.Description,
+		},
+	},
+}
+
+func (planVLAN VLAN) Data() (interface{}, error) {
+	vlan := &v1alpha1.Vlan{}
+
+	for _, vlanAddress := range planVLAN.Addresses {
+		vlan.VlanAddresses = append(vlan.VlanAddresses, vlanAddress.Value)
+	}
+	for _, planVLANRoute := range planVLAN.Routes {
+		route, err := planVLANRoute.Data()
+		if err != nil {
+			return &v1alpha1.Vlan{}, err
+		}
+		vlan.VlanRoutes = append(vlan.VlanRoutes, route.(*v1alpha1.Route))
+	}
+	if !planVLAN.DHCP.Null {
+		vlan.VlanDHCP = planVLAN.DHCP.Value
+	}
+	if !planVLAN.VLANId.Null {
+		vlan.VlanID = uint16(planVLAN.VLANId.Value)
+	}
+	if !planVLAN.MTU.Null {
+		vlan.VlanMTU = uint32(planVLAN.MTU.Value)
+	}
+	if planVLAN.VIP != nil {
+		vip, err := planVLAN.VIP.Data()
+		if err != nil {
+			return &v1alpha1.Vlan{}, err
+		}
+		vlan.VlanVIP = vip.(*v1alpha1.DeviceVIPConfig)
+	}
+	return vlan, nil
+}
+
+// VIP represent virtual shared IP configurations for network interfaces.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#devicevipconfig for more information.
+type VIP struct {
+	IP                   types.String `tfsdk:"ip"`
+	EquinixMetalAPIToken types.String `tfsdk:"equinix_metal_api_token"`
+	HetznerCloudAPIToken types.String `tfsdk:"hetzner_cloud_api_token"`
+}
+
+var VIPSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Contains settings for configuring a Virtual Shared IP on an interface.",
+	Attributes: map[string]tfsdk.Attribute{
+		"ip": {
+			Type:     types.StringType,
+			Required: true,
+			// TODO validate
+			// ValidateFunc: validateIP,
+			Description: "Specifies the IP address to be used.",
+		},
+		"equinix_metal_api_token": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "Specifies the Equinix Metal API Token.",
+		},
+		"hetzner_cloud_api_token": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "Specifies the Hetzner Cloud API Token.",
+		},
+	},
+}
+
+func (planVIP VIP) Data() (interface{}, error) {
+
+	vip := &v1alpha1.DeviceVIPConfig{
+		SharedIP: planVIP.IP.Value,
+	}
+	if !planVIP.EquinixMetalAPIToken.Null {
+		vip.EquinixMetalConfig = &v1alpha1.VIPEquinixMetalConfig{
+			EquinixMetalAPIToken: planVIP.EquinixMetalAPIToken.Value,
+		}
+	}
+	if !planVIP.HetznerCloudAPIToken.Null {
+		vip.HCloudConfig = &v1alpha1.VIPHCloudConfig{
+			HCloudAPIToken: planVIP.HetznerCloudAPIToken.Value,
+		}
+	}
+
+	return vip, nil
+}
+
+// Route represents a network route.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#route for more information.
+type Route struct {
+	Network types.String `tfsdk:"network"`
+	Gateway types.String `tfsdk:"gateway"`
+	Source  types.String `tfsdk:"source"`
+	Metric  types.String `tfsdk:"metric"`
+}
+
+var RouteSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Represents a list of routes.",
+	Attributes: map[string]tfsdk.Attribute{
+		"network": {
+			Type:     types.StringType,
+			Required: true,
+			// TODO Validate
+			// ValidateFunc: validateCIDR,
+			Description: "The route’s network (destination).",
+		},
+		"gateway": {
+			Type:     types.StringType,
+			Optional: true,
+			// TODO Validate
+			// ValidateFunc: validateIP,
+			Description: "The route’s gateway (if empty, creates link scope route).",
+		},
+		"source": {
+			Type:     types.StringType,
+			Optional: true,
+			// TODO validate
+			// ValidateFunc: validateIP,
+			Description: "The route’s source address.",
+		},
+		"metric": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "The optional metric for the route.",
+		},
+	},
+}
+
+func (planRoute Route) Data() (interface{}, error) {
+	route := &v1alpha1.Route{
+		RouteNetwork: planRoute.Network.Value,
+	}
+
+	if !planRoute.Gateway.Null {
+		route.RouteGateway = planRoute.Gateway.Value
+	}
+	if !planRoute.Source.Null {
+		route.RouteSource = planRoute.Source.Value
+	}
+	if !planRoute.Metric.Null {
+		route.RouteSource = planRoute.Metric.Value
+	}
+
+	return route, nil
+}
+
+// Wireguard describes a network interface's Wireguard configuration and keys.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#devicewireguardconfig for more information.
+type Wireguard struct {
+	Peers      []WireguardPeer `tfsdk:"peer"`
+	PublicKey  types.String    `tfsdk:"public_key"`
+	PrivateKey types.String    `tfsdk:"private_key"`
+}
+
+var WireguardSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Contains settings for configuring Wireguard network interface.",
+	Attributes: map[string]tfsdk.Attribute{
+		"peer": {
+			Required:    true,
+			Attributes:  tfsdk.ListNestedAttributes(WireguardPeerSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Description: WireguardPeerSchema.Description,
+		},
+		"public_key": {
+			Type:        types.StringType,
+			Computed:    true,
+			Description: "Automatically derived from the private_key field.",
+		},
+		"private_key": {
+			Type:      types.StringType,
+			Sensitive: true,
+			Optional:  true,
+			Computed:  true,
+			// TODO validate
+			// ValidateFunc: validateKey,
+			Description: "Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field",
+		},
+	},
+}
+
+func (planWireguard Wireguard) Data() (interface{}, error) {
+	wireguard := &v1alpha1.DeviceWireguardConfig{}
+
+	for _, planPeer := range planWireguard.Peers {
+		peer, err := planPeer.Data()
+		if err != nil {
+			return &v1alpha1.DeviceWireguardConfig{}, nil
+		}
+		wireguard.WireguardPeers = append(wireguard.WireguardPeers, peer.(*v1alpha1.DeviceWireguardPeer))
+	}
+
+	if !planWireguard.PrivateKey.Null {
+		wireguard.WireguardPrivateKey = planWireguard.PrivateKey.Value
+	}
+
+	return wireguard, nil
+}
+
+// WireguardPeer describes an interface's Wireguard peers.
+type WireguardPeer struct {
+	AllowedIPs                  []types.String `tfsdk:"allowed_ips"`
+	Endpoint                    types.String   `tfsdk:"endpoint"`
+	PersistentKeepaliveInterval types.Int64    `tfsdk:"persistent_keepalive_interval"`
+	PublicKey                   types.String   `tfsdk:"public_key"`
+}
+
+var WireguardPeerSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "A WireGuard device peer configuration.",
+	Attributes: map[string]tfsdk.Attribute{
+		"allowed_ips": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Required:    true,
+			Description: "AllowedIPs specifies a list of allowed IP addresses in CIDR notation for this peer.",
+			// TODO add validator
+			// ValidateFunc: validateCIDR,
+		},
+		"endpoint": {
+			Type:     types.StringType,
+			Required: true,
+			// TODO Add validator
+			//ValidateFunc: validateEndpoint64Type,
+			Description: "Specifies the endpoint of this peer entry.",
+		},
+		"persistent_keepalive_interval": {
+			Type:     types.Int64Type,
+			Optional: true,
+			// TODO Add validator, assert it is positive and within the expected range
+			/*
+				ValidateFunc: func(value interface{}, key string) (warns []stringType, errs []error) {
+					v := value.(int)
+					if v < 0 {
+						errs = append(errs, fmt.Errorf("%s: Persistent keepalive interval must be a positive integer, got %d", key, v))
+					}
+					return
+				},
+			*/
+			Description: "Specifies the persistent keepalive interval for this peer. Provided in seconds.",
+		},
+		"public_key": {
+			Type:     types.StringType,
+			Required: true,
+			// TODO: Add validator for ValidateFunc: validateKey,
+			Description: "Specifies the public key of this peer.",
+		},
+	},
+}
+
+func (planPeer WireguardPeer) Data() (interface{}, error) {
+	peer := &v1alpha1.DeviceWireguardPeer{
+		WireguardPublicKey: planPeer.PublicKey.Value,
+		WireguardEndpoint:  planPeer.Endpoint.Value,
+	}
+
+	for _, ip := range planPeer.AllowedIPs {
+		peer.WireguardAllowedIPs = append(peer.WireguardAllowedIPs, ip.Value)
+	}
+
+	if !planPeer.PersistentKeepaliveInterval.Null {
+		peer.WireguardPersistentKeepaliveInterval = time.Duration(planPeer.PersistentKeepaliveInterval.Value) * time.Second
+	}
+
+	return peer, nil
+}
+
+// ClusterControlPlane configures options pertaining to the Kubernetes control plane that's installed onto the machine.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#machinecontrolplaneconfig for more information.
+type MachineControlPlane struct {
+	ControllerManagerDisabled types.Bool `tfsdk:"controller_manager_disabled"`
+	SchedulerDisabled         types.Bool `tfsdk:"scheduler_disabled"`
+}
+
+var MachineControlPlaneSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Configures options pertaining to the Kubernetes control plane that's installed onto the machine",
+	Attributes: map[string]tfsdk.Attribute{
+		"controller_manager_disabled": {
+			Type:     types.BoolType,
+			Optional: true,
+			Description: "Disable kube-controller-manager on the node.	",
+		},
+		"scheduler_disabled": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Disable kube-scheduler on the node.",
+		},
+	},
+}
+
+func (planMachineControlPlane MachineControlPlane) data() (interface{}, error) {
+	controlConf := &v1alpha1.MachineControlPlaneConfig{
+		MachineControllerManager: &v1alpha1.MachineControllerManagerConfig{},
+		MachineScheduler:         &v1alpha1.MachineSchedulerConfig{},
+	}
+
+	if !planMachineControlPlane.ControllerManagerDisabled.Null {
+		controlConf.MachineControllerManager.MachineControllerManagerDisabled = planMachineControlPlane.ControllerManagerDisabled.Value
+	}
+
+	if !planMachineControlPlane.ControllerManagerDisabled.Null {
+		controlConf.MachineScheduler.MachineSchedulerDisabled = planMachineControlPlane.SchedulerDisabled.Value
+	}
+
+	return controlConf, nil
+}
+
+// AdmissionPluginConfig configures pod admssion rules on the kubelet64Type, denying execution to pods that don't fit them.
+type AdmissionPluginConfig struct {
+	Name          types.String `tfsdk:"name"`
+	Configuration types.String `tfsdk:"configuration"`
+}
+
+var AdmissionPluginSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Configures pod admssion rules on the kubelet64Type, denying execution to pods that don't fit them.",
+	Attributes: map[string]tfsdk.Attribute{
+		"name": {
+			Type:        types.StringType,
+			Required:    true,
+			Description: "Name is the name of the admission controller. It must match the registered admission plugin name.",
+			// TODO Validate it is a properly formed name
+		},
+		"configuration": {
+			Type:        types.StringType,
+			Required:    true,
+			Description: "Configuration is an embedded configuration object to be used as the plugin’s configuration.",
+			// TODO Validate it is a properly formed YAML
+		},
+	},
+}
+
+func (planAdmissionPluginConfig AdmissionPluginConfig) Data() (interface{}, error) {
+	var admissionConfig v1alpha1.Unstructured
+
+	if err := yaml.Unmarshal([]byte(planAdmissionPluginConfig.Configuration.Value), &admissionConfig); err != nil {
+		return &v1alpha1.AdmissionPluginConfig{}, nil
+	}
+
+	admissionPluginConfig := &v1alpha1.AdmissionPluginConfig{
+		PluginName:          planAdmissionPluginConfig.Name.Value,
+		PluginConfiguration: admissionConfig,
+	}
+	return admissionPluginConfig, nil
+}
+
+/*
+ */
+
+// ProxyConfig configures the Kubernetes control plane's kube-proxy.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#proxyconfig for more information.
+type ProxyConfig struct {
+	Image types.String `tfsdk:"image"`
+
+	Mode      types.String            `tfsdk:"mode"`
+	Disabled  types.Bool              `tfsdk:"is_disabled"`
+	ExtraArgs map[string]types.String `tfsdk:"extra_args"`
+}
+
+var ProxyConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Represents the kube proxy configuration options.",
+	Attributes: map[string]tfsdk.Attribute{
+		"image": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "The container image used in the kube-proxy manifest.",
+			// TODO validate
+			// ValidateFunc: validateImage,
+		},
+		"mode": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "The container image used in the kube-proxy manifest.",
+			// TODO Validate it's a valid mode
+		},
+		"is_disabled": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Disable kube-proxy deployment on cluster bootstrap.",
+		},
+		"extra_args": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "Extra arguments to supply to kube-proxy.",
+		},
+	},
+}
+
+func (planProxy ProxyConfig) Data() (interface{}, error) {
+	proxy := &v1alpha1.ProxyConfig{}
+	if !planProxy.Image.Null {
+		proxy.ContainerImage = planProxy.Image.Value
+	}
+	if !planProxy.Disabled.Null {
+		proxy.Disabled = planProxy.Disabled.Value
+	}
+	if !planProxy.Mode.Null {
+		proxy.ModeConfig = planProxy.Mode.Value
+	}
+	proxy.ExtraArgsConfig = map[string]string{}
+	for arg, value := range planProxy.ExtraArgs {
+		proxy.ExtraArgsConfig[arg] = value.Value
+	}
+
+	return proxy, nil
+}
+
+// ControlPlaneConfig provides options for configuring the Kubernetes control plane.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#controlplaneconfig for more information.
+type ControlPlaneConfig struct {
+	Endpoint           types.String `tfsdk:"endpoint"`
+	LocalAPIServerPort types.Int64  `tfsdk:"local_api_server_port"`
+}
+
+var ControlPlaneConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Represents the control plane configuration options.",
+	Attributes: map[string]tfsdk.Attribute{
+		"endpoint": {
+			Type:        types.StringType,
+			Required:    true,
+			Description: "Endpoint is the canonical controlplane endpoint64Type, which can be an IP address or a DNS hostname.",
+			// TODO Verify well formed endpoint
+		},
+		"local_api_server_port": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "The port that the API server listens on internally. This may be different than the port portion listed in the endpoint field.",
+			// TODO Verify in correct port range
+		},
+	},
+}
+
+// Special handling needed to ensure endpoint is not overwritten.
+// TODO Create handler method
+
+// APIServerConfig configures the Kubernetes control plane's apiserver.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#apiserverconfig for more information.
+type APIServerConfig struct {
+	Image            types.String            `tfsdk:"image"`
+	ExtraArgs        map[string]types.String `tfsdk:"extra_args"`
+	ExtraVolumes     []VolumeMount           `tfsdk:"extra_volumes"`
+	Env              map[string]types.String `tfsdk:"env"`
+	CertSANS         []types.String          `tfsdk:"cert_sans"`
+	DisablePSP       types.Bool              `tfsdk:"disable_pod_security_policy"`
+	AdmissionPlugins []AdmissionPluginConfig `tfsdk:"admission_control"`
+}
+
+var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Represents the kube apiserver configuration options.",
+	Attributes: map[string]tfsdk.Attribute{
+		"image": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "The container image used in the API server manifest.",
+			// TODO validation
+			// ValidateFunc: validateImage,
+		},
+		"extra_args": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "Extra arguments to supply to the API server.",
+		},
+
+		"extra_volumes": {
+			Optional:    true,
+			Description: VolumeMountSchema.Description,
+			Attributes:  tfsdk.ListNestedAttributes(VolumeMountSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+		},
+		"env": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "The env field allows for the addition of environment variables for the control plane component.",
+		},
+		// TODO validate IPs
+		"cert_sans": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "Extra certificate subject alternative names for the API server’s certificate.",
+		},
+		"disable_pod_security_policy": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Disable PodSecurityPolicy in the API server and default manifests.",
+		},
+
+		"admission_control": {
+			Optional:    true,
+			Description: AdmissionPluginSchema.Description,
+			Attributes:  tfsdk.ListNestedAttributes(AdmissionPluginSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+		},
+	},
+}
+
+func (planAPIServer APIServerConfig) Data() (interface{}, error) {
+	apiServer := &v1alpha1.APIServerConfig{}
+
+	if !planAPIServer.Image.Null {
+		apiServer.ContainerImage = planAPIServer.Image.Value
+	}
+	apiServer.ExtraArgsConfig = map[string]string{}
+	for arg, value := range planAPIServer.ExtraArgs {
+		apiServer.ExtraArgsConfig[arg] = value.Value
+	}
+	if !planAPIServer.DisablePSP.Null {
+		apiServer.DisablePodSecurityPolicyConfig = planAPIServer.DisablePSP.Value
+	}
+
+	for i, pluginYaml := range planAPIServer.AdmissionPlugins {
+		apiServer.AdmissionControlConfig = append(apiServer.AdmissionControlConfig, &v1alpha1.AdmissionPluginConfig{
+			PluginName: pluginYaml.Name.Value,
+		})
+
+		var plugin v1alpha1.Unstructured
+		if err := yaml.Unmarshal([]byte(pluginYaml.Configuration.Value), &plugin); err != nil {
+			return &v1alpha1.APIServerConfig{}, err
+		}
+		apiServer.AdmissionControlConfig[i].PluginConfiguration = plugin
+	}
+
+	for _, san := range planAPIServer.CertSANS {
+		apiServer.CertSANs = append(apiServer.CertSANs, san.Value)
+	}
+	apiServer.EnvConfig = map[string]string{}
+	for arg, value := range planAPIServer.Env {
+		apiServer.EnvConfig[arg] = value.Value
+	}
+	for _, vol := range planAPIServer.ExtraVolumes {
+		d, err := vol.Data()
+		if err != nil {
+			return &v1alpha1.APIServerConfig{}, err
+		}
+		apiServer.ExtraVolumesConfig = append(apiServer.ExtraVolumesConfig, d.(v1alpha1.VolumeMountConfig))
+	}
+
+	return apiServer, nil
+}
+
+// File describes a machine file and it's contents to be written onto the node's filesystem.
+type File struct {
+	Content     types.String `tfsdk:"content"`
+	Permissions types.Int64  `tfsdk:"permissions"`
+	Path        types.String `tfsdk:"path"`
+	Op          types.String `tfsdk:"op"`
+}
+
+var FileSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Describes a machine's files and it's contents and how it will be written to the node's filesystem.",
+	Attributes: map[string]tfsdk.Attribute{
+		"content": {
+			Type:        types.StringType,
+			Required:    true,
+			Description: "The file's content. Not required to be base64 encoded.",
+		},
+		"permissions": {
+			Type:        types.Int64Type,
+			Required:    true,
+			Description: "Unix permission for the file",
+			// TODO validate
+			/*
+				ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
+					v := value.(int)
+					if v < 0 {
+						errs = append(errs, fmt.Errorf("Persistent keepalive interval must be a positive integer, got %d", v))
+					}
+					return
+				},
+			*/
+		},
+		"path": {
+			Type:        types.StringType,
+			Required:    true,
+			Description: "Full path for the file to be created at.",
+			// TODO: Add validation for path correctness
+		},
+		"op": {
+			Type:        types.StringType,
+			Required:    true,
+			Description: "Mode for the file. Can be one of create, append and overwrite.",
+			// TODO validate
+			/*
+				ValidateFunc: func(value interface{}, key string) (warns []string, errs []error) {
+					v := value.(string)
+					switch v {
+					case
+						"create",
+						"append",
+						"overwrite":
+						return
+					default:
+						errs = append(errs, fmt.Errorf("Invalid file op, must be one of \"create\", \"append\" or \"overwrite\", got %s", v))
+					}
+					return
+				},
+			*/
+		},
+	},
+}
+
+func (planFile File) Data() (interface{}, error) {
+	return &v1alpha1.MachineFile{
+		FileContent:     planFile.Content.Value,
+		FilePermissions: v1alpha1.FileMode(planFile.Permissions.Value),
+		FilePath:        planFile.Path.Value,
+		FileOp:          planFile.Op.Value,
+	}, nil
+}
+
+type nodeCommonData interface {
+	TalosData(*v1alpha1.Config) (*v1alpha1.Config, error)
+	ReadInto(*v1alpha1.Config) error
+	Generate() error
+}
+
+func checkArp(mac string) (net.IP, error) {
+	arp, err := os.Open("/proc/net/arp")
+	if err != nil {
+		return nil, err
+	}
+	defer arp.Close()
+
+	scanner := bufio.NewScanner(arp)
+	for scanner.Scan() {
+		f := strings.Fields(scanner.Text())
+		if strings.EqualFold(f[3], mac) {
+			return net.ParseIP(f[0]), nil
+		}
+	}
+
+	return nil, nil
+}
+
+func lookupIP(ctx context.Context, network string, mac string) (net.IP, error) {
+	// Check if it's in the initial table
+
+	ip := net.IP{}
+	var err error
+
+	if ip, err = checkArp(mac); err != nil {
+		return nil, err
+	}
+	if ip != nil {
+		return ip, err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 180*time.Second)
+	defer cancel()
+
+	for poll := true; poll; poll = (ip == nil) {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			err := exec.CommandContext(ctx, "nmap", "-sP", network).Run()
+			if err != nil {
+				return nil, fmt.Errorf("%s\n", err)
+			}
+			if ip, err = checkArp(mac); err != nil {
+				return nil, err
+			}
+			if ip != nil {
+				return ip, nil
+			}
+			time.Sleep(5 * time.Second)
+		}
+	}
+
+	return ip, nil
+}
+
+func makeTlsConfig(certs generate.Certs, secure bool) (tls.Config, error) {
+	tlsConfig := &tls.Config{}
+	if secure {
+		clientCert, err := tls.X509KeyPair(certs.Admin.Crt, certs.Admin.Key)
+		if err != nil {
+			return tls.Config{}, err
+		}
+
+		certPool := x509.NewCertPool()
+		if ok := certPool.AppendCertsFromPEM(certs.OS.Crt); !ok {
+			return tls.Config{}, fmt.Errorf("Unable to append certs from PEM")
+		}
+
+		return tls.Config{
+			RootCAs:      certPool,
+			Certificates: []tls.Certificate{clientCert},
+		}, nil
+	}
+
+	tlsConfig.InsecureSkipVerify = true
+	return tls.Config{
+		InsecureSkipVerify: true,
+	}, nil
+
+}
+
+func waitTillTalosMachineUp(ctx context.Context, tlsConfig tls.Config, host string, secure bool) error {
+	tflog.Info(ctx, "Waiting for talos machine to be up")
+	// overall timeout should be 5 mins
+
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(credentials.NewTLS(&tlsConfig)),
+		grpc.WithBlock(),
+	}
+	ctx, cancel := context.WithTimeout(ctx, 180*time.Second)
+	defer cancel()
+
+	for _, err := grpc.Dial(host, opts...); err != nil; {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			tflog.Info(ctx, "Retrying connection to "+host+" reason "+err.Error())
+			time.Sleep(5 * time.Second)
+		}
+	}
+
+	tflog.Info(ctx, "Waiting for talos machine to be up")
 
 	return nil
+}
+
+func insecureConn(ctx context.Context, host string) (*grpc.ClientConn, error) {
+	tlsConfig, err := makeTlsConfig(generate.Certs{}, false)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(credentials.NewTLS(&tlsConfig)),
+	}
+
+	waitTillTalosMachineUp(ctx, tlsConfig, host, false)
+
+	conn, err := grpc.DialContext(ctx, host, opts...)
+	if err != nil {
+		tflog.Error(ctx, "Error dailing talos.")
+		return nil, err
+	}
+
+	return conn, nil
+}
+
+func secureConn(ctx context.Context, input generate.Input, host string) (*grpc.ClientConn, error) {
+	tlsConfig, err := makeTlsConfig(*input.Certs, true)
+	if err != err {
+		return nil, err
+	}
+
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(credentials.NewTLS(&tlsConfig)),
+	}
+
+	waitTillTalosMachineUp(ctx, tlsConfig, host, true)
+
+	conn, err := grpc.DialContext(ctx, host, opts...)
+	if err != nil {
+		tflog.Error(ctx, "Error securely dailing talos.")
+		return nil, err
+	}
+
+	return conn, nil
 }
