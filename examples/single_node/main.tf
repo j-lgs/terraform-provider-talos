@@ -2,7 +2,7 @@ terraform {
   required_providers {
     talos = {
       source  = "localhost/j-lgs/talos"
-      version = "0.0.5"
+      version = "0.0.10"
     }
     libvirt = {
       source = "dmacvicar/libvirt"
@@ -17,9 +17,6 @@ terraform {
 
 provider "libvirt" {
   uri = "qemu:///system"
-}
-
-resource "macaddress" "single_example" {
 }
 
 resource "libvirt_volume" "talos" {
@@ -49,7 +46,6 @@ resource "libvirt_domain" "single_example" {
   network_interface {
     network_name   = "default"
     hostname       = "single_example"
-    mac            = upper(macaddress.single_example.address)
     wait_for_lease = true
   }
 }
