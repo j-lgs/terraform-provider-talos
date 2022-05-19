@@ -473,6 +473,14 @@ func (plan talosControlNodeResourceData) TalosData(in v1alpha1.Config) (out v1al
 		cd.ExtraManifests = append(cd.ExtraManifests, manifestUrl.Value)
 	}
 
+	for _, planManifest := range plan.InlineManifests {
+		manifest, err := planManifest.Data()
+		if err != nil {
+			return &v1alpha1.Config{}, err
+		}
+		cd.ClusterInlineManifests = append(cd.ClusterInlineManifests, manifest.(v1alpha1.ClusterInlineManifest))
+	}
+
 	return
 }
 
