@@ -6,16 +6,8 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
-
-func testAccTalosProviderFactory() map[string]*schema.Provider {
-	providers := map[string]*schema.Provider{
-		"talos": Provider(),
-	}
-	return providers
-}
 
 func TestAccResourceTalosWorker_basic(t *testing.T) {
 	rName := "basic-worker-create-and-update" + acctest.RandStringFromCharSet(10, acctest.CharSetAlpha)
@@ -23,9 +15,9 @@ func TestAccResourceTalosWorker_basic(t *testing.T) {
 	ips := genIPsNoCollision("192.168.122.", 2, 126, 2)
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
-		CheckDestroy: testAccCheckTalosWorkerDestroy,
-		Providers:    testAccTalosProviderFactory(),
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		CheckDestroy:             testAccCheckTalosWorkerDestroy,
 		ExternalProviders: map[string]resource.ExternalProvider{
 			"libvirt": {
 				VersionConstraint: "0.6.14",
@@ -45,8 +37,6 @@ func TestAccResourceTalosWorker_basic(t *testing.T) {
 		},
 	})
 }
-
-func testAccPreCheck(t *testing.T) {}
 
 func testAccCheckTalosWorkerDestroy(s *terraform.State) error {
 	// TODO: Figure out how to verify a talos node is destroyed

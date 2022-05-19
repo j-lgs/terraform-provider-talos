@@ -50,7 +50,7 @@ func testAccKubernetesConnectivity(path string, name string) resource.TestCheckF
 		}
 
 		is := rs.Primary
-		cidr, ok := is.Attributes["interface.0.addresses.0"]
+		cidr, ok := is.Attributes["devices.eth0.addresses.0"]
 		if !ok {
 			return fmt.Errorf("testTalosConnectivity: Unable to get interface 0, ip address 0, from resource")
 		}
@@ -93,7 +93,7 @@ func testAccKubernetesConnectivity(path string, name string) resource.TestCheckF
 
 func testTalosConnectivity(rs *terraform.ResourceState, path string, name string) error {
 	is := rs.Primary
-	cidr, ok := is.Attributes["interface.0.addresses.0"]
+	cidr, ok := is.Attributes["devices.eth0.addresses.0"]
 	if !ok {
 		return fmt.Errorf("testTalosConnectivity: Unable to get interface 0, ip address 0, from resource")
 	}
