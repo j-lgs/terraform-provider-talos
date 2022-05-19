@@ -243,39 +243,43 @@ type talosWorkerNodeResourceData struct {
 	ExtraHost       map[string][]types.String `tfsdk:"extra_host"`
 	Files           []File                    `tfsdk:"files"`
 	Env             map[string]types.String   `tfsdk:"env"`
+	Proxy           *ProxyConfig              `tfsdk:"proxy"`
 	Sysctls         map[string]types.String   `tfsdk:"sysctls"`
 	Sysfs           map[string]types.String   `tfsdk:"sysfs"`
 	Registry        *Registry                 `tfsdk:"registry"`
-	Udev            map[string]types.String   `tfsdk:"udev"`
-	Bootstrap       types.Bool                `tfsdk:"bootstrap"`
-	BootstrapIP     types.String              `tfsdk:"bootstrap_ip"`
+	Udev            []types.String            `tfsdk:"udev"`
+	ConfigIP        types.String              `tfsdk:"config_ip"`
 	BaseConfig      types.String              `tfsdk:"base_config"`
 	Patch           types.String              `tfsdk:"patch"`
 	Id              types.String              `tfsdk:"id"`
 }
 
-func (plan talosWorkerNodeResourceData) Generate() (err error) {
+func (plan *talosWorkerNodeResourceData) Generate() (err error) {
 	return
 }
 
-func (plan talosWorkerNodeResourceData) ReadInto(in *v1alpha1.Config) (err error) {
+func (plan *talosWorkerNodeResourceData) ReadInto(in *v1alpha1.Config) (err error) {
 	return
 }
 
-func (plan talosWorkerNodeResourceData) TalosData(in v1alpha1.Config) (out v1alpha1.Config, err error) {
-	in.DeepCopyInto(&out)
+func (plan *talosWorkerNodeResourceData) TalosData(in *v1alpha1.Config) (out *v1alpha1.Config, err error) {
+	out = &v1alpha1.Config{}
+	in.DeepCopyInto(out)
 
 	md := out.MachineConfig
+	cd := out.ClusterConfig
 	for _, san := range plan.CertSANS {
 		md.MachineCertSANs = append(md.MachineCertSANs, san.Value)
 	}
 
 	// Kubelet
-	kubelet, err := plan.Kubelet.Data()
-	if err != nil {
-		return v1alpha1.Config{}, err
+	if plan.Kubelet != nil {
+		kubelet, err := plan.Kubelet.Data()
+		if err != nil {
+			return &v1alpha1.Config{}, err
+		}
+		md.MachineKubelet = kubelet.(*v1alpha1.KubeletConfig)
 	}
-	md.MachineKubelet = kubelet.(*v1alpha1.KubeletConfig)
 
 	// NetworkDevices
 	md.MachineNetwork = &v1alpha1.NetworkConfig{}
@@ -323,6 +327,14 @@ func (plan talosWorkerNodeResourceData) TalosData(in v1alpha1.Config) (out v1alp
 		md.MachinePods = append(md.MachinePods, talosPod)
 	}
 
+	if plan.Proxy != nil {
+		proxy, err := plan.Proxy.Data()
+		if err != nil {
+			return &v1alpha1.Config{}, err
+		}
+		cd.ProxyConfig = proxy.(*v1alpha1.ProxyConfig)
+	}
+
 	md.MachineEnv = map[string]string{}
 	for name, value := range plan.Env {
 		md.MachineEnv[name] = value.Value
@@ -346,11 +358,13 @@ func (plan talosWorkerNodeResourceData) TalosData(in v1alpha1.Config) (out v1alp
 		md.MachineSysfs[path] = value.Value
 	}
 
-	registries, err := plan.Registry.Data()
-	if err != nil {
-		return v1alpha1.Config{}, err
+	if plan.Registry != nil {
+		registries, err := plan.Registry.Data()
+		if err != nil {
+			return &v1alpha1.Config{}, err
+		}
+		md.MachineRegistries = *registries.(*v1alpha1.RegistriesConfig)
 	}
-	md.MachineRegistries = *registries.(*v1alpha1.RegistriesConfig)
 
 	md.MachineUdev = &v1alpha1.UdevConfig{}
 	for _, rule := range plan.Udev {

@@ -367,11 +367,13 @@ func (plan talosControlNodeResourceData) TalosData(in v1alpha1.Config) (out v1al
 	}
 
 	// Kubelet
-	kubelet, err := plan.Kubelet.Data()
-	if err != nil {
-		return v1alpha1.Config{}, err
+	if plan.Kubelet != nil {
+		kubelet, err := plan.Kubelet.Data()
+		if err != nil {
+			return &v1alpha1.Config{}, err
+		}
+		md.MachineKubelet = kubelet.(*v1alpha1.KubeletConfig)
 	}
-	md.MachineKubelet = kubelet.(*v1alpha1.KubeletConfig)
 
 	// NetworkDevices
 	md.MachineNetwork = &v1alpha1.NetworkConfig{}
@@ -446,11 +448,21 @@ func (plan talosControlNodeResourceData) TalosData(in v1alpha1.Config) (out v1al
 		md.MachineSysfs[path] = value.Value
 	}
 
-	registries, err := plan.Registry.Data()
-	if err != nil {
-		return v1alpha1.Config{}, err
+	if plan.Proxy != nil {
+		proxy, err := plan.Proxy.Data()
+		if err != nil {
+			return &v1alpha1.Config{}, err
+		}
+		cd.ProxyConfig = proxy.(*v1alpha1.ProxyConfig)
 	}
-	md.MachineRegistries = *registries.(*v1alpha1.RegistriesConfig)
+
+	if plan.Registry != nil {
+		registries, err := plan.Registry.Data()
+		if err != nil {
+			return &v1alpha1.Config{}, err
+		}
+		md.MachineRegistries = *registries.(*v1alpha1.RegistriesConfig)
+	}
 
 	md.MachineUdev = &v1alpha1.UdevConfig{}
 	for _, rule := range plan.Udev {
