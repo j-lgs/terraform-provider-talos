@@ -113,6 +113,11 @@ func (r talosClusterConfigResource) Create(ctx context.Context, req tfsdk.Create
 		data            talosClusterConfigResourceData
 	)
 
+	if !r.provider.configured {
+		resp.Diagnostics.AddError("Provider not configured.", "The Talos configuration's Create method has been called without the provider being configured. This is a provider bug.")
+		return
+	}
+
 	diags := req.Config.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -187,10 +192,24 @@ func (r talosClusterConfigResource) Create(ctx context.Context, req tfsdk.Create
 }
 
 func (r talosClusterConfigResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+	if !r.provider.configured {
+		resp.Diagnostics.AddError("Provider not configured.", "The Talos configuration's Read method has been called without the provider being configured. This is a provider bug.")
+		return
+	}
 }
+
 func (r talosClusterConfigResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+	if !r.provider.configured {
+		resp.Diagnostics.AddError("Provider not configured.", "The Talos configuration's Update method has been called without the provider being configured. This is a provider bug.")
+		return
+	}
 }
+
 func (r talosClusterConfigResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+	if !r.provider.configured {
+		resp.Diagnostics.AddError("Provider not configured.", "The Talos configuration's Delete method has been called without the provider being configured. This is a provider bug.")
+		return
+	}
 }
 
 func (r talosClusterConfigResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {

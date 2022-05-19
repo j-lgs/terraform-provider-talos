@@ -429,7 +429,11 @@ func (r talosWorkerNodeResource) Read(ctx context.Context, req tfsdk.ReadResourc
 		state talosWorkerNodeResourceData
 	)
 
-	// Error is here. Look into it.
+	if !r.provider.configured {
+		resp.Diagnostics.AddError("Provider not configured.", "The Talos worker node resource's Read method has been called without the provider being configured. This is a provider bug.")
+		return
+	}
+
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
