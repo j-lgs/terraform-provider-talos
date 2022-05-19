@@ -182,7 +182,7 @@ var KubeletConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Attributes: map[string]tfsdk.Attribute{
 		"image": {
 			Type:        types.StringType,
-			Optional:    true,
+			Required:    true,
 			Description: "An optional reference to an alternative kubelet image.",
 			//			ValidateFunc: validateImage,
 		},
@@ -440,7 +440,7 @@ var NetworkDeviceSchema tfsdk.Schema = tfsdk.Schema{
 		},
 
 		"routes": {
-			Required:    true,
+			Optional:    true,
 			Attributes:  tfsdk.ListNestedAttributes(RouteSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			Description: RouteSchema.Description,
 		},
@@ -905,7 +905,7 @@ var VLANSchema tfsdk.Schema = tfsdk.Schema{
 			// TODO Add field validation
 		},
 		"routes": {
-			Required:    true,
+			Optional:    true,
 			Attributes:  tfsdk.ListNestedAttributes(RouteSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			Description: RouteSchema.Description,
 		},
@@ -1288,7 +1288,7 @@ var ProxyConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Attributes: map[string]tfsdk.Attribute{
 		"image": {
 			Type:        types.StringType,
-			Optional:    true,
+			Required:    true,
 			Description: "The container image used in the kube-proxy manifest.",
 			// TODO validate
 			// ValidateFunc: validateImage,
@@ -1345,8 +1345,8 @@ var ControlPlaneConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Attributes: map[string]tfsdk.Attribute{
 		"endpoint": {
 			Type:        types.StringType,
-			Required:    true,
-			Description: "Endpoint is the canonical controlplane endpoint64Type, which can be an IP address or a DNS hostname.",
+			Optional:    true,
+			Description: "Endpoint is the canonical controlplane endpoint, which can be an IP address or a DNS hostname.",
 			// TODO Verify well formed endpoint
 		},
 		"local_api_server_port": {
@@ -1378,7 +1378,7 @@ var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Attributes: map[string]tfsdk.Attribute{
 		"image": {
 			Type:        types.StringType,
-			Optional:    true,
+			Required:    true,
 			Description: "The container image used in the API server manifest.",
 			// TODO validation
 			// ValidateFunc: validateImage,
@@ -1408,7 +1408,7 @@ var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
 			Type: types.ListType{
 				ElemType: types.StringType,
 			},
-			Optional:    true,
+			Required:    true,
 			Description: "Extra certificate subject alternative names for the API server’s certificate.",
 		},
 		"disable_pod_security_policy": {
