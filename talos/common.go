@@ -1539,158 +1539,196 @@ func (planFile File) Data() (interface{}, error) {
 	}, nil
 }
 
-type nodeCommonData interface {
+// ExtraManifest describes inline bootstrap manifests for the user.
+type InlineManifest struct {
+	Name    types.String `tfsdk:"name"`
+	Content types.String `tfsdk:"content"`
+}
+
+var InlineManifestSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Describes inline bootstrap manifests for the user. These will get automatically deployed as part of the bootstrap.",
+	Attributes: map[string]tfsdk.Attribute{
+		"name": {
+			Type:        types.StringType,
+			Required:    true,
+			Description: "The manifest's name.",
+		},
+		"content": {
+			Type:        types.StringType,
+			Required:    true,
+			Description: "The manifest's content. Must be a valid kubernetes YAML.",
+			// TODO validate InlineManifestSchema content field
+		},
+	},
+}
+
+func (planManifest InlineManifest) Data() (interface{}, error) {
+	manifest := v1alpha1.ClusterInlineManifest{}
+
+	if planManifest.Name.Value != "" {
+		manifest.InlineManifestName = planManifest.Name.Value
+		manifest.InlineManifestContents = planManifest.Content.Value
+	}
+
+	return manifest, nil
+}
+
+func (planManifest InlineManifest) Read(talosInlineManifest interface{}) error {
+	manifest := talosInlineManifest.(v1alpha1.ClusterInlineManifest)
+	if manifest.InlineManifestName != "" {
+		planManifest.Name = types.String{Value: manifest.InlineManifestName}
+		planManifest.Content = types.String{Value: manifest.InlineManifestContents}
+	}
+
+	return nil
+}
+
+type nodeResourceData interface {
 	TalosData(*v1alpha1.Config) (*v1alpha1.Config, error)
 	ReadInto(*v1alpha1.Config) error
 	Generate() error
 }
 
-func checkArp(mac string) (net.IP, error) {
-	arp, err := os.Open("/proc/net/arp")
+type readData struct {
+	ConfigIP   string
+	BaseConfig string
+}
+
+func readConfig[N nodeResourceData](nodeData N, data readData, ctx context.Context) (out *v1alpha1.Config, errDesc string, err error) {
+	host := net.JoinHostPort(data.ConfigIP, strconv.Itoa(talos_port))
+
+	input := generate.Input{}
+	if err := json.Unmarshal([]byte(data.BaseConfig), &input); err != nil {
+		return nil, "Unable to marshal node's base_config data into it's generate.Input struct.", err
+	}
+
+	conn, err := secureConn(ctx, input, host)
 	if err != nil {
-		return nil, err
-	}
-	defer arp.Close()
-
-	scanner := bufio.NewScanner(arp)
-	for scanner.Scan() {
-		f := strings.Fields(scanner.Text())
-		if strings.EqualFold(f[3], mac) {
-			return net.ParseIP(f[0]), nil
-		}
+		return nil, "Unable to make a secure connection to read the node's Talos config.", err
 	}
 
-	return nil, nil
+	defer conn.Close()
+	client := resource.NewResourceServiceClient(conn)
+	resourceResp, err := client.Get(ctx, &resource.GetRequest{
+		Type:      "MachineConfig",
+		Namespace: "config",
+		Id:        "v1alpha1",
+	})
+	if err != nil {
+		return nil, "Error getting Machine Configuration", err
+	}
+
+	if len(resourceResp.Messages) < 1 {
+		return nil, "Invalid message count.",
+			fmt.Errorf("Invalid message count from the Talos resource get request. Expected > 1 but got %d", len(resourceResp.Messages))
+	}
+
+	out = &v1alpha1.Config{}
+	err = yaml.Unmarshal(resourceResp.Messages[0].Resource.Spec.Yaml, out)
+	if err != nil {
+		return nil, "Unable to unmarshal Talos configuration into it's struct.", err
+	}
+
+	return
 }
 
-func lookupIP(ctx context.Context, network string, mac string) (net.IP, error) {
-	// Check if it's in the initial table
-
-	ip := net.IP{}
-	var err error
-
-	if ip, err = checkArp(mac); err != nil {
-		return nil, err
-	}
-	if ip != nil {
-		return ip, err
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, 180*time.Second)
-	defer cancel()
-
-	for poll := true; poll; poll = (ip == nil) {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-			err := exec.CommandContext(ctx, "nmap", "-sP", network).Run()
-			if err != nil {
-				return nil, fmt.Errorf("%s\n", err)
-			}
-			if ip, err = checkArp(mac); err != nil {
-				return nil, err
-			}
-			if ip != nil {
-				return ip, nil
-			}
-			time.Sleep(5 * time.Second)
-		}
-	}
-
-	return ip, nil
+type configData struct {
+	Bootstrap   bool
+	CreateNode  bool
+	Mode        machine.ApplyConfigurationRequest_Mode
+	ConfigIP    string
+	BaseConfig  string
+	MachineType machinetype.Type
+	Network     string
+	MAC         string
 }
 
-func makeTlsConfig(certs generate.Certs, secure bool) (tls.Config, error) {
-	tlsConfig := &tls.Config{}
-	if secure {
-		clientCert, err := tls.X509KeyPair(certs.Admin.Crt, certs.Admin.Key)
+func applyConfig[N nodeResourceData](nodeData *N, data configData, ctx context.Context) (out string, errDesc string, err error) {
+	input := generate.Input{}
+	if err := json.Unmarshal([]byte(data.BaseConfig), &input); err != nil {
+		return "", "Failed to unmarshal input bundle", err
+	}
+
+	var cfg *v1alpha1.Config
+	cfg, err = generate.Config(data.MachineType, &input)
+	if err != nil {
+		return "", "Failed to generate Talos configuration struct for node.", err
+	}
+
+	(*nodeData).Generate()
+	newCfg, err := (*nodeData).TalosData(cfg)
+	if err != nil {
+		return "", "Failed to generate configuration", err
+	}
+
+	var confYaml []byte
+	confYaml, err = newCfg.Bytes()
+	if err != nil {
+		return "", "failed to generate config yaml.", err
+	}
+
+	re := regexp.MustCompile(`\s*#.*`)
+	no_comments := re.ReplaceAll(confYaml, nil)
+	os.WriteFile("/tmp/manifest.yaml", no_comments, 0644)
+	out = string(no_comments)
+
+	var conn *grpc.ClientConn
+	if data.CreateNode {
+		network := data.Network
+		mac := data.MAC
+
+		dhcpIp, err := lookupIP(ctx, network, mac)
 		if err != nil {
-			return tls.Config{}, err
+			return "", "Error looking up node IP", err
+		}
+		host := net.JoinHostPort(dhcpIp.String(), strconv.Itoa(talos_port))
+		conn, err = insecureConn(ctx, host)
+		if err != nil {
+			return "", "Unable to make insecure connection to Talos machine. Ensure it is in maintainence mode.", err
+		}
+	} else {
+		ip := data.ConfigIP
+		host := net.JoinHostPort(ip, strconv.Itoa(talos_port))
+		input := generate.Input{}
+		if err := json.Unmarshal([]byte(data.BaseConfig), &input); err != nil {
+			return "", "Unable to unmarshal BaseConfig json into a Talos Input struct.", err
 		}
 
-		certPool := x509.NewCertPool()
-		if ok := certPool.AppendCertsFromPEM(certs.OS.Crt); !ok {
-			return tls.Config{}, fmt.Errorf("Unable to append certs from PEM")
-		}
-
-		return tls.Config{
-			RootCAs:      certPool,
-			Certificates: []tls.Certificate{clientCert},
-		}, nil
-	}
-
-	tlsConfig.InsecureSkipVerify = true
-	return tls.Config{
-		InsecureSkipVerify: true,
-	}, nil
-
-}
-
-func waitTillTalosMachineUp(ctx context.Context, tlsConfig tls.Config, host string, secure bool) error {
-	tflog.Info(ctx, "Waiting for talos machine to be up")
-	// overall timeout should be 5 mins
-
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(&tlsConfig)),
-		grpc.WithBlock(),
-	}
-	ctx, cancel := context.WithTimeout(ctx, 180*time.Second)
-	defer cancel()
-
-	for _, err := grpc.Dial(host, opts...); err != nil; {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			tflog.Info(ctx, "Retrying connection to "+host+" reason "+err.Error())
-			time.Sleep(5 * time.Second)
+		conn, err = secureConn(ctx, input, host)
+		if err != nil {
+			return "", "Unable to make secure connection to the Talos machine.", err
 		}
 	}
 
-	tflog.Info(ctx, "Waiting for talos machine to be up")
-
-	return nil
-}
-
-func insecureConn(ctx context.Context, host string) (*grpc.ClientConn, error) {
-	tlsConfig, err := makeTlsConfig(generate.Certs{}, false)
+	defer conn.Close()
+	client := machine.NewMachineServiceClient(conn)
+	_, err = client.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
+		Data: []byte(out),
+		Mode: machine.ApplyConfigurationRequest_Mode(data.Mode),
+	})
 	if err != nil {
-		return nil, err
+		return "", "Error applying configuration", err
 	}
 
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(&tlsConfig)),
+	if data.MachineType == machinetype.TypeControlPlane && data.Bootstrap {
+		ip := data.ConfigIP
+		host := net.JoinHostPort(ip, strconv.Itoa(talos_port))
+		input := generate.Input{}
+		if err := json.Unmarshal([]byte(data.BaseConfig), &input); err != nil {
+			return "", "Unable to unmarshal BaseConfig json into a Talos Input struct.", err
+		}
+
+		conn, err := secureConn(ctx, input, host)
+		if err != nil {
+			return "", "Unable to make secure connection to the Talos machine.", err
+		}
+		defer conn.Close()
+		client := machine.NewMachineServiceClient(conn)
+		_, err = client.Bootstrap(ctx, &machine.BootstrapRequest{})
+		if err != nil {
+			return "", "Error attempting to bootstrap the machine.", err
+		}
 	}
 
-	waitTillTalosMachineUp(ctx, tlsConfig, host, false)
-
-	conn, err := grpc.DialContext(ctx, host, opts...)
-	if err != nil {
-		tflog.Error(ctx, "Error dailing talos.")
-		return nil, err
-	}
-
-	return conn, nil
-}
-
-func secureConn(ctx context.Context, input generate.Input, host string) (*grpc.ClientConn, error) {
-	tlsConfig, err := makeTlsConfig(*input.Certs, true)
-	if err != err {
-		return nil, err
-	}
-
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(&tlsConfig)),
-	}
-
-	waitTillTalosMachineUp(ctx, tlsConfig, host, true)
-
-	conn, err := grpc.DialContext(ctx, host, opts...)
-	if err != nil {
-		tflog.Error(ctx, "Error securely dailing talos.")
-		return nil, err
-	}
-
-	return conn, nil
+	return
 }

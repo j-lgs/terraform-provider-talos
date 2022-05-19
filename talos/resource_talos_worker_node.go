@@ -376,93 +376,33 @@ func (r talosWorkerNodeResource) Create(ctx context.Context, req tfsdk.CreateRes
 		plan talosWorkerNodeResourceData
 	)
 
-	// Error is here. Look into it.
+	if !r.provider.configured {
+		resp.Diagnostics.AddError("Provider not configured.", "The Talos worker node resource's Create method has been called without the provider being configured. This is a provider bug.")
+		return
+	}
+
 	diags := req.Config.Get(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	input := generate.Input{}
-	if err := json.Unmarshal([]byte(plan.BaseConfig.Value), &input); err != nil {
-		resp.Diagnostics.AddError("Failed to unmarshal input bundle", err.Error())
-		return
-	}
-
-	var controlCfg *v1alpha1.Config
-	controlCfg, err := generate.Config(machinetype.TypeWorker, &input)
+	p := &plan
+	config, errDesc, err := applyConfig(&p, configData{
+		Bootstrap:   false,
+		CreateNode:  true,
+		Mode:        machine.ApplyConfigurationRequest_REBOOT,
+		BaseConfig:  plan.BaseConfig.Value,
+		MachineType: machinetype.TypeWorker,
+		Network:     plan.DHCPNetworkCidr.Value,
+		MAC:         plan.Macaddr.Value,
+	}, ctx)
 	if err != nil {
-		resp.Diagnostics.AddError("Failed to generate Talos configuration struct for node.", err.Error())
+		resp.Diagnostics.AddError(errDesc, err.Error())
 		return
 	}
 
-	newCfg, err := plan.TalosData(*controlCfg)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to generate configuration", err.Error())
-		return
-	}
-	plan.Generate()
-
-	var workerYaml []byte
-	workerYaml, err = newCfg.Bytes()
-	if err != nil {
-		resp.Diagnostics.AddError("failed to generate config yaml.", err.Error())
-		return
-	}
-
-	re := regexp.MustCompile(`\s*#.*`)
-	no_comments := re.ReplaceAll(workerYaml, nil)
-	plan.Patch.Value = string(no_comments)
-	tflog.Error(ctx, string(no_comments))
-
-	bootstrap := plan.Bootstrap.Value
-	network := plan.DHCPNetworkCidr.Value
-	mac := plan.Macaddr.Value
-
-	dhcpIp, err := lookupIP(ctx, network, mac)
-	if err != nil {
-		resp.Diagnostics.AddError("Error looking up node IP", err.Error())
-		return
-	}
-	host := net.JoinHostPort(dhcpIp.String(), strconv.Itoa(talos_port))
-	conn, err := insecureConn(ctx, host)
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to make insecure connection to Talos machine. Ensure it is in maintainence mode.", err.Error())
-		return
-	}
-	defer conn.Close()
-	client := machine.NewMachineServiceClient(conn)
-	_, err = client.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
-		Data: []byte(plan.Patch.Value),
-		Mode: machine.ApplyConfigurationRequest_Mode(machine.ApplyConfigurationRequest_REBOOT),
-	})
-	if err != nil {
-		resp.Diagnostics.AddError("Error applying configuration", err.Error())
-		return
-	}
-
-	if bootstrap {
-		ip := plan.BootstrapIP.Value
-		host := net.JoinHostPort(ip, strconv.Itoa(talos_port))
-		input := generate.Input{}
-		if err := json.Unmarshal([]byte(plan.BaseConfig.Value), &input); err != nil {
-			resp.Diagnostics.AddError("Unable to unmarshal BaseConfig json into a Talos Input struct.", err.Error())
-			return
-		}
-
-		conn, err := secureConn(ctx, input, host)
-		if err != nil {
-			resp.Diagnostics.AddError("Unable to make secure connection to the Talos machine.", err.Error())
-			return
-		}
-		defer conn.Close()
-		client := machine.NewMachineServiceClient(conn)
-		_, err = client.Bootstrap(ctx, &machine.BootstrapRequest{})
-		if err != nil {
-			resp.Diagnostics.AddError("Error attempting to bootstrap the machine.", err.Error())
-			return
-		}
-	}
+	plan.Patch = types.String{Value: config}
 
 	plan.Id = types.String{Value: string(plan.Name.Value)}
 	diags = resp.State.Set(ctx, &plan)
@@ -483,46 +423,18 @@ func (r talosWorkerNodeResource) Read(ctx context.Context, req tfsdk.ReadResourc
 		return
 	}
 
-	host := net.JoinHostPort(state.BootstrapIP.Value, strconv.Itoa(talos_port))
+	if !r.provider.forcedelete {
+		conf, errDesc, err := readConfig(&state, readData{
+			ConfigIP:   state.ConfigIP.Value,
+			BaseConfig: state.BaseConfig.Value,
+		}, ctx)
+		if err != nil {
+			resp.Diagnostics.AddError(errDesc, err.Error())
+			return
+		}
 
-	input := generate.Input{}
-	if err := json.Unmarshal([]byte(state.BaseConfig.Value), &input); err != nil {
-		resp.Diagnostics.AddError("Unable to marshal node's base_config data into it's generate.Input struct.", err.Error())
-		return
+		state.ReadInto(conf)
 	}
-
-	conn, err := secureConn(ctx, input, host)
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to make a secure connection to read the node's Talos config.", err.Error())
-		return
-	}
-
-	defer conn.Close()
-	client := resource.NewResourceServiceClient(conn)
-	resourceResp, err := client.Get(ctx, &resource.GetRequest{
-		Type:      "MachineConfig",
-		Namespace: "config",
-		Id:        "v1alpha1",
-	})
-	if err != nil {
-		resp.Diagnostics.AddError("Error getting Machine Configuration", err.Error())
-		return
-	}
-
-	if len(resourceResp.Messages) < 1 {
-		resp.Diagnostics.AddError("Invalid message count.",
-			fmt.Sprintf("Invalid message count from the Talos resource get request. Expected > 1 but got %d", len(resourceResp.Messages)))
-		return
-	}
-
-	conf := v1alpha1.Config{}
-	err = yaml.Unmarshal(resourceResp.Messages[0].Resource.Spec.Yaml, &conf)
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to unmarshal Talos configuration into it's struct.", err.Error())
-		return
-	}
-
-	state.ReadInto(&conf)
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -534,69 +446,55 @@ func (r talosWorkerNodeResource) Update(ctx context.Context, req tfsdk.UpdateRes
 		state talosWorkerNodeResourceData
 	)
 
-	// Error is here. Look into it.
+	if !r.provider.configured {
+		resp.Diagnostics.AddError("Provider not configured.", "The Talos worker node resource's Update method has been called without the provider being configured. This is a provider bug.")
+		return
+	}
+
 	diags := req.Config.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	input := generate.Input{}
-	if err := json.Unmarshal([]byte(state.BaseConfig.Value), &input); err != nil {
-		resp.Diagnostics.AddError("Failed to unmarshal input bundle", err.Error())
+	p := &state
+	config, errDesc, err := applyConfig(&p, configData{
+		Bootstrap:   false,
+		ConfigIP:    state.ConfigIP.Value,
+		Mode:        machine.ApplyConfigurationRequest_AUTO,
+		BaseConfig:  state.BaseConfig.Value,
+		MachineType: machinetype.TypeWorker,
+		Network:     state.DHCPNetworkCidr.Value,
+		MAC:         state.Macaddr.Value,
+	}, ctx)
+	if err != nil {
+		resp.Diagnostics.AddError(errDesc, err.Error())
 		return
 	}
 
-	var workerCfg *v1alpha1.Config
-	workerCfg, err := generate.Config(machinetype.TypeWorker, &input)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to generate Talos configuration struct for node.", err.Error())
-		return
-	}
+	state.Patch = types.String{Value: config}
 
-	newCfg, err := state.TalosData(*workerCfg)
-	if err != nil {
-		resp.Diagnostics.AddError("Failed to generate configuration", err.Error())
-		return
-	}
-	state.Generate()
-
-	var controlYaml []byte
-	controlYaml, err = newCfg.Bytes()
-	if err != nil {
-		resp.Diagnostics.AddError("failed to generate config yaml.", err.Error())
-		return
-	}
-
-	re := regexp.MustCompile(`\s*#.*`)
-	no_comments := re.ReplaceAll(controlYaml, nil)
-	state.Patch.Value = string(no_comments)
-	tflog.Error(ctx, string(no_comments))
-
-	ip := state.BootstrapIP.Value
-	host := net.JoinHostPort(ip, strconv.Itoa(talos_port))
-
-	conn, err := secureConn(ctx, input, host)
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to make secure connection to the Talos machine.", err.Error())
-		return
-	}
-	defer conn.Close()
-
-	client := machine.NewMachineServiceClient(conn)
-	talosResp, err := client.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
-		Data: no_comments,
-		Mode: machine.ApplyConfigurationRequest_Mode(machine.ApplyConfigurationRequest_AUTO),
-	})
-	if err != nil {
-		resp.Diagnostics.AddError("Error while attempting to update the node's configuration.", err.Error()+"\n"+talosResp.String())
-		return
+	if !r.provider.forcedelete {
+		conf, errDesc, err := readConfig(&state, readData{
+			ConfigIP:   state.ConfigIP.Value,
+			BaseConfig: state.BaseConfig.Value,
+		}, ctx)
+		if err != nil {
+			resp.Diagnostics.AddError(errDesc, err.Error())
+			return
+		}
+		state.ReadInto(conf)
 	}
 
 	return
 }
 
 func (r talosWorkerNodeResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+	if !r.provider.configured {
+		resp.Diagnostics.AddError("Provider not configured.", "The Talos worker node resource's Read method has been called without the provider being configured. This is a provider bug.")
+		return
+	}
+
 	return
 }
 
