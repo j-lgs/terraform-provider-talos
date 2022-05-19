@@ -7,7 +7,6 @@ import (
 
 	"hash/fnv"
 
-	"github.com/ghodss/yaml"
 	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 
@@ -173,7 +172,7 @@ func (r talosClusterConfigResource) Create(ctx context.Context, req tfsdk.Create
 		return
 	}
 
-	config, err := yaml.Marshal(talosconfig)
+	config, err := talosconfig.Bytes()
 	if err != nil {
 		diags.AddError("Error getting talosconfig bytes.", err.Error())
 		return

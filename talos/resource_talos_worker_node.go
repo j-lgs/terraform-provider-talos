@@ -2,27 +2,18 @@ package talos
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"net"
-	"regexp"
-	"strconv"
-
-	"github.com/talos-systems/talos/pkg/machinery/api/resource"
 
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 
 	"github.com/talos-systems/talos/pkg/machinery/api/machine"
 	"gopkg.in/yaml.v2"
 
-	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	machinetype "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 var _ tfsdk.ResourceType = talosWorkerNodeResourceType{}
@@ -95,6 +86,12 @@ func (t talosWorkerNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema,
 				Optional:    true,
 				Description: KubeletConfigSchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(KubeletConfigSchema.Attributes),
+			},
+
+			"proxy": {
+				Optional:    true,
+				Description: ProxyConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(ProxyConfigSchema.Attributes),
 			},
 
 			"pod": {
@@ -171,7 +168,7 @@ func (t talosWorkerNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema,
 			// system_disk_encryption not implemented
 			// features not implemented
 			"udev": {
-				Type: types.MapType{
+				Type: types.ListType{
 					ElemType: types.StringType,
 				},
 				Description: "Configures the udev system.",
@@ -182,15 +179,6 @@ func (t talosWorkerNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema,
 			// kernel not implemented
 			// ----- MachineConfig End
 			// ----- Resource Cluster bootstrap configuration
-			"bootstrap": {
-				Type:     types.BoolType,
-				Required: true,
-			},
-			"bootstrap_ip": {
-				Type:     types.StringType,
-				Required: true,
-				// ValidateFunc: validateIP,
-			},
 
 			// From the cluster provider
 			"base_config": {
@@ -208,7 +196,11 @@ func (t talosWorkerNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema,
 					},
 				*/
 			},
-
+			"config_ip": {
+				Type:     types.StringType,
+				Required: true,
+				// ValidateFunc: validateIP,
+			},
 			// Generated
 			"patch": {
 				Type:      types.StringType,
@@ -231,7 +223,7 @@ type talosWorkerNodeResourceData struct {
 	Name            types.String              `tfsdk:"name"`
 	InstallDisk     types.String              `tfsdk:"install_disk"`
 	TalosImage      types.String              `tfsdk:"talos_image"`
-	KernelArgs      map[string]types.String   `tfsdk:"kernel_args"`
+	KernelArgs      []types.String            `tfsdk:"kernel_args"`
 	Macaddr         types.String              `tfsdk:"macaddr"`
 	DHCPNetworkCidr types.String              `tfsdk:"dhcp_network_cidr"`
 	CertSANS        []types.String            `tfsdk:"cert_sans"`
@@ -289,7 +281,7 @@ func (plan *talosWorkerNodeResourceData) TalosData(in *v1alpha1.Config) (out *v1
 	for netInterface, device := range plan.NetworkDevices {
 		dev, err := device.Data()
 		if err != nil {
-			return v1alpha1.Config{}, err
+			return &v1alpha1.Config{}, err
 		}
 		dev.(*v1alpha1.Device).DeviceInterface = netInterface
 		md.MachineNetwork.NetworkInterfaces = append(md.MachineNetwork.NetworkInterfaces, dev.(*v1alpha1.Device))
@@ -307,13 +299,14 @@ func (plan *talosWorkerNodeResourceData) TalosData(in *v1alpha1.Config) (out *v1
 	}
 
 	md.MachineInstall = &v1alpha1.InstallConfig{
-		InstallDisk:  plan.InstallDisk.Value,
-		InstallImage: plan.TalosImage.Value,
+		InstallDisk:       plan.InstallDisk.Value,
+		InstallImage:      plan.TalosImage.Value,
+		InstallBootloader: true,
 	}
 	if plan.KernelArgs != nil {
 		md.MachineInstall.InstallExtraKernelArgs = []string{}
-		for k, arg := range plan.KernelArgs {
-			md.MachineInstall.InstallExtraKernelArgs = append(md.MachineInstall.InstallExtraKernelArgs, k+"="+arg.Value)
+		for _, arg := range plan.KernelArgs {
+			md.MachineInstall.InstallExtraKernelArgs = append(md.MachineInstall.InstallExtraKernelArgs, arg.Value)
 		}
 	}
 
@@ -343,7 +336,7 @@ func (plan *talosWorkerNodeResourceData) TalosData(in *v1alpha1.Config) (out *v1
 	for _, planFile := range plan.Files {
 		file, err := planFile.Data()
 		if err != nil {
-			return v1alpha1.Config{}, err
+			return &v1alpha1.Config{}, err
 		}
 		md.MachineFiles = append(md.MachineFiles, file.(*v1alpha1.MachineFile))
 	}

@@ -427,13 +427,15 @@ func (config RegistryConfig) Data() (interface{}, error) {
 	conf := &v1alpha1.RegistryConfig{}
 
 	conf.RegistryTLS = &v1alpha1.RegistryTLSConfig{}
-	conf.RegistryTLS.TLSClientIdentity = &talosx509.PEMEncodedCertificateAndKey{}
 	conf.RegistryAuth = &v1alpha1.RegistryAuthConfig{}
 	if !config.ClientCRT.Null {
-		conf.RegistryTLS.TLSClientIdentity.Crt = []byte(config.ClientCRT.Value)
+		conf.RegistryTLS.TLSClientIdentity = &talosx509.PEMEncodedCertificateAndKey{
+			Crt: []byte(config.ClientCRT.Value),
+			Key: []byte(config.ClientKey.Value),
+		}
 	}
-	if !config.ClientKey.Null {
-		conf.RegistryTLS.TLSClientIdentity.Key = []byte(config.ClientKey.Value)
+	if !config.CA.Null {
+		conf.RegistryTLS.TLSCA = []byte(config.CA.Value)
 	}
 	if !config.InsecureSkipVerify.Null {
 		conf.RegistryTLS.TLSInsecureSkipVerify = config.InsecureSkipVerify.Value
@@ -1256,7 +1258,7 @@ var MachineControlPlaneSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
-func (planMachineControlPlane MachineControlPlane) data() (interface{}, error) {
+func (planMachineControlPlane MachineControlPlane) Data() (interface{}, error) {
 	controlConf := &v1alpha1.MachineControlPlaneConfig{
 		MachineControllerManager: &v1alpha1.MachineControllerManagerConfig{},
 		MachineScheduler:         &v1alpha1.MachineSchedulerConfig{},

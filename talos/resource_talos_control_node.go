@@ -2,13 +2,7 @@ package talos
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"net"
-	"regexp"
-	"strconv"
-
-	"github.com/talos-systems/talos/pkg/machinery/api/resource"
+	"net/url"
 
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 
@@ -16,7 +10,6 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gopkg.in/yaml.v2"
 
-	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	machinetype "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -174,7 +167,7 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 			// system_disk_encryption not implemented
 			// features not implemented
 			"udev": {
-				Type: types.MapType{
+				Type: types.ListType{
 					ElemType: types.StringType,
 				},
 				Description: "Configures the udev system.",
@@ -201,7 +194,7 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 			},
 
 			// controller manager not implemented
-			"proxy_config": {
+			"proxy": {
 				Optional:    true,
 				Description: ProxyConfigSchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(ProxyConfigSchema.Attributes),
@@ -213,7 +206,7 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 			// coredns not implemented
 			// external_cloud_provider not implemented
 			"extra_manifests": {
-				Type: types.MapType{
+				Type: types.ListType{
 					ElemType: types.StringType,
 				},
 				Description: "A list of urls that point to additional manifests. These will get automatically deployed as part of the bootstrap.",
@@ -222,6 +215,12 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 
 			// TODO Add verification function confirming it's a correct manifest that can be downloaded.
 			// inline_manifests not implemented
+			"inline_manifests": {
+				Optional:    true,
+				Description: InlineManifestSchema.Description,
+				Attributes:  tfsdk.ListNestedAttributes(InlineManifestSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			},
+
 			// admin_kubeconfig not implemented
 			"allow_scheduling_on_masters": {
 				Type:        types.BoolType,
@@ -280,7 +279,7 @@ type talosControlNodeResourceData struct {
 	Name                     types.String              `tfsdk:"name"`
 	InstallDisk              types.String              `tfsdk:"install_disk"`
 	TalosImage               types.String              `tfsdk:"talos_image"`
-	KernelArgs               map[string]types.String   `tfsdk:"kernel_args"`
+	KernelArgs               []types.String            `tfsdk:"kernel_args"`
 	Macaddr                  types.String              `tfsdk:"macaddr"`
 	DHCPNetworkCidr          types.String              `tfsdk:"dhcp_network_cidr"`
 	CertSANS                 []types.String            `tfsdk:"cert_sans"`
@@ -295,26 +294,26 @@ type talosControlNodeResourceData struct {
 	Sysctls                  map[string]types.String   `tfsdk:"sysctls"`
 	Sysfs                    map[string]types.String   `tfsdk:"sysfs"`
 	Registry                 *Registry                 `tfsdk:"registry"`
-	Udev                     map[string]types.String   `tfsdk:"udev"`
+	Udev                     []types.String            `tfsdk:"udev"`
 	MachineControlPlane      *MachineControlPlane      `tfsdk:"control_plane_config"`
 	APIServer                *APIServerConfig          `tfsdk:"apiserver"`
-	Proxy                    *ProxyConfig              `tfsdk:"proxy_config"`
-	ExtraManifests           map[string]types.String   `tfsdk:"extra_manifests"`
+	Proxy                    *ProxyConfig              `tfsdk:"proxy"`
+	ExtraManifests           []types.String            `tfsdk:"extra_manifests"`
+	InlineManifests          []InlineManifest          `tfsdk:"inline_manifests"`
 	AllowSchedulingOnMasters types.Bool                `tfsdk:"allow_scheduling_on_masters"`
 	Bootstrap                types.Bool                `tfsdk:"bootstrap"`
-	BootstrapIP              types.String              `tfsdk:"bootstrap_ip"`
+	ConfigIP                 types.String              `tfsdk:"bootstrap_ip"`
 	BaseConfig               types.String              `tfsdk:"base_config"`
 	Patch                    types.String              `tfsdk:"patch"`
 	Id                       types.String              `tfsdk:"id"`
 }
 
-func (plan talosControlNodeResourceData) Generate() (err error) {
+func (plan *talosControlNodeResourceData) Generate() (err error) {
 	// Generate wireguard keys.
 	for _, device := range plan.NetworkDevices {
 		// If the device's wireguard configuration exists, derive the public key from it's private key.
 		if device.Wireguard != nil {
 			var pk wgtypes.Key
-
 			// If a key doesn't exist make one, otherwise generate one.
 			if device.Wireguard.PrivateKey.Null {
 				pk, err = wgtypes.GeneratePrivateKey()
@@ -334,19 +333,43 @@ func (plan talosControlNodeResourceData) Generate() (err error) {
 	return
 }
 
-func (plan talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err error) {
+func (plan *talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err error) {
+	plan.Nameservers = []types.String{}
+	for _, ns := range in.MachineConfig.MachineNetwork.NameServers {
+		plan.Nameservers = append(plan.Nameservers, types.String{Value: ns})
+	}
+	/*
+		plan.ExtraManifests = []types.String{}
+		for _, manifestUrl := range in.ClusterConfig.ExtraManifests {
+			plan.ExtraManifests = append(plan.ExtraManifests, types.String{Value: manifestUrl})
+		}
+		for _, inlineManifest := range in.ClusterConfig.ClusterInlineManifests {
+			tfInlineManifest := InlineManifest{}
+			err := tfInlineManifest.Read(inlineManifest)
+			if err != nil {
+				return err
+			}
+			plan.InlineManifests = append(plan.InlineManifests, tfInlineManifest)
+		}
+	*/
 	return
 }
 
-func (plan talosControlNodeResourceData) TalosData(in v1alpha1.Config) (out v1alpha1.Config, err error) {
-	in.DeepCopyInto(&out)
+func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v1alpha1.Config, err error) {
+	out = &v1alpha1.Config{}
+	in.DeepCopyInto(out)
 	cd := out.ClusterConfig
 	if plan.ControlPlane != nil {
-		/* Refrain from setting this for now because it's set in the cluster config resource
+		/* Refrain from setting this for now because it's set in the cluster config resource */
 		if !plan.ControlPlane.Endpoint.Null {
-			cd.ControlPlane.Endpoint = plan.ControlPlane.Endpoint
+			url, err := url.Parse(plan.ControlPlane.Endpoint.Value)
+			if err != nil {
+				return &v1alpha1.Config{}, err
+			}
+			cd.ControlPlane.Endpoint = &v1alpha1.Endpoint{
+				URL: url,
+			}
 		}
-		*/
 		if !plan.ControlPlane.LocalAPIServerPort.Null {
 			cd.ControlPlane.LocalAPIServerPort = int(plan.ControlPlane.LocalAPIServerPort.Value)
 		}
@@ -355,7 +378,7 @@ func (plan talosControlNodeResourceData) TalosData(in v1alpha1.Config) (out v1al
 	if plan.APIServer != nil {
 		apiserver, err := plan.APIServer.Data()
 		if err != nil {
-			return v1alpha1.Config{}, err
+			return &v1alpha1.Config{}, err
 		}
 		cd.APIServerConfig = apiserver.(*v1alpha1.APIServerConfig)
 
@@ -383,12 +406,14 @@ func (plan talosControlNodeResourceData) TalosData(in v1alpha1.Config) (out v1al
 	for netInterface, device := range plan.NetworkDevices {
 		dev, err := device.Data()
 		if err != nil {
-			return v1alpha1.Config{}, err
+			return &v1alpha1.Config{}, err
 		}
 		dev.(*v1alpha1.Device).DeviceInterface = netInterface
 		md.MachineNetwork.NetworkInterfaces = append(md.MachineNetwork.NetworkInterfaces, dev.(*v1alpha1.Device))
 	}
-
+	for _, ns := range plan.Nameservers {
+		md.MachineNetwork.NameServers = append(md.MachineNetwork.NameServers, ns.Value)
+	}
 	md.MachineNetwork.ExtraHostEntries = []*v1alpha1.ExtraHost{}
 	for hostname, addresses := range plan.ExtraHost {
 		host := &v1alpha1.ExtraHost{
@@ -401,18 +426,23 @@ func (plan talosControlNodeResourceData) TalosData(in v1alpha1.Config) (out v1al
 	}
 
 	md.MachineInstall = &v1alpha1.InstallConfig{
-		InstallDisk:  plan.InstallDisk.Value,
-		InstallImage: plan.TalosImage.Value,
+		InstallDisk:       plan.InstallDisk.Value,
+		InstallImage:      plan.TalosImage.Value,
+		InstallBootloader: true,
 	}
 	if plan.KernelArgs != nil {
 		md.MachineInstall.InstallExtraKernelArgs = []string{}
-		for k, arg := range plan.KernelArgs {
-			md.MachineInstall.InstallExtraKernelArgs = append(md.MachineInstall.InstallExtraKernelArgs, k+"="+arg.Value)
+		for _, arg := range plan.KernelArgs {
+			md.MachineInstall.InstallExtraKernelArgs = append(md.MachineInstall.InstallExtraKernelArgs, arg.Value)
 		}
 	}
 
 	if plan.MachineControlPlane != nil {
-
+		mcp, err := plan.MachineControlPlane.Data()
+		if err != nil {
+			return &v1alpha1.Config{}, err
+		}
+		md.MachineControlPlane = mcp.(*v1alpha1.MachineControlPlaneConfig)
 	}
 
 	for _, pod := range plan.Pod {
@@ -433,7 +463,7 @@ func (plan talosControlNodeResourceData) TalosData(in v1alpha1.Config) (out v1al
 	for _, planFile := range plan.Files {
 		file, err := planFile.Data()
 		if err != nil {
-			return v1alpha1.Config{}, err
+			return &v1alpha1.Config{}, err
 		}
 		md.MachineFiles = append(md.MachineFiles, file.(*v1alpha1.MachineFile))
 	}

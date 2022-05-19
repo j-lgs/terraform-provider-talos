@@ -3,6 +3,7 @@ package talos
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -17,7 +18,13 @@ var _ tfsdk.Provider = &provider{}
 
 type provider struct {
 	configured bool
-	version    string
+	// forcedelete is used to recover from broken deployments, where the node fails to deploy,
+	// but the provider thinks it exists. In this situation it will try to refresh its status using talos's api,
+	// which will not be up because nodes are in a broken state. This will cause the plugin to hang and timeout when
+	// connecting.
+	forcedelete bool
+	forceread   bool
+	version     string
 }
 
 // Configure creates an instance of a Talos API helper struct and set it as the "client" attribute for the provider struct.
@@ -26,6 +33,7 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 		return
 	}
 	p.configured = true
+	_, p.forcedelete = os.LookupEnv("TALOS_FORCE_DELETE")
 }
 
 // GetResources returns a map of all provider resources.
@@ -33,7 +41,7 @@ func (p *provider) GetResources(ctx context.Context) (map[string]tfsdk.ResourceT
 	return map[string]tfsdk.ResourceType{
 		"talos_configuration": talosClusterConfigResourceType{},
 		"talos_control_node":  talosControlNodeResourceType{},
-		//"talos_worker_node":   resourceTalosWorkerNode{},
+		"talos_worker_node":   talosWorkerNodeResourceType{},
 	}, nil
 }
 
