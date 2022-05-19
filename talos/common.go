@@ -254,10 +254,51 @@ func (kubelet KubeletConfig) Data() (interface{}, error) {
 		}
 		talosKubelet.KubeletExtraMounts = append(talosKubelet.KubeletExtraMounts, m.(v1alpha1.ExtraMount))
 	}
+	if len(kubelet.NodeIPValidSubnets) > 0 {
+		talosKubelet.KubeletNodeIP = v1alpha1.KubeletNodeIPConfig{}
+	}
 	for _, subnet := range kubelet.NodeIPValidSubnets {
 		talosKubelet.KubeletNodeIP.KubeletNodeIPValidSubnets = append(talosKubelet.KubeletClusterDNS, subnet.Value)
 	}
 	return talosKubelet, nil
+}
+
+func (tfKubelet *KubeletConfig) Read(talosKubelet interface{}) error {
+	kubelet := talosKubelet.(*v1alpha1.KubeletConfig)
+	if kubelet.KubeletImage != "" {
+		tfKubelet.Image = types.String{Value: kubelet.KubeletImage}
+	}
+
+	tfKubelet.RegisterWithFQDN = types.Bool{Value: kubelet.KubeletRegisterWithFQDN}
+
+	if !reflect.DeepEqual(kubelet.KubeletExtraConfig.Object, map[string]interface{}{}) {
+		bytes, err := yaml.Marshal(&kubelet.KubeletExtraConfig)
+		if err != nil {
+			return err
+		}
+		tfKubelet.ExtraConfig = types.String{Value: string(bytes)}
+	}
+
+	for _, dns := range kubelet.KubeletClusterDNS {
+		tfKubelet.ClusterDNS = append(tfKubelet.ClusterDNS, types.String{Value: dns})
+	}
+
+	for _, mount := range kubelet.KubeletExtraMounts {
+		extraMount := ExtraMount{}
+		err := extraMount.Read(mount)
+		if err != nil {
+			return err
+		}
+		tfKubelet.ExtraMounts = append(tfKubelet.ExtraMounts, extraMount)
+	}
+
+	if !reflect.DeepEqual(kubelet.KubeletNodeIP, v1alpha1.KubeletNodeIPConfig{}) {
+		for _, subnet := range kubelet.KubeletNodeIP.KubeletNodeIPValidSubnets {
+			tfKubelet.NodeIPValidSubnets = append(tfKubelet.NodeIPValidSubnets, types.String{Value: subnet})
+		}
+	}
+
+	return nil
 }
 
 // Registry represents the image pull options.
