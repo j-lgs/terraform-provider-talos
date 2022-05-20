@@ -37,13 +37,7 @@ test:
 
 acc-test:
 	@echo " -> acceptance testing code"
-
-	@mkdir -p .tmp
-	@wget -P .tmp -nc "https://github.com/siderolabs/talos/releases/download/v1.0.4/talos-amd64.iso"
-	@pgrep http-server >/dev/null && echo "http-server still running on PID $$(pgrep http-server)" || http-server .tmp -p 8000 -s --no-dotfiles &
-
-	TF_ACC=1 go test -v ./talos
-	@kill "$$(pgrep http-server)"
+	TF_ACC=1 MACHINELOG_DIR=$$(pwd) TALOSCONF_DIR=$$(pwd) REGISTRY_CACHE=$$(pwd)/.registrycache go test -v ./talos
 
 build:
 	@echo " -> Building"

@@ -6,72 +6,230 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"text/template"
 	"time"
 
-	talosresource "github.com/talos-systems/talos/pkg/machinery/api/resource"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	talosresource "github.com/talos-systems/talos/pkg/machinery/api/resource"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 )
 
-func testAccTalosConnectivity(path string, name string) resource.TestCheckFunc {
-	return func(s *terraform.State) error {
-		rs, ok := s.RootModule().Resources[path]
-		if !ok {
-			return fmt.Errorf("Not found: %s", path)
-		}
+// Talos configuration related global variables
+var (
+	kubernetesVersion string = "1.23.6"
+)
 
-		return testTalosConnectivity(rs, path, name)
-	}
+// testConfig defines input variables needed when templating talos_configuration resource
+// Terraform configurations.
+type testConfig struct {
+	Endpoint     string
+	KubeEndpoint string
+	KubeVersion  string
+	TalosConfig  string
 }
 
-func genIPsNoCollision(ipbase string, min int, max int, n int) []string {
-	ips := []string{}
-	f := rand.Perm(max - min)
-
-	for i := 0; i < n; i++ {
-		ips = append(ips, ipbase+strconv.Itoa(min+f[i]))
+// talosConfig templates a Terraform configuration describing a talos_configuration resource.
+func testTalosConfig(config *testConfig) string {
+	if config.KubeEndpoint == "" {
+		config.KubeEndpoint = "https://" + config.Endpoint + ":6443"
 	}
 
-	return ips
+	dir, exists := os.LookupEnv("TALOSCONF_DIR")
+	if !exists {
+		dir = "/tmp"
+	}
+	config.TalosConfig = filepath.Join(dir, ".talosconfig")
+	log.Printf("talos: %s\n", filepath.Join(dir, "talosconfig"))
+
+	config.KubeVersion = kubernetesVersion
+	t := template.Must(template.New("").Parse(`
+
+resource "talos_configuration" "cluster" {
+  target_version = "v1.0"
+  name = "taloscluster"
+  talos_endpoints = ["{{.Endpoint}}"]
+  kubernetes_endpoint = "{{.KubeEndpoint}}"
+  kubernetes_version = "{{.KubeVersion}}"
 }
 
-func testAccKubernetesConnectivity(path string, name string) resource.TestCheckFunc {
+resource "local_file" "talosconfig" {
+  filename = "{{.TalosConfig}}"
+  content = talos_configuration.cluster.talos_config
+}
+
+`))
+	var b bytes.Buffer
+	t.Execute(&b, config)
+	return b.String()
+}
+
+// Control and worker node related global variables.
+var (
+	installDisk  string = "/dev/vdb"
+	talosVersion string = "v1.0.5"
+	installImage string = "ghcr.io/siderolabs/installer:" + talosVersion
+	setupNetwork string = "192.168.124.0/24"
+	gateway      string = "192.168.124.1"
+	nameserver   string = "192.168.124.1"
+)
+
+// testNode defines input variables needed when templating talos_*_node resource
+// Terraform configurations.
+type testNode struct {
+	// Required
+	IP        string
+	Index     int
+	MAC       string
+	Bootstrap bool
+
+	// Optional
+	Disk             string
+	Image            string
+	NodeSetupNetwork string
+	Nameserver       string
+	Gateway          string
+}
+
+// testControlConfig
+func testControlConfig(nodes ...*testNode) string {
+	tpl := `resource "talos_control_node" "control_{{.Index}}" {
+  name = "control-{{.Index}}"
+  macaddr = "{{.MAC}}"
+
+  bootstrap = {{.Bootstrap}}
+  bootstrap_ip = "{{.IP}}"
+
+  dhcp_network_cidr = "{{.NodeSetupNetwork}}"
+  install_disk = "{{.Disk}}"
+
+  devices = {
+    "eth0" : {
+      addresses = [
+        "{{.IP}}/24"
+      ]
+      routes = [{
+        network = "0.0.0.0/0"
+        gateway = "{{.Gateway}}"
+      }]
+    }
+  }
+
+  talos_image = "{{.Image}}"
+  nameservers = [
+    "{{.Nameserver}}"
+  ]
+
+  registry = {
+	mirrors = {
+      "docker.io":  [ "http://172.17.0.1:55000" ],
+      "k8s.gcr.io": [ "http://172.17.0.1:55001" ],
+      "quay.io":    [ "http://172.17.0.1:55002" ],
+      "gcr.io":     [ "http://172.17.0.1:55003" ],
+      "ghcr.io":    [ "http://172.17.0.1:55004" ],
+    }
+  }
+
+  base_config = talos_configuration.cluster.base_config
+}
+`
+	var config strings.Builder
+
+	for _, n := range nodes {
+		n.Disk = installDisk
+		n.Image = installImage
+		n.NodeSetupNetwork = setupNetwork
+		n.Nameserver = nameserver
+		n.Gateway = gateway
+		t := template.Must(template.New("").Parse(tpl))
+
+		t.Execute(&config, n)
+	}
+
+	return config.String()
+}
+
+func testControlNodePath(index int) string {
+	return "talos_control_node.control_" + strconv.Itoa(index)
+}
+
+func testWorkerNodePath(index int) string {
+	return "talos_worker_node.worker_" + strconv.Itoa(index)
+}
+
+var (
+	talosConnectivityTimeout      time.Duration = 1 * time.Minute
+	kubernetesConnectivityTimeout time.Duration = 3 * time.Minute
+)
+
+func testAccTalosConnectivity(nodeResourcePath string, talosIP string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		rs, ok := s.RootModule().Resources[path]
-		if !ok {
-			return fmt.Errorf("Not found: %s", path)
-		}
-
-		is := rs.Primary
-		cidr, ok := is.Attributes["devices.eth0.addresses.0"]
-		if !ok {
-			return fmt.Errorf("testTalosConnectivity: Unable to get interface 0, ip address 0, from resource")
-		}
-		ip, _, err := net.ParseCIDR(cidr)
-		if err != nil {
-			return fmt.Errorf("testTalosConnectivity: Must provide a valid CIDR IP address, got \"%s\", error \"%s\"", cidr, err.Error())
-		}
-
 		ctx := context.Background()
-		// Wait for node to finish bootstrapping, ensure the kubernetes port is up before testing for it's health status
-		ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+		ctx, cancel := context.WithTimeout(ctx, talosConnectivityTimeout)
+		defer cancel()
+
+		rs, ok := s.RootModule().Resources[nodeResourcePath]
+		if !ok {
+			return fmt.Errorf("Not found: %s", nodeResourcePath)
+		}
+		is := rs.Primary
+
+		input_json, ok := is.Attributes["base_config"]
+		if !ok {
+			return fmt.Errorf("testTalosConnectivity: Unable to get base_config from resource")
+		}
+
+		// Get Talos input bundle so we can connect to the Talos API endpoint and confirm a connection.
+		input := generate.Input{}
+		if err := json.Unmarshal([]byte(input_json), &input); err != nil {
+			return err
+		}
+
+		host := net.JoinHostPort(talosIP, strconv.Itoa(talos_port))
+		conn, diags := secureConn(ctx, input, host)
+		if diags != nil {
+			return fmt.Errorf("testTalosConnectivity: Unable to connect to talos API at %s, maybe timed out.", host)
+		}
+		defer conn.Close()
+
+		client := talosresource.NewResourceServiceClient(conn)
+		resp, err := client.Get(ctx, &talosresource.GetRequest{
+			Type:      "MachineConfig",
+			Namespace: "config",
+			Id:        "v1alpha1",
+		})
+		if err != nil {
+			return fmt.Errorf("Error getting machine configuration, error \"%s\"", err.Error())
+		}
+
+		if len(resp.Messages) < 1 {
+			return fmt.Errorf("Invalid message count recieved. Expected > 1 but got %d", len(resp.Messages))
+		}
+
+		return nil
+	}
+}
+
+func testAccKubernetesConnectivity(kubernetesEndpoint string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(ctx, kubernetesConnectivityTimeout)
 		defer cancel()
 
 		httpclient := http.Client{
 			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 		}
-		stats := "https://" + ip.String() + ":6443/readyz?verbose"
 
 		var readyresp *http.Response
 		for {
-			r, err := httpclient.Get(stats)
+			r, err := httpclient.Get(kubernetesEndpoint + "/readyz?verbose")
 			if err == nil && r.StatusCode >= 200 && r.StatusCode <= 299 {
 				readyresp = r
 				break
@@ -89,444 +247,4 @@ func testAccKubernetesConnectivity(path string, name string) resource.TestCheckF
 
 		return nil
 	}
-}
-
-func testTalosConnectivity(rs *terraform.ResourceState, path string, name string) error {
-	is := rs.Primary
-	cidr, ok := is.Attributes["devices.eth0.addresses.0"]
-	if !ok {
-		return fmt.Errorf("testTalosConnectivity: Unable to get interface 0, ip address 0, from resource")
-	}
-	input_json, ok := is.Attributes["base_config"]
-	if !ok {
-		return fmt.Errorf("testTalosConnectivity: Unable to get base_config from resource")
-	}
-
-	ip, _, err := net.ParseCIDR(cidr)
-	if err != nil {
-		return fmt.Errorf("testTalosConnectivity: Must provide a valid CIDR IP address, got \"%s\", error \"%s\"", cidr, err.Error())
-	}
-
-	input := generate.Input{}
-	if err := json.Unmarshal([]byte(input_json), &input); err != nil {
-		return err
-	}
-
-	host := net.JoinHostPort(ip.String(), strconv.Itoa(talos_port))
-
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-	defer cancel()
-	conn, diags := secureConn(ctx, input, host)
-	if diags != nil {
-		return fmt.Errorf("testTalosConnectivity: Unable to connect to talos API at %s, maybe timed out.", host)
-	}
-	defer conn.Close()
-
-	client := talosresource.NewResourceServiceClient(conn)
-	resp, err := client.Get(ctx, &talosresource.GetRequest{
-		Type:      "MachineConfig",
-		Namespace: "config",
-		Id:        "v1alpha1",
-	})
-	if err != nil {
-		return fmt.Errorf("Error getting machine configuration, error \"%s\"", err.Error())
-	}
-
-	if len(resp.Messages) < 1 {
-		return fmt.Errorf("Invalid message count recieved. Expected > 1 but got %d", len(resp.Messages))
-	}
-
-	return nil
-}
-
-var (
-	gateway      string = "192.168.122.1"
-	installdisk  string = "/dev/vdb"
-	nameserver   string = "192.168.122.1"
-	ip_worker_1  string = "192.168.122.110"
-	ip_control_1 string = "192.168.122.121"
-	ip_control_2 string = "192.168.122.122"
-	ip_control_3 string = "192.168.122.123"
-	dhcp_cidr    string = "192.168.122.128/25"
-	talos_image  string = "ghcr.io/siderolabs/installer:v1.0.4"
-)
-
-func workerResource_basic(vmName string, rName string, ip string, additionals ...string) string {
-	m := map[string]interface{}{
-		"name":       rName,
-		"vm_name":    vmName,
-		"dhcp_cidr":  dhcp_cidr,
-		"disk":       installdisk,
-		"ip":         ip,
-		"gateway":    gateway,
-		"image":      talos_image,
-		"nameserver": nameserver,
-		"additional": "",
-	}
-	if len(additionals) > 0 {
-		m["additional"] = additionals[0]
-	}
-	t := template.Must(template.New("").Parse(`
-resource "libvirt_volume" "talos_{{ .vm_name }}_{{ .name }}" {
-  source = "http://localhost:8000/talos-amd64.iso"
-  name   = "test_talos-{{ .vm_name }}"
-}
-
-resource "libvirt_volume" "node_boot_{{ .vm_name }}_{{ .name }}" {
-  name   = "test_{{ .vm_name }}_node_boot.qcow2"
-  size   = 4294967296 # 4GiB
-}
-
-resource "libvirt_domain" "node_{{ .vm_name }}_{{ .name }}" {
-  name = "test_{{ .vm_name }}_{{ .name }}"
-
-  memory = "2048"
-  vcpu   = 2
-
-  disk {
-    volume_id = libvirt_volume.talos_{{ .vm_name }}_{{ .name }}.id
-  }
-
-  disk {
-    volume_id = libvirt_volume.node_boot_{{ .vm_name }}_{{ .name }}.id
-  }
-
-  network_interface {
-    network_name   = "default"
-    hostname       = "{{ .name }}"
-    wait_for_lease = true
-  }
-}
-
-resource "talos_worker_node" "{{ .name }}" {
-  name = "{{ .name }}"
-  macaddr = libvirt_domain.node_{{ .vm_name }}_{{ .name }}.network_interface[0].mac
-
-  dhcp_network_cidr = "{{ .dhcp_cidr }}"
-  install_disk = "{{ .disk }}"
-
-  interface {
-    name = "eth0"
-    addresses = [
-      "{{ .ip }}/24"
-    ]
-    route {
-      network = "0.0.0.0/0"
-      gateway = "{{ .gateway }}"
-    }
-  }
-
-  talos_image = "{{ .image }}"
-  nameservers = [
-    "{{ .nameserver }}"
-  ]
-
-  registry {
-    mirror {
-      registry_name = "docker.io"
-      endpoints     = [ "http://172.17.0.1:5000" ]
-    }
-    mirror {
-      registry_name = "k8s.gcr.io"
-      endpoints     = [ "http://172.17.0.1:5001" ]
-    }
-    mirror {
-      registry_name = "quay.io"
-      endpoints     = [ "http://172.17.0.1:5002" ]
-    }
-    mirror {
-      registry_name = "gcr.io"
-      endpoints     = [ "http://172.17.0.1:5003" ]
-    }
-    mirror {
-      registry_name = "ghcr.io"
-      endpoints     = [ "http://172.17.0.1:5004" ]
-    }
-  }
-
-  {{ .additional }}
-
-  base_config = talos_configuration.cluster.base_config
-}
-
-`))
-	var b bytes.Buffer
-	t.Execute(&b, m)
-	return b.String()
-}
-
-//  libvirt_domain.node.network_interface[0].mac
-func controlResource_basic(vmName string, rName string, bootstrap bool, ip string, additionals ...string) string {
-	m := map[string]interface{}{
-		"name":       rName,
-		"vm_name":    vmName,
-		"bootstrap":  strconv.FormatBool(bootstrap),
-		"dhcp_cidr":  dhcp_cidr,
-		"disk":       installdisk,
-		"ip":         ip,
-		"gateway":    gateway,
-		"image":      talos_image,
-		"nameserver": nameserver,
-		"additional": "",
-	}
-	if len(additionals) > 0 {
-		m["additional"] = additionals[0]
-	}
-	t := template.Must(template.New("").Parse(`
-resource "libvirt_volume" "talos_{{ .vm_name }}_{{ .name }}" {
-  source = "http://localhost:8000/talos-amd64.iso"
-  name   = "test_talos-{{ .vm_name }}_{{ .name }}"
-}
-
-resource "libvirt_volume" "node_boot_{{ .vm_name }}_{{ .name }}" {
-  name   = "test_{{ .vm_name }}_{{ .name }}_node_boot.qcow2"
-  size   = 4294967296 # 4GiB
-}
-
-resource "libvirt_domain" "node_{{ .vm_name }}_{{ .name }}" {
-  name = "test_{{ .vm_name }}_{{ .name }}"
-
-  memory = "2048"
-  vcpu   = 2
-
-  disk {
-    volume_id = libvirt_volume.talos_{{ .vm_name }}_{{ .name }}.id
-  }
-
-  disk {
-    volume_id = libvirt_volume.node_boot_{{ .vm_name }}_{{ .name }}.id
-  }
-
-  network_interface {
-    network_name   = "default"
-    hostname       = "{{ .name }}"
-    wait_for_lease = true
-  }
-}
-
-resource "talos_control_node" "{{ .name }}" {
-  name = "{{ .name }}"
-  macaddr = libvirt_domain.node_{{ .vm_name }}_{{ .name }}.network_interface[0].mac
-
-  bootstrap = {{ .bootstrap }}
-  bootstrap_ip = "{{ .ip }}"
-
-  dhcp_network_cidr = "{{ .dhcp_cidr }}"
-  install_disk = "{{ .disk }}"
-
-  interface {
-    name = "eth0"
-    addresses = [
-      "{{ .ip }}/24"
-    ]
-    route {
-      network = "0.0.0.0/0"
-      gateway = "{{ .gateway }}"
-    }
-  }
-
-  talos_image = "{{ .image }}"
-  nameservers = [
-    "{{ .nameserver }}"
-  ]
-
-  registry {
-    mirror {
-      registry_name = "docker.io"
-      endpoints     = [ "http://172.17.0.1:5000" ]
-    }
-    mirror {
-      registry_name = "k8s.gcr.io"
-      endpoints     = [ "http://172.17.0.1:5001" ]
-    }
-    mirror {
-      registry_name = "quay.io"
-      endpoints     = [ "http://172.17.0.1:5002" ]
-    }
-    mirror {
-      registry_name = "gcr.io"
-      endpoints     = [ "http://172.17.0.1:5003" ]
-    }
-    mirror {
-      registry_name = "ghcr.io"
-      endpoints     = [ "http://172.17.0.1:5004" ]
-    }
-  }
-
-  base_config = talos_configuration.cluster.base_config
-
-  {{ .additional }}
-}
-
-`))
-	var b bytes.Buffer
-	t.Execute(&b, m)
-	return b.String()
-}
-
-// testAccTalosWorker_basic creates the most basic talos worker configuration
-func talosConfig_basic(endpoint string, kube_endpoint string, additionals ...string) string {
-	m := map[string]interface{}{
-		"endpoint":      endpoint,
-		"kube_endpoint": kube_endpoint,
-		"additional":    "",
-	}
-	if len(additionals) > 0 {
-		m["additional"] = additionals[0]
-	}
-	t := template.Must(template.New("").Parse(`
-terraform {
-  required_providers {
-    libvirt = {
-      source = "dmacvicar/libvirt"
-      version = "0.6.14"
-    }
-  }
-}
-
-provider "libvirt" {
-  uri = "qemu:///system"
-}
-
-resource "talos_configuration" "cluster" {
-  target_version = "v1.0"
-  cluster_name = "taloscluster"
-  endpoints = ["{{ .endpoint }}"]
-  kubernetes_endpoint = "{{ .kube_endpoint }}"
-  kubernetes_version = "1.23.6"
-
-  {{ .additional }}
-}
-
-`))
-	var b bytes.Buffer
-	t.Execute(&b, m)
-	return b.String()
-}
-
-func tes() string {
-	return `
-terraform {
-  required_providers {
-    libvirt = {
-      source = "dmacvicar/libvirt"
-      version = "0.6.14"
-    }
-  }
-}
-
-provider "libvirt" {
-  uri = "qemu:///system"
-}
-
-resource "libvirt_volume" "talos" {
-  source = "http://localhost:8000/talos-amd64.iso"
-  name   = "talos"
-}
-
-resource "libvirt_volume" "single_example_boot" {
-  name   = "single_example_boot.qcow2"
-  size   = 8589934592 # 4GiB
-}
-
-resource "libvirt_domain" "single_example" {
-  name = "single_example"
-
-  memory = "2048"
-  vcpu   = 2
-
-  disk {
-    volume_id = libvirt_volume.talos.id
-  }
-
-  disk {
-    volume_id = libvirt_volume.single_example_boot.id
-  }
-
-  network_interface {
-    network_name   = "default"
-    hostname       = "single_example"
-    wait_for_lease = true
-  }
-}
-
-resource "talos_configuration" "single_example" {
-  # Talos configuration version target
-  target_version = "v1.0"
-  # Name of the talos cluster
-  cluster_name = "taloscluster"
-  # List of control plane nodes to act as endpoints the talos client should connect to
-  endpoints = ["192.168.122.100"]
-
-  # The evential endpoint that the kubernetes client will connect to
-  kubernetes_endpoint = "https://192.168.122.100:6443"
-
-  # The kubernetes version to be deployed
-  kubernetes_version = "1.23.6"
-}
-
-resource "talos_control_node" "single_example" {
-  # The node's hostname
-  name = "cluster-control-1"
-
-  # MAC address for the node. Will be used to apply the initial configuration
-  macaddr = libvirt_domain.single_example.network_interface[0].mac
-  dhcp_network_cidr = "192.168.122.128/25"
-  # The disk to install talos onto
-  install_disk = "/dev/vdb"
-
- interface {
-    # The interface's name
-    name = "eth0"
-    # The interface's addresses in CIDR form
-    addresses = [
-      "192.168.122.100/24"
-    ]
-    route {
-      network = "0.0.0.0/0"
-      gateway = "192.168.122.1"
-    }
-  }
-
-  # The node's nameservers
-  nameservers = [
-    "192.168.122.1"
-  ]
-
-  registry {
-    mirror {
-      registry_name = "docker.io"
-      endpoints     = [ "http://172.17.0.1:5000" ]
-    }
-    mirror {
-      registry_name = "k8s.gcr.io"
-      endpoints     = [ "http://172.17.0.1:5001" ]
-    }
-    mirror {
-      registry_name = "quay.io"
-      endpoints     = [ "http://172.17.0.1:5002" ]
-    }
-    mirror {
-      registry_name = "gcr.io"
-      endpoints     = [ "http://172.17.0.1:5003" ]
-    }
-    mirror {
-      registry_name = "ghcr.io"
-      endpoints     = [ "http://172.17.0.1:5004" ]
-    }
-  }
-
-  # The talos image to install
-  talos_image = "ghcr.io/siderolabs/installer:v1.0.4"
-
-  # Bootstrap Etcd as part of the creation process
-  bootstrap = true
-  bootstrap_ip = "192.168.122.100"
-
-  # The base config from the node's talos_configuration
-  # Contains shared information and secrets
-  base_config = talos_configuration.single_example.base_config
-}
-`
 }

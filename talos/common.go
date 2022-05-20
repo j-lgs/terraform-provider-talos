@@ -1,27 +1,25 @@
 package talos
 
 import (
-	"bufio"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
+	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	talosx509 "github.com/talos-systems/crypto/x509"
+	"github.com/talos-systems/talos/pkg/machinery/api/machine"
+	"github.com/talos-systems/talos/pkg/machinery/api/resource"
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	machinetype "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v2"
 
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
