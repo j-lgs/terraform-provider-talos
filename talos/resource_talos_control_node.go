@@ -2,7 +2,10 @@ package talos
 
 import (
 	"context"
+	"encoding/json"
+	"net"
 	"net/url"
+	"strconv"
 
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 
@@ -10,6 +13,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"gopkg.in/yaml.v2"
 
+	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	machinetype "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -657,9 +661,46 @@ func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateRe
 }
 
 func (r talosControlNodeResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+	var (
+		state talosControlNodeResourceData
+	)
+
 	if !r.provider.configured {
 		resp.Diagnostics.AddError("Provider not configured.", "The Talos control node's Delete method has been called without the provider being configured. This is a provider bug.")
 		return
+	}
+
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if !r.provider.forcedelete {
+		host := net.JoinHostPort(state.ConfigIP.Value, strconv.Itoa(talos_port))
+
+		input := generate.Input{}
+		if err := json.Unmarshal([]byte(state.BaseConfig.Value), &input); err != nil {
+			resp.Diagnostics.AddError("error while unmarshalling Talos node bae configuration package", err.Error())
+			return
+		}
+
+		conn, err := secureConn(ctx, input, host)
+		if err != nil {
+			resp.Diagnostics.AddError("error while attempting to connect to Talos API endpoint", err.Error())
+			return
+		}
+		defer conn.Close()
+
+		client := machine.NewMachineServiceClient(conn)
+		_, err = client.Reset(ctx, &machine.ResetRequest{
+			Graceful: false,
+			Reboot:   true,
+		})
+		if err != nil {
+			resp.Diagnostics.AddError("error while attempting to connect to reset maachine", err.Error())
+			return
+		}
 	}
 }
 
