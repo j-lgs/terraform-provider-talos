@@ -393,24 +393,26 @@ Key description: The first segment of an image identifier, with ‘docker.io’ 
 			Sensitive:   true,
 			Description: "Identity token for optional registry authentication.",
 		},
+		// It seems that when marshalled to yaml these values are automatically base64 encoded. Therefore we must ensure that it is
+		// not base64 encoded.
 		"client_identity_crt": {
 			Type:        types.StringType,
 			Optional:    true,
 			Sensitive:   true,
-			Description: "Enable mutual TLS authentication with the registry. Base64 encoded client certificate.",
-			// TODO: validate it's a correctly encoded PEM certificate
+			Description: "Enable mutual TLS authentication with the registry. Non base64 encoded client certificate.",
+			// TODO: validate it's a correctly encoded PEM certificate and not valid base64
 		},
 		"client_identity_key": {
 			Type:        types.StringType,
 			Optional:    true,
 			Sensitive:   true,
-			Description: "Enable mutual TLS authentication with the registry. Base64 encoded client key.",
-			// TODO: validate it's a correctly encoded PEM key
+			Description: "Enable mutual TLS authentication with the registry. Non base64 encoded client key.",
+			// TODO: validate it's a correctly encoded PEM key and not valid base64
 		},
 		"ca": {
 			Type:        types.StringType,
 			Optional:    true,
-			Description: "CA registry certificate to add the list of trusted certificates. Should be Base64 encoded.",
+			Description: "CA registry certificate to add the list of trusted certificates. Non base64 encoded.",
 			// TODO: Verify CA is base64 encoded
 		},
 		"insecure_skip_verify": {
