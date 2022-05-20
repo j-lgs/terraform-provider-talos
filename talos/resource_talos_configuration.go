@@ -98,7 +98,7 @@ type talosClusterConfigResourceData struct {
 	KubernetesVersion  types.String `tfsdk:"kubernetes_version"`
 	TalosConfig        types.String `tfsdk:"talos_config"`
 	BaseConfig         types.String `tfsdk:"base_config"`
-	Id                 types.String `tfsdk:"id"`
+	ID                 types.String `tfsdk:"id"`
 }
 
 type talosClusterConfigResource struct {
@@ -160,12 +160,12 @@ func (r talosClusterConfigResource) Create(ctx context.Context, req tfsdk.Create
 		return
 	}
 	//lint:ignore SA1026 suppress check as it's issue is with a datastructure outside the project's scope
-	input_json, err := json.Marshal(input)
+	inputJSON, err := json.Marshal(input)
 	if err != nil {
-		diags.AddError("failed to unmarshal to secrets bundle to a json string: ", err.Error())
+		diags.AddError("failed to unmarshal to secrets bundle to a JSON string: ", err.Error())
 		return
 	}
-	data.BaseConfig = types.String{Value: string(input_json)}
+	data.BaseConfig = types.String{Value: string(inputJSON)}
 
 	talosconfig, err := generate.Talosconfig(input, generate.WithEndpointList(endpoints))
 	if err != nil {
@@ -184,7 +184,7 @@ func (r talosClusterConfigResource) Create(ctx context.Context, req tfsdk.Create
 	b64 := make([]byte, base64.StdEncoding.EncodedLen(len(hash)))
 	base64.StdEncoding.Encode(b64, hash)
 
-	data.Id = types.String{Value: string(b64)}
+	data.ID = types.String{Value: string(b64)}
 
 	diags = resp.State.Set(ctx, &data)
 	resp.Diagnostics.Append(diags...)

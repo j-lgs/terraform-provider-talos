@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	talos_port = 50000
+	talosPort = 50000
 )
 
 var _ tfsdk.Provider = &provider{}

@@ -183,18 +183,18 @@ func testAccTalosConnectivity(nodeResourcePath string, talosIP string) resource.
 		}
 		is := rs.Primary
 
-		input_json, ok := is.Attributes["base_config"]
+		inputJSON, ok := is.Attributes["base_config"]
 		if !ok {
 			return fmt.Errorf("testTalosConnectivity: Unable to get base_config from resource")
 		}
 
 		// Get Talos input bundle so we can connect to the Talos API endpoint and confirm a connection.
 		input := generate.Input{}
-		if err := json.Unmarshal([]byte(input_json), &input); err != nil {
+		if err := json.Unmarshal([]byte(inputJSON), &input); err != nil {
 			return err
 		}
 
-		host := net.JoinHostPort(talosIP, strconv.Itoa(talos_port))
+		host := net.JoinHostPort(talosIP, strconv.Itoa(talosPort))
 		conn, diags := secureConn(ctx, input, host)
 		if diags != nil {
 			return fmt.Errorf("testTalosConnectivity: Unable to connect to talos API at %s, maybe timed out", host)

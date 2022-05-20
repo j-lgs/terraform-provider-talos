@@ -441,10 +441,9 @@ func TestMain(m *testing.M) {
 			testMACAddresses = append(testMACAddresses,
 				node.AttributeValues["network_interface"].([]interface{})[0].(map[string]interface{})["mac"].(string))
 		}
-	}
 
-	log.Print("Test initialisation complete. Starting acceptance tests.")
-	val := m.Run()
+		log.Print("Test initialisation complete. Starting acceptance tests.")
+	}
 
 	// Teardown of container registry and VMs.
 	if doacc {
@@ -453,6 +452,9 @@ func TestMain(m *testing.M) {
 			log.Fatalf("error while tearing down test VMs: %s", err)
 		}
 	}
+}
 
-	os.Exit(val)
+// TestMain starts up virtual machines for acceptance tests if they are running.
+func TestMain(m *testing.M) {
+
 }

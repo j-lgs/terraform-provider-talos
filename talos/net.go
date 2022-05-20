@@ -75,7 +75,7 @@ func lookupIP(ctx context.Context, network string, mac string) (net.IP, error) {
 	return ip, nil
 }
 
-func makeTlsConfig(certs generate.Certs, secure bool) (tls.Config, error) {
+func makeTLSConfig(certs generate.Certs, secure bool) (tls.Config, error) {
 	tlsConfig := &tls.Config{}
 	if secure {
 		clientCert, err := tls.X509KeyPair(certs.Admin.Crt, certs.Admin.Key)
@@ -128,7 +128,7 @@ func waitTillTalosMachineUp(ctx context.Context, tlsConfig *tls.Config, host str
 }
 
 func insecureConn(ctx context.Context, host string) (*grpc.ClientConn, error) {
-	tlsConfig, err := makeTlsConfig(generate.Certs{}, false)
+	tlsConfig, err := makeTLSConfig(generate.Certs{}, false)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func insecureConn(ctx context.Context, host string) (*grpc.ClientConn, error) {
 }
 
 func secureConn(ctx context.Context, input generate.Input, host string) (*grpc.ClientConn, error) {
-	tlsConfig, err := makeTlsConfig(*input.Certs, true)
+	tlsConfig, err := makeTLSConfig(*input.Certs, true)
 	if err != err {
 		return nil, err
 	}

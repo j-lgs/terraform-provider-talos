@@ -243,7 +243,7 @@ type talosWorkerNodeResourceData struct {
 	ConfigIP        types.String              `tfsdk:"config_ip"`
 	BaseConfig      types.String              `tfsdk:"base_config"`
 	Patch           types.String              `tfsdk:"patch"`
-	Id              types.String              `tfsdk:"id"`
+	ID              types.String              `tfsdk:"id"`
 }
 
 func (plan *talosWorkerNodeResourceData) Generate() (err error) {
@@ -395,7 +395,7 @@ func (r talosWorkerNodeResource) Create(ctx context.Context, req tfsdk.CreateRes
 	}
 
 	p := &plan
-	config, errDesc, err := applyConfig(&p, configData{
+	config, errDesc, err := applyConfig(ctx, &p, configData{
 		Bootstrap:   false,
 		CreateNode:  true,
 		Mode:        machine.ApplyConfigurationRequest_REBOOT,
@@ -403,7 +403,7 @@ func (r talosWorkerNodeResource) Create(ctx context.Context, req tfsdk.CreateRes
 		MachineType: machinetype.TypeWorker,
 		Network:     plan.DHCPNetworkCidr.Value,
 		MAC:         plan.Macaddr.Value,
-	}, ctx)
+	})
 	if err != nil {
 		resp.Diagnostics.AddError(errDesc, err.Error())
 		return
@@ -411,7 +411,7 @@ func (r talosWorkerNodeResource) Create(ctx context.Context, req tfsdk.CreateRes
 
 	plan.Patch = types.String{Value: config}
 
-	plan.Id = types.String{Value: string(plan.Name.Value)}
+	plan.ID = types.String{Value: string(plan.Name.Value)}
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 }
@@ -434,10 +434,10 @@ func (r talosWorkerNodeResource) Read(ctx context.Context, req tfsdk.ReadResourc
 	}
 
 	if !r.provider.forcedelete {
-		conf, errDesc, err := readConfig(&state, readData{
+		conf, errDesc, err := readConfig(ctx, &state, readData{
 			ConfigIP:   state.ConfigIP.Value,
 			BaseConfig: state.BaseConfig.Value,
-		}, ctx)
+		})
 		if err != nil {
 			resp.Diagnostics.AddError(errDesc, err.Error())
 			return
@@ -467,7 +467,7 @@ func (r talosWorkerNodeResource) Update(ctx context.Context, req tfsdk.UpdateRes
 	}
 
 	p := &state
-	config, errDesc, err := applyConfig(&p, configData{
+	config, errDesc, err := applyConfig(ctx, &p, configData{
 		Bootstrap:   false,
 		ConfigIP:    state.ConfigIP.Value,
 		Mode:        machine.ApplyConfigurationRequest_AUTO,
@@ -475,7 +475,7 @@ func (r talosWorkerNodeResource) Update(ctx context.Context, req tfsdk.UpdateRes
 		MachineType: machinetype.TypeWorker,
 		Network:     state.DHCPNetworkCidr.Value,
 		MAC:         state.Macaddr.Value,
-	}, ctx)
+	})
 	if err != nil {
 		resp.Diagnostics.AddError(errDesc, err.Error())
 		return
@@ -484,10 +484,10 @@ func (r talosWorkerNodeResource) Update(ctx context.Context, req tfsdk.UpdateRes
 	state.Patch = types.String{Value: config}
 
 	if !r.provider.forcedelete {
-		conf, errDesc, err := readConfig(&state, readData{
+		conf, errDesc, err := readConfig(ctx, &state, readData{
 			ConfigIP:   state.ConfigIP.Value,
 			BaseConfig: state.BaseConfig.Value,
-		}, ctx)
+		})
 		if err != nil {
 			resp.Diagnostics.AddError(errDesc, err.Error())
 			return

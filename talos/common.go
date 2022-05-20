@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -40,6 +39,7 @@ type VolumeMount struct {
 	Readonly  types.Bool   `tfsdk:"readonly"`
 }
 
+// VolumeMountSchema Describes extra volume mounts for controlplane static pods.
 var VolumeMountSchema tfsdk.Schema = tfsdk.Schema{
 	MarkdownDescription: "Describes extra volume mouns for controlplane static pods.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -63,6 +63,7 @@ var VolumeMountSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (mount VolumeMount) Data() (interface{}, error) {
 	vol := v1alpha1.VolumeMountConfig{
 		VolumeHostPath:  mount.HostPath.Value,
@@ -75,6 +76,7 @@ func (mount VolumeMount) Data() (interface{}, error) {
 	return vol, nil
 }
 
+// Read copies data from talos types to terraform state types.
 func (mount *VolumeMount) Read(vol interface{}) error {
 	volume := vol.(v1alpha1.VolumeMountConfig)
 
@@ -94,6 +96,7 @@ type ExtraMount struct {
 	Options     []types.String `tfsdk:"options"`
 }
 
+// ExtraMountSchema wraps the OCI mount specification.
 var ExtraMountSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Wraps the OCI Mount specification.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -131,6 +134,7 @@ var ExtraMountSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (mount ExtraMount) Data() (interface{}, error) {
 	extraMount := v1alpha1.ExtraMount{
 		Mount: specs.Mount{
@@ -147,6 +151,7 @@ func (mount ExtraMount) Data() (interface{}, error) {
 	return extraMount, nil
 }
 
+// Read copies data from talos types to terraform state types.
 func (mount *ExtraMount) Read(mnt interface{}) error {
 	talosMount := mnt.(v1alpha1.ExtraMount)
 	mount.Destination = types.String{Value: talosMount.Destination}
@@ -175,6 +180,7 @@ type KubeletConfig struct {
 	NodeIPValidSubnets []types.String          `tfsdk:"node_ip_valid_subnets"`
 }
 
+// KubeletConfigSchema represents the kubelet's config values.
 var KubeletConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the kubelet's config values.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -226,6 +232,7 @@ var KubeletConfigSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (kubelet KubeletConfig) Data() (interface{}, error) {
 	talosKubelet := &v1alpha1.KubeletConfig{}
 	if !kubelet.Image.Null {
@@ -261,38 +268,39 @@ func (kubelet KubeletConfig) Data() (interface{}, error) {
 	return talosKubelet, nil
 }
 
-func (tfKubelet *KubeletConfig) Read(talosKubelet interface{}) error {
-	kubelet := talosKubelet.(*v1alpha1.KubeletConfig)
-	if kubelet.KubeletImage != "" {
-		tfKubelet.Image = types.String{Value: kubelet.KubeletImage}
+// Read copies data from talos types to terraform state types.
+func (kubelet *KubeletConfig) Read(talosData interface{}) error {
+	talosKubelet := talosData.(*v1alpha1.KubeletConfig)
+	if talosKubelet.KubeletImage != "" {
+		kubelet.Image = types.String{Value: talosKubelet.KubeletImage}
 	}
 
-	tfKubelet.RegisterWithFQDN = types.Bool{Value: kubelet.KubeletRegisterWithFQDN}
+	kubelet.RegisterWithFQDN = types.Bool{Value: talosKubelet.KubeletRegisterWithFQDN}
 
-	if !reflect.DeepEqual(kubelet.KubeletExtraConfig.Object, map[string]interface{}{}) {
-		bytes, err := yaml.Marshal(&kubelet.KubeletExtraConfig)
+	if !reflect.DeepEqual(talosKubelet.KubeletExtraConfig.Object, map[string]interface{}{}) {
+		bytes, err := yaml.Marshal(&talosKubelet.KubeletExtraConfig)
 		if err != nil {
 			return err
 		}
-		tfKubelet.ExtraConfig = types.String{Value: string(bytes)}
+		kubelet.ExtraConfig = types.String{Value: string(bytes)}
 	}
 
-	for _, dns := range kubelet.KubeletClusterDNS {
-		tfKubelet.ClusterDNS = append(tfKubelet.ClusterDNS, types.String{Value: dns})
+	for _, dns := range talosKubelet.KubeletClusterDNS {
+		kubelet.ClusterDNS = append(kubelet.ClusterDNS, types.String{Value: dns})
 	}
 
-	for _, mount := range kubelet.KubeletExtraMounts {
+	for _, mount := range talosKubelet.KubeletExtraMounts {
 		extraMount := ExtraMount{}
 		err := extraMount.Read(mount)
 		if err != nil {
 			return err
 		}
-		tfKubelet.ExtraMounts = append(tfKubelet.ExtraMounts, extraMount)
+		kubelet.ExtraMounts = append(kubelet.ExtraMounts, extraMount)
 	}
 
-	if !reflect.DeepEqual(kubelet.KubeletNodeIP, v1alpha1.KubeletNodeIPConfig{}) {
-		for _, subnet := range kubelet.KubeletNodeIP.KubeletNodeIPValidSubnets {
-			tfKubelet.NodeIPValidSubnets = append(tfKubelet.NodeIPValidSubnets, types.String{Value: subnet})
+	if !reflect.DeepEqual(talosKubelet.KubeletNodeIP, v1alpha1.KubeletNodeIPConfig{}) {
+		for _, subnet := range talosKubelet.KubeletNodeIP.KubeletNodeIPValidSubnets {
+			kubelet.NodeIPValidSubnets = append(kubelet.NodeIPValidSubnets, types.String{Value: subnet})
 		}
 	}
 
@@ -306,6 +314,7 @@ type Registry struct {
 	Configs map[string]RegistryConfig `tfsdk:"configs"`
 }
 
+// RegistrySchema represents the image pull options.
 var RegistrySchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the image pull options.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -326,6 +335,7 @@ var RegistrySchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (registry Registry) Data() (interface{}, error) {
 	regs := &v1alpha1.RegistriesConfig{}
 
@@ -365,6 +375,8 @@ type RegistryConfig struct {
 	InsecureSkipVerify types.Bool   `tfsdk:"insecure_skip_verify"`
 }
 
+// RegistryConfigSchema specifies TLS & auth configuration for HTTPS image registries. The meaning of each
+// auth_field is the same with the corresponding field in .docker/config.json."
 var RegistryConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: `Specifies TLS & auth configuration for HTTPS image registries. The meaning of each auth_field is the same with the corresponding field in .docker/config.json.
 
@@ -423,6 +435,7 @@ Key description: The first segment of an image identifier, with ‘docker.io’ 
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (config RegistryConfig) Data() (interface{}, error) {
 	conf := &v1alpha1.RegistryConfig{}
 
@@ -454,8 +467,9 @@ func (config RegistryConfig) Data() (interface{}, error) {
 	return conf, nil
 }
 
-// NetworkDevice  describes a Talos Device configuration.
+// NetworkDevice describes a Talos Device configuration.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#device for more information.
+// TODO: Add network device selector field for interfaces and support it throughout the provider.
 type NetworkDevice struct {
 	Addresses []types.String `tfsdk:"addresses"`
 	Routes    []Route        `tfsdk:"routes"`
@@ -470,6 +484,7 @@ type NetworkDevice struct {
 	VIP         *VIP         `tfsdk:"vip"`
 }
 
+// NetworkDeviceSchema describes a Talos Device configuration.
 var NetworkDeviceSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Describes a Talos network device configuration. The map's key is the interface name.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -541,6 +556,7 @@ var NetworkDeviceSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planDevice NetworkDevice) Data() (interface{}, error) {
 	device := &v1alpha1.Device{}
 
@@ -618,7 +634,7 @@ func (planDevice NetworkDevice) Data() (interface{}, error) {
 	return device, nil
 }
 
-// Bond contains the various options for configuring a bonded interface.
+// BondData contains the various options for configuring a bonded interface.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#bond for more information.
 type BondData struct {
 	Interfaces      []types.String `tfsdk:"interfaces"`
@@ -650,6 +666,8 @@ type BondData struct {
 	PeerNotifyDelay types.Int64    `tfsdk:"peer_notify_delay"`
 }
 
+// BondSchema contains the various options for configuring a bonded interface.
+// TODO identify why including this schema breaks the provider.
 var BondSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Contains the various options for configuring a bonded interface.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -793,13 +811,14 @@ var BondSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planBond BondData) Data() (interface{}, error) {
 	bond := &v1alpha1.Bond{}
 	for _, netInterface := range planBond.Interfaces {
 		bond.BondInterfaces = append(bond.BondInterfaces, netInterface.Value)
 	}
-	for _, arpIpTarget := range planBond.ARPIPTarget {
-		bond.BondARPIPTarget = append(bond.BondARPIPTarget, arpIpTarget.Value)
+	for _, arpIPTarget := range planBond.ARPIPTarget {
+		bond.BondARPIPTarget = append(bond.BondARPIPTarget, arpIPTarget.Value)
 	}
 	b := planBond
 	bond.BondMode = b.Mode.Value
@@ -887,6 +906,7 @@ type DHCPOptions struct {
 	IPV6        types.Bool  `tfsdk:"ipv6"`
 }
 
+// DHCPOptionsSchema specificies DHCP specific options.
 var DHCPOptionsSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Specifies DHCP specific options.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -909,6 +929,7 @@ var DHCPOptionsSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 // TODO add DHCPUIDv6 from struct, and add it to the Talos config documentation.
 func (planDHCPOptions DHCPOptions) Data() (interface{}, error) {
 	dhcpOptions := &v1alpha1.DHCPOptions{}
@@ -936,6 +957,7 @@ type VLAN struct {
 	VIP       *VIP           `tfsdk:"vip"`
 }
 
+// VLANSchema represents vlan settings for a network device.
 var VLANSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents vlan settings for a device.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -975,6 +997,7 @@ var VLANSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planVLAN VLAN) Data() (interface{}, error) {
 	vlan := &v1alpha1.Vlan{}
 
@@ -1015,6 +1038,7 @@ type VIP struct {
 	HetznerCloudAPIToken types.String `tfsdk:"hetzner_cloud_api_token"`
 }
 
+// VIPSchema represent virtual shared IP configurations for network interfaces.
 var VIPSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Contains settings for configuring a Virtual Shared IP on an interface.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -1038,8 +1062,8 @@ var VIPSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planVIP VIP) Data() (interface{}, error) {
-
 	vip := &v1alpha1.DeviceVIPConfig{
 		SharedIP: planVIP.IP.Value,
 	}
@@ -1066,6 +1090,7 @@ type Route struct {
 	Metric  types.String `tfsdk:"metric"`
 }
 
+// RouteSchema represents a network route.
 var RouteSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents a list of routes.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -1098,6 +1123,7 @@ var RouteSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planRoute Route) Data() (interface{}, error) {
 	route := &v1alpha1.Route{
 		RouteNetwork: planRoute.Network.Value,
@@ -1124,6 +1150,7 @@ type Wireguard struct {
 	PrivateKey types.String    `tfsdk:"private_key"`
 }
 
+// WireguardSchema describes a network interface's Wireguard configuration and keys.
 var WireguardSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Contains settings for configuring Wireguard network interface.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -1149,6 +1176,7 @@ var WireguardSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planWireguard Wireguard) Data() (interface{}, error) {
 	wireguard := &v1alpha1.DeviceWireguardConfig{}
 
@@ -1175,6 +1203,7 @@ type WireguardPeer struct {
 	PublicKey                   types.String   `tfsdk:"public_key"`
 }
 
+// WireguardPeerSchema describes an interface's Wireguard peers.
 var WireguardPeerSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "A WireGuard device peer configuration.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -1218,6 +1247,7 @@ var WireguardPeerSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planPeer WireguardPeer) Data() (interface{}, error) {
 	peer := &v1alpha1.DeviceWireguardPeer{
 		WireguardPublicKey: planPeer.PublicKey.Value,
@@ -1235,13 +1265,14 @@ func (planPeer WireguardPeer) Data() (interface{}, error) {
 	return peer, nil
 }
 
-// ClusterControlPlane configures options pertaining to the Kubernetes control plane that's installed onto the machine.
+// MachineControlPlane configures options pertaining to the Kubernetes control plane that's installed onto the machine.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#machinecontrolplaneconfig for more information.
 type MachineControlPlane struct {
 	ControllerManagerDisabled types.Bool `tfsdk:"controller_manager_disabled"`
 	SchedulerDisabled         types.Bool `tfsdk:"scheduler_disabled"`
 }
 
+// MachineControlPlaneSchema configures options pertaining to the Kubernetes control plane that's installed onto the machine.
 var MachineControlPlaneSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Configures options pertaining to the Kubernetes control plane that's installed onto the machine",
 	Attributes: map[string]tfsdk.Attribute{
@@ -1258,6 +1289,7 @@ var MachineControlPlaneSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planMachineControlPlane MachineControlPlane) Data() (interface{}, error) {
 	controlConf := &v1alpha1.MachineControlPlaneConfig{
 		MachineControllerManager: &v1alpha1.MachineControllerManagerConfig{},
@@ -1281,6 +1313,7 @@ type AdmissionPluginConfig struct {
 	Configuration types.String `tfsdk:"configuration"`
 }
 
+// AdmissionPluginSchema configures pod admssion rules on the kubelet64Type, denying execution to pods that don't fit them.
 var AdmissionPluginSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Configures pod admssion rules on the kubelet64Type, denying execution to pods that don't fit them.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -1299,6 +1332,7 @@ var AdmissionPluginSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planAdmissionPluginConfig AdmissionPluginConfig) Data() (interface{}, error) {
 	var admissionConfig v1alpha1.Unstructured
 
@@ -1313,9 +1347,6 @@ func (planAdmissionPluginConfig AdmissionPluginConfig) Data() (interface{}, erro
 	return admissionPluginConfig, nil
 }
 
-/*
- */
-
 // ProxyConfig configures the Kubernetes control plane's kube-proxy.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#proxyconfig for more information.
 type ProxyConfig struct {
@@ -1326,6 +1357,7 @@ type ProxyConfig struct {
 	ExtraArgs map[string]types.String `tfsdk:"extra_args"`
 }
 
+// ProxyConfigSchema configures the Kubernetes control plane's kube-proxy.
 var ProxyConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the kube proxy configuration options.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -1357,6 +1389,7 @@ var ProxyConfigSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planProxy ProxyConfig) Data() (interface{}, error) {
 	proxy := &v1alpha1.ProxyConfig{}
 	if !planProxy.Image.Null {
@@ -1383,6 +1416,7 @@ type ControlPlaneConfig struct {
 	LocalAPIServerPort types.Int64  `tfsdk:"local_api_server_port"`
 }
 
+// ControlPlaneConfigSchema provides options for configuring the Kubernetes control plane.
 var ControlPlaneConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the control plane configuration options.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -1401,9 +1435,6 @@ var ControlPlaneConfigSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
-// Special handling needed to ensure endpoint is not overwritten.
-// TODO Create handler method
-
 // APIServerConfig configures the Kubernetes control plane's apiserver.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#apiserverconfig for more information.
 type APIServerConfig struct {
@@ -1416,6 +1447,7 @@ type APIServerConfig struct {
 	AdmissionPlugins []AdmissionPluginConfig `tfsdk:"admission_control"`
 }
 
+// APIServerConfigSchema configures the Kubernetes control plane's apiserver.
 var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the kube apiserver configuration options.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -1468,6 +1500,7 @@ var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planAPIServer APIServerConfig) Data() (interface{}, error) {
 	apiServer := &v1alpha1.APIServerConfig{}
 
@@ -1520,6 +1553,7 @@ type File struct {
 	Op          types.String `tfsdk:"op"`
 }
 
+// FileSchema describes a machine file and it's contents to be written onto the node's filesystem.
 var FileSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Describes a machine's files and it's contents and how it will be written to the node's filesystem.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -1573,6 +1607,7 @@ var FileSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planFile File) Data() (interface{}, error) {
 	return &v1alpha1.MachineFile{
 		FileContent:     planFile.Content.Value,
@@ -1582,12 +1617,13 @@ func (planFile File) Data() (interface{}, error) {
 	}, nil
 }
 
-// ExtraManifest describes inline bootstrap manifests for the user.
+// InlineManifest describes inline bootstrap manifests for the user.
 type InlineManifest struct {
 	Name    types.String `tfsdk:"name"`
 	Content types.String `tfsdk:"content"`
 }
 
+// InlineManifestSchema describes inline bootstrap manifests for the user.
 var InlineManifestSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Describes inline bootstrap manifests for the user. These will get automatically deployed as part of the bootstrap.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -1605,6 +1641,7 @@ var InlineManifestSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// Data copies data from terraform state types to talos types.
 func (planManifest InlineManifest) Data() (interface{}, error) {
 	manifest := v1alpha1.ClusterInlineManifest{}
 
@@ -1616,6 +1653,7 @@ func (planManifest InlineManifest) Data() (interface{}, error) {
 	return manifest, nil
 }
 
+// Read copies data from talos types to terraform state types.
 func (planManifest *InlineManifest) Read(talosInlineManifest interface{}) error {
 	manifest := talosInlineManifest.(v1alpha1.ClusterInlineManifest)
 	if manifest.InlineManifestName != "" {
@@ -1637,8 +1675,8 @@ type readData struct {
 	BaseConfig string
 }
 
-func readConfig[N nodeResourceData](nodeData N, data readData, ctx context.Context) (out *v1alpha1.Config, errDesc string, err error) {
-	host := net.JoinHostPort(data.ConfigIP, strconv.Itoa(talos_port))
+func readConfig[N nodeResourceData](ctx context.Context, nodeData N, data readData) (out *v1alpha1.Config, errDesc string, err error) {
+	host := net.JoinHostPort(data.ConfigIP, strconv.Itoa(talosPort))
 
 	input := generate.Input{}
 	if err := json.Unmarshal([]byte(data.BaseConfig), &input); err != nil {
@@ -1686,7 +1724,7 @@ type configData struct {
 	MAC         string
 }
 
-func applyConfig[N nodeResourceData](nodeData *N, data configData, ctx context.Context) (out string, errDesc string, err error) {
+func applyConfig[N nodeResourceData](ctx context.Context, nodeData *N, data configData) (out string, errDesc string, err error) {
 	input := generate.Input{}
 	if err := json.Unmarshal([]byte(data.BaseConfig), &input); err != nil {
 		return "", "Failed to unmarshal input bundle", err
@@ -1710,28 +1748,26 @@ func applyConfig[N nodeResourceData](nodeData *N, data configData, ctx context.C
 		return "", "failed to generate config yaml.", err
 	}
 
-	re := regexp.MustCompile(`\s*#.*`)
-	no_comments := re.ReplaceAll(confYaml, nil)
-	os.WriteFile("/tmp/manifest.yaml", no_comments, 0644)
-	out = string(no_comments)
+	stripComments := regexp.MustCompile(`\s*#.*`).ReplaceAll(confYaml, nil)
+	out = string(stripComments)
 
 	var conn *grpc.ClientConn
 	if data.CreateNode {
 		network := data.Network
 		mac := data.MAC
 
-		dhcpIp, err := lookupIP(ctx, network, mac)
+		dhcpIP, err := lookupIP(ctx, network, mac)
 		if err != nil {
 			return "", "Error looking up node IP", err
 		}
-		host := net.JoinHostPort(dhcpIp.String(), strconv.Itoa(talos_port))
+		host := net.JoinHostPort(dhcpIP.String(), strconv.Itoa(talosPort))
 		conn, err = insecureConn(ctx, host)
 		if err != nil {
 			return "", "Unable to make insecure connection to Talos machine. Ensure it is in maintainence mode.", err
 		}
 	} else {
 		ip := data.ConfigIP
-		host := net.JoinHostPort(ip, strconv.Itoa(talos_port))
+		host := net.JoinHostPort(ip, strconv.Itoa(talosPort))
 		input := generate.Input{}
 		if err := json.Unmarshal([]byte(data.BaseConfig), &input); err != nil {
 			return "", "Unable to unmarshal BaseConfig json into a Talos Input struct.", err
@@ -1755,7 +1791,7 @@ func applyConfig[N nodeResourceData](nodeData *N, data configData, ctx context.C
 
 	if data.MachineType == machinetype.TypeControlPlane && data.Bootstrap {
 		ip := data.ConfigIP
-		host := net.JoinHostPort(ip, strconv.Itoa(talos_port))
+		host := net.JoinHostPort(ip, strconv.Itoa(talosPort))
 		input := generate.Input{}
 		if err := json.Unmarshal([]byte(data.BaseConfig), &input); err != nil {
 			return "", "Unable to unmarshal BaseConfig json into a Talos Input struct.", err

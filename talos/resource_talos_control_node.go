@@ -308,7 +308,7 @@ type talosControlNodeResourceData struct {
 	ConfigIP                 types.String              `tfsdk:"bootstrap_ip"`
 	BaseConfig               types.String              `tfsdk:"base_config"`
 	Patch                    types.String              `tfsdk:"patch"`
-	Id                       types.String              `tfsdk:"id"`
+	ID                       types.String              `tfsdk:"id"`
 }
 
 func (plan *talosControlNodeResourceData) Generate() (err error) {
@@ -343,8 +343,8 @@ func (plan *talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err err
 	}
 	/*
 		plan.ExtraManifests = []types.String{}
-		for _, manifestUrl := range in.ClusterConfig.ExtraManifests {
-			plan.ExtraManifests = append(plan.ExtraManifests, types.String{Value: manifestUrl})
+		for _, manifestURL := range in.ClusterConfig.ExtraManifests {
+			plan.ExtraManifests = append(plan.ExtraManifests, types.String{Value: manifestURL})
 		}
 		for _, inlineManifest := range in.ClusterConfig.ClusterInlineManifests {
 			tfInlineManifest := InlineManifest{}
@@ -502,8 +502,8 @@ func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v
 		md.MachineUdev.UdevRules = append(md.MachineUdev.UdevRules, rule.Value)
 	}
 
-	for _, manifestUrl := range plan.ExtraManifests {
-		cd.ExtraManifests = append(cd.ExtraManifests, manifestUrl.Value)
+	for _, manifestURL := range plan.ExtraManifests {
+		cd.ExtraManifests = append(cd.ExtraManifests, manifestURL.Value)
 	}
 
 	for _, planManifest := range plan.InlineManifests {
@@ -545,7 +545,7 @@ func (r talosControlNodeResource) Create(ctx context.Context, req tfsdk.CreateRe
 	}
 
 	p := &plan
-	config, errDesc, err := applyConfig(&p, configData{
+	config, errDesc, err := applyConfig(ctx, &p, configData{
 		Bootstrap:   plan.Bootstrap.Value,
 		ConfigIP:    plan.ConfigIP.Value,
 		CreateNode:  true,
@@ -554,7 +554,7 @@ func (r talosControlNodeResource) Create(ctx context.Context, req tfsdk.CreateRe
 		MachineType: machinetype.TypeControlPlane,
 		Network:     plan.DHCPNetworkCidr.Value,
 		MAC:         plan.Macaddr.Value,
-	}, ctx)
+	})
 	if err != nil {
 		resp.Diagnostics.AddError(errDesc, err.Error())
 		return
@@ -562,7 +562,7 @@ func (r talosControlNodeResource) Create(ctx context.Context, req tfsdk.CreateRe
 
 	plan.Patch = types.String{Value: config}
 
-	plan.Id = types.String{Value: string(plan.Name.Value)}
+	plan.ID = types.String{Value: string(plan.Name.Value)}
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
 }
@@ -585,10 +585,10 @@ func (r talosControlNodeResource) Read(ctx context.Context, req tfsdk.ReadResour
 	}
 
 	if !r.provider.forcedelete {
-		conf, errDesc, err := readConfig(&state, readData{
+		conf, errDesc, err := readConfig(ctx, &state, readData{
 			ConfigIP:   state.ConfigIP.Value,
 			BaseConfig: state.BaseConfig.Value,
-		}, ctx)
+		})
 		if err != nil {
 			resp.Diagnostics.AddError(errDesc, err.Error())
 			return
@@ -618,7 +618,7 @@ func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateRe
 	}
 
 	p := &state
-	config, errDesc, err := applyConfig(&p, configData{
+	config, errDesc, err := applyConfig(ctx, &p, configData{
 		Bootstrap:   false,
 		ConfigIP:    state.ConfigIP.Value,
 		Mode:        machine.ApplyConfigurationRequest_AUTO,
@@ -626,7 +626,7 @@ func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateRe
 		MachineType: machinetype.TypeControlPlane,
 		Network:     state.DHCPNetworkCidr.Value,
 		MAC:         state.Macaddr.Value,
-	}, ctx)
+	})
 	if err != nil {
 		resp.Diagnostics.AddError(errDesc, err.Error())
 		return
@@ -635,10 +635,10 @@ func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateRe
 	state.Patch = types.String{Value: config}
 
 	if !r.provider.forcedelete {
-		talosConf, errDesc, err := readConfig(&state, readData{
+		talosConf, errDesc, err := readConfig(ctx, &state, readData{
 			ConfigIP:   state.ConfigIP.Value,
 			BaseConfig: state.BaseConfig.Value,
-		}, ctx)
+		})
 		if err != nil {
 			resp.Diagnostics.AddError(errDesc, err.Error())
 			return
@@ -646,7 +646,7 @@ func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateRe
 		state.ReadInto(talosConf)
 	}
 
-	state.Id = types.String{Value: string(state.Name.Value)}
+	state.ID = types.String{Value: string(state.Name.Value)}
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -669,7 +669,7 @@ func (r talosControlNodeResource) Delete(ctx context.Context, req tfsdk.DeleteRe
 	}
 
 	if !r.provider.forcedelete {
-		host := net.JoinHostPort(state.ConfigIP.Value, strconv.Itoa(talos_port))
+		host := net.JoinHostPort(state.ConfigIP.Value, strconv.Itoa(talosPort))
 
 		input := generate.Input{}
 		if err := json.Unmarshal([]byte(state.BaseConfig.Value), &input); err != nil {
