@@ -183,6 +183,6 @@ EOT
 
 # Create a local talosconfig
 resource "local_file" "talosconfig" {
-  content = talos_configuration.static_pod.base_config
+  content = talos_configuration.static_pod.talos_config
   filename = "talosconfig"
 }
