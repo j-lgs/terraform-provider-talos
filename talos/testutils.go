@@ -160,9 +160,11 @@ func testControlNodePath(index int) string {
 	return "talos_control_node.control_" + strconv.Itoa(index)
 }
 
+/*
 func testWorkerNodePath(index int) string {
 	return "talos_worker_node.worker_" + strconv.Itoa(index)
 }
+*/
 
 var (
 	talosConnectivityTimeout      time.Duration = 1 * time.Minute
@@ -177,7 +179,7 @@ func testAccTalosConnectivity(nodeResourcePath string, talosIP string) resource.
 
 		rs, ok := s.RootModule().Resources[nodeResourcePath]
 		if !ok {
-			return fmt.Errorf("Not found: %s", nodeResourcePath)
+			return fmt.Errorf("not found: %s", nodeResourcePath)
 		}
 		is := rs.Primary
 
@@ -195,7 +197,7 @@ func testAccTalosConnectivity(nodeResourcePath string, talosIP string) resource.
 		host := net.JoinHostPort(talosIP, strconv.Itoa(talos_port))
 		conn, diags := secureConn(ctx, input, host)
 		if diags != nil {
-			return fmt.Errorf("testTalosConnectivity: Unable to connect to talos API at %s, maybe timed out.", host)
+			return fmt.Errorf("testTalosConnectivity: Unable to connect to talos API at %s, maybe timed out", host)
 		}
 		defer conn.Close()
 
@@ -206,11 +208,11 @@ func testAccTalosConnectivity(nodeResourcePath string, talosIP string) resource.
 			Id:        "v1alpha1",
 		})
 		if err != nil {
-			return fmt.Errorf("Error getting machine configuration, error \"%s\"", err.Error())
+			return fmt.Errorf("error getting machine configuration, error \"%s\"", err.Error())
 		}
 
 		if len(resp.Messages) < 1 {
-			return fmt.Errorf("Invalid message count recieved. Expected > 1 but got %d", len(resp.Messages))
+			return fmt.Errorf("invalid message count recieved. Expected > 1 but got %d", len(resp.Messages))
 		}
 
 		return nil

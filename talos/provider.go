@@ -23,7 +23,6 @@ type provider struct {
 	// which will not be up because nodes are in a broken state. This will cause the plugin to hang and timeout when
 	// connecting.
 	forcedelete bool
-	forceread   bool
 	version     string
 }
 

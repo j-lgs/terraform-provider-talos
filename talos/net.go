@@ -40,7 +40,7 @@ func checkArp(mac string) (net.IP, error) {
 func lookupIP(ctx context.Context, network string, mac string) (net.IP, error) {
 	// Check if it's in the initial table
 
-	ip := net.IP{}
+	var ip net.IP
 	var err error
 
 	if ip, err = checkArp(mac); err != nil {
@@ -60,7 +60,7 @@ func lookupIP(ctx context.Context, network string, mac string) (net.IP, error) {
 		default:
 			err := exec.CommandContext(ctx, "nmap", "-sP", network).Run()
 			if err != nil {
-				return nil, fmt.Errorf("%s\n", err)
+				return nil, fmt.Errorf("%s", err)
 			}
 			if ip, err = checkArp(mac); err != nil {
 				return nil, err
@@ -85,7 +85,7 @@ func makeTlsConfig(certs generate.Certs, secure bool) (tls.Config, error) {
 
 		certPool := x509.NewCertPool()
 		if ok := certPool.AppendCertsFromPEM(certs.OS.Crt); !ok {
-			return tls.Config{}, fmt.Errorf("Unable to append certs from PEM")
+			return tls.Config{}, fmt.Errorf("unable to append certs from PEM")
 		}
 
 		return tls.Config{
@@ -101,12 +101,12 @@ func makeTlsConfig(certs generate.Certs, secure bool) (tls.Config, error) {
 
 }
 
-func waitTillTalosMachineUp(ctx context.Context, tlsConfig tls.Config, host string, secure bool) error {
+func waitTillTalosMachineUp(ctx context.Context, tlsConfig *tls.Config, host string, secure bool) error {
 	tflog.Info(ctx, "Waiting for talos machine to be up")
 	// overall timeout should be 5 mins
 
 	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(&tlsConfig)),
+		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 		grpc.WithBlock(),
 	}
 	ctx, cancel := context.WithTimeout(ctx, 180*time.Second)
@@ -137,7 +137,7 @@ func insecureConn(ctx context.Context, host string) (*grpc.ClientConn, error) {
 		grpc.WithTransportCredentials(credentials.NewTLS(&tlsConfig)),
 	}
 
-	waitTillTalosMachineUp(ctx, tlsConfig, host, false)
+	waitTillTalosMachineUp(ctx, &tlsConfig, host, false)
 
 	conn, err := grpc.DialContext(ctx, host, opts...)
 	if err != nil {
@@ -158,7 +158,7 @@ func secureConn(ctx context.Context, input generate.Input, host string) (*grpc.C
 		grpc.WithTransportCredentials(credentials.NewTLS(&tlsConfig)),
 	}
 
-	waitTillTalosMachineUp(ctx, tlsConfig, host, true)
+	waitTillTalosMachineUp(ctx, &tlsConfig, host, true)
 
 	conn, err := grpc.DialContext(ctx, host, opts...)
 	if err != nil {

@@ -14,9 +14,9 @@ import (
 
 // Global variables
 var (
-	testControlIPs   []string      = []string{"192.168.124.5", "192.168.124.6", "192.168.124.7"}
-	testControlWGIPs []string      = []string{"192.168.125.5", "192.168.125.6", "192.168.125.7"}
-	resetWaitTime    time.Duration = 10 * time.Second
+	testControlIPs []string = []string{"192.168.124.5", "192.168.124.6", "192.168.124.7"}
+	// testControlWGIPs []string      = []string{"192.168.125.5", "192.168.125.6", "192.168.125.7"}
+	resetWaitTime time.Duration = 10 * time.Second
 )
 
 // testResetVM is a workaround for Virtual machines hanging on reboot when reset by Talos API.

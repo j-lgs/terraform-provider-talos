@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -26,7 +25,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// Type structs used to marshal data to and from Terraform and Talos.
+// Interface defining methods used to move data to and from talos and terraform.
+//lint:ignore U1000 type exists just to define the interface and isn't used by itself.
 type planToAPI interface {
 	Data() (interface{}, error)
 	Read(interface{}) error
@@ -1616,7 +1616,7 @@ func (planManifest InlineManifest) Data() (interface{}, error) {
 	return manifest, nil
 }
 
-func (planManifest InlineManifest) Read(talosInlineManifest interface{}) error {
+func (planManifest *InlineManifest) Read(talosInlineManifest interface{}) error {
 	manifest := talosInlineManifest.(v1alpha1.ClusterInlineManifest)
 	if manifest.InlineManifestName != "" {
 		planManifest.Name = types.String{Value: manifest.InlineManifestName}
@@ -1663,7 +1663,7 @@ func readConfig[N nodeResourceData](nodeData N, data readData, ctx context.Conte
 
 	if len(resourceResp.Messages) < 1 {
 		return nil, "Invalid message count.",
-			fmt.Errorf("Invalid message count from the Talos resource get request. Expected > 1 but got %d", len(resourceResp.Messages))
+			fmt.Errorf("invalid message count from the Talos resource get request. Expected > 1 but got %d", len(resourceResp.Messages))
 	}
 
 	out = &v1alpha1.Config{}

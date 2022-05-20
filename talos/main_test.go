@@ -25,7 +25,7 @@ var (
 	testNworkers int    = 1
 	testNcontrol int    = 3
 	testDisk4GiB string = "4294967296"
-	testDisk8GiB string = "8589934592"
+	//testDisk8GiB string = "8589934592"
 	testMem2GiB  string = "2048"
 	testNodevcpu string = "2"
 	testHostname string = "node"

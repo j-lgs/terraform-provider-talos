@@ -1,17 +1,5 @@
 package talos
 
-import (
-	"context"
-	"fmt"
-	"net"
-	"regexp"
-
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
-)
-
 // Schema validation helpers
 
 /*
@@ -26,7 +14,7 @@ import (
 		}
 		return
 	},
-*/
+
 
 // validateDomain checks whether the provided schema value is a valid domain name.
 func validateDomain(value interface{}, key string) (warns []string, errs []error) {
@@ -224,3 +212,4 @@ func AllElemsValid(f func(interface{}) (bool, error)) TalosAttributeValidator {
 	}
 	return val
 }
+*/

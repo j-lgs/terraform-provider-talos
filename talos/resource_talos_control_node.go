@@ -20,7 +20,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
-	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 var _ tfsdk.ResourceType = talosControlNodeResourceType{}
@@ -561,15 +560,11 @@ func (r talosControlNodeResource) Create(ctx context.Context, req tfsdk.CreateRe
 		return
 	}
 
-	tflog.Error(ctx, config)
-	//	resp.Diagnostics.AddError("", config)
-	//return
 	plan.Patch = types.String{Value: config}
 
 	plan.Id = types.String{Value: string(plan.Name.Value)}
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
-	return
 }
 
 func (r talosControlNodeResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
@@ -604,7 +599,6 @@ func (r talosControlNodeResource) Read(ctx context.Context, req tfsdk.ReadResour
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
-	return
 }
 
 func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
@@ -656,8 +650,6 @@ func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateRe
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
-
-	return
 }
 
 func (r talosControlNodeResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {

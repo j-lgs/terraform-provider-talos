@@ -414,7 +414,6 @@ func (r talosWorkerNodeResource) Create(ctx context.Context, req tfsdk.CreateRes
 	plan.Id = types.String{Value: string(plan.Name.Value)}
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
-	return
 }
 
 func (r talosWorkerNodeResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
@@ -449,7 +448,6 @@ func (r talosWorkerNodeResource) Read(ctx context.Context, req tfsdk.ReadResourc
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
-	return
 }
 
 func (r talosWorkerNodeResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
@@ -496,17 +494,12 @@ func (r talosWorkerNodeResource) Update(ctx context.Context, req tfsdk.UpdateRes
 		}
 		state.ReadInto(conf)
 	}
-
-	return
 }
 
 func (r talosWorkerNodeResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
 	if !r.provider.configured {
 		resp.Diagnostics.AddError("Provider not configured.", "The Talos worker node resource's Read method has been called without the provider being configured. This is a provider bug.")
-		return
 	}
-
-	return
 }
 
 func (r talosWorkerNodeResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
