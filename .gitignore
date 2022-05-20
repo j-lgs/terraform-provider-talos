@@ -54,3 +54,9 @@ terraform.rc
 
 **/#*
 **/.#*
+
+# Acceptance testing
+.*.log
+.talos-*.iso
+.talosconfig
+.registrycache/
