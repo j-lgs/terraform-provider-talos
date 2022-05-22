@@ -23,9 +23,10 @@ make acctest
 ```
 
 ## Environment Variables
-+ `MACHINELOG_DIR` - Where virtual machine logs are kept. Must be an absolute path. Note they will be owned by root .
++ `MACHINELOG_DIR` - Where virtual machine logs are kept. Must be an absolute path. Note they will be owned by root.
 + `TALOSCONF_DIR` - Where generated talos configurations are kept. Must be an absolute path.
-+ `RESET_VM` - Manually reset VMs when a test is began. Workaround used when test VMs hang on reboot. 
++ `REGISTRY_CACHE` - Optional. Where the container cache is. Must be an absolute path.
++ `RESET_VM` - Optional. Manually reset VMs when a test is began. Workaround used when test VMs hang on reboot.
 
 # Tools
 When a test crashes the required virtual machines and containers for running the test are not properly destroyed. In order to manually perform this step run the `tools/cleanAcceptance.sh` script.
