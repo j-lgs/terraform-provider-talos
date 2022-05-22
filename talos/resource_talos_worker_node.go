@@ -2,12 +2,16 @@ package talos
 
 import (
 	"context"
+	"encoding/json"
+	"net"
+	"strconv"
 
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 
 	"github.com/talos-systems/talos/pkg/machinery/api/machine"
 	"gopkg.in/yaml.v2"
 
+	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	machinetype "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -433,7 +437,7 @@ func (r talosWorkerNodeResource) Read(ctx context.Context, req tfsdk.ReadResourc
 		return
 	}
 
-	if !r.provider.forcedelete {
+	if !r.provider.skipread {
 		conf, errDesc, err := readConfig(ctx, &state, readData{
 			ConfigIP:   state.ConfigIP.Value,
 			BaseConfig: state.BaseConfig.Value,
@@ -483,7 +487,7 @@ func (r talosWorkerNodeResource) Update(ctx context.Context, req tfsdk.UpdateRes
 
 	state.Patch = types.String{Value: config}
 
-	if !r.provider.forcedelete {
+	if !r.provider.skipread {
 		conf, errDesc, err := readConfig(ctx, &state, readData{
 			ConfigIP:   state.ConfigIP.Value,
 			BaseConfig: state.BaseConfig.Value,
@@ -494,11 +498,55 @@ func (r talosWorkerNodeResource) Update(ctx context.Context, req tfsdk.UpdateRes
 		}
 		state.ReadInto(conf)
 	}
+
+	state.ID = types.String{Value: string(state.Name.Value)}
+
+	diags = resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
 }
 
 func (r talosWorkerNodeResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+	var (
+		state talosControlNodeResourceData
+	)
+
 	if !r.provider.configured {
 		resp.Diagnostics.AddError("Provider not configured.", "The Talos worker node resource's Read method has been called without the provider being configured. This is a provider bug.")
+	}
+
+	if r.provider.skipdelete {
+		return
+	}
+
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	host := net.JoinHostPort(state.ConfigIP.Value, strconv.Itoa(talosPort))
+
+	input := generate.Input{}
+	if err := json.Unmarshal([]byte(state.BaseConfig.Value), &input); err != nil {
+		resp.Diagnostics.AddError("error while unmarshalling Talos node bae configuration package", err.Error())
+		return
+	}
+
+	conn, err := secureConn(ctx, input, host)
+	if err != nil {
+		resp.Diagnostics.AddError("error while attempting to connect to Talos API endpoint", err.Error())
+		return
+	}
+	defer conn.Close()
+
+	client := machine.NewMachineServiceClient(conn)
+	_, err = client.Reset(ctx, &machine.ResetRequest{
+		Graceful: false,
+		Reboot:   true,
+	})
+	if err != nil {
+		resp.Diagnostics.AddError("error while attempting to connect to reset maachine", err.Error())
+		return
 	}
 }
 

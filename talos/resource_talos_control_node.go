@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"time"
 
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 
@@ -584,7 +585,7 @@ func (r talosControlNodeResource) Read(ctx context.Context, req tfsdk.ReadResour
 		return
 	}
 
-	if !r.provider.forcedelete {
+	if !r.provider.skipread {
 		conf, errDesc, err := readConfig(ctx, &state, readData{
 			ConfigIP:   state.ConfigIP.Value,
 			BaseConfig: state.BaseConfig.Value,
@@ -634,7 +635,7 @@ func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateRe
 
 	state.Patch = types.String{Value: config}
 
-	if !r.provider.forcedelete {
+	if !r.provider.skipread {
 		talosConf, errDesc, err := readConfig(ctx, &state, readData{
 			ConfigIP:   state.ConfigIP.Value,
 			BaseConfig: state.BaseConfig.Value,
@@ -662,38 +663,46 @@ func (r talosControlNodeResource) Delete(ctx context.Context, req tfsdk.DeleteRe
 		return
 	}
 
+	if r.provider.skipdelete {
+		resp.Diagnostics.AddError("skipdelete set", "skipdelete set")
+		return
+	}
+
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if !r.provider.forcedelete {
-		host := net.JoinHostPort(state.ConfigIP.Value, strconv.Itoa(talosPort))
+	host := net.JoinHostPort(state.ConfigIP.Value, strconv.Itoa(talosPort))
 
-		input := generate.Input{}
-		if err := json.Unmarshal([]byte(state.BaseConfig.Value), &input); err != nil {
-			resp.Diagnostics.AddError("error while unmarshalling Talos node bae configuration package", err.Error())
-			return
-		}
-
-		conn, err := secureConn(ctx, input, host)
-		if err != nil {
-			resp.Diagnostics.AddError("error while attempting to connect to Talos API endpoint", err.Error())
-			return
-		}
-		defer conn.Close()
-
-		client := machine.NewMachineServiceClient(conn)
-		_, err = client.Reset(ctx, &machine.ResetRequest{
-			Graceful: false,
-			Reboot:   true,
-		})
-		if err != nil {
-			resp.Diagnostics.AddError("error while attempting to connect to reset maachine", err.Error())
-			return
-		}
+	input := generate.Input{}
+	if err := json.Unmarshal([]byte(state.BaseConfig.Value), &input); err != nil {
+		resp.Diagnostics.AddError("error while unmarshalling Talos node bae configuration package", err.Error())
+		return
 	}
+
+	conn, err := secureConn(ctx, input, host)
+	if err != nil {
+		resp.Diagnostics.AddError("error while attempting to connect to Talos API endpoint", err.Error())
+		return
+	}
+	defer conn.Close()
+
+	client := machine.NewMachineServiceClient(conn)
+	_, err = client.Reset(ctx, &machine.ResetRequest{
+		Graceful: false,
+		Reboot:   true,
+	})
+	if err != nil {
+		resp.Diagnostics.AddError("error while attempting to connect to reset maachine", err.Error())
+		return
+	}
+
+	// Need to give the system enough time to perform the reset.
+	// TODO figure out how to determine a machine is down. Probably by periodically pinging the machine's
+	// config IP until a response is no longer recieved.
+	time.Sleep(60 * time.Second)
 }
 
 func (r talosControlNodeResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {

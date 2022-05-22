@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -18,12 +19,13 @@ var _ tfsdk.Provider = &provider{}
 
 type provider struct {
 	configured bool
-	// forcedelete is used to recover from broken deployments, where the node fails to deploy,
+	// skipdelete and skipread are used to recover from broken deployments, where the node fails to deploy,
 	// but the provider thinks it exists. In this situation it will try to refresh its status using talos's api,
 	// which will not be up because nodes are in a broken state. This will cause the plugin to hang and timeout when
 	// connecting.
-	forcedelete bool
-	version     string
+	skipdelete bool
+	skipread   bool
+	version    string
 }
 
 // Configure creates an instance of a Talos API helper struct and set it as the "client" attribute for the provider struct.
@@ -31,8 +33,28 @@ func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	if val, set := os.LookupEnv("TALOS_SKIPDELETE"); set {
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			resp.Diagnostics.AddError("environment parse error",
+				"error parsing boolean value for TALOS_SKIPDELETE")
+		}
+
+		p.skipdelete = b
+	}
+
+	if val, set := os.LookupEnv("TALOS_SKIPREAD"); set {
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			resp.Diagnostics.AddError("environment parse error",
+				"error parsing boolean value for TALOS_SKIPREAD")
+		}
+
+		p.skipread = b
+	}
+
 	p.configured = true
-	_, p.forcedelete = os.LookupEnv("TALOS_FORCE_DELETE")
 }
 
 // GetResources returns a map of all provider resources.

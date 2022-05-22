@@ -12,3 +12,8 @@ The Talos provider enables lifecycle management and declarative configuration of
 
 This provider is currently in **early alpha**, resource schema and underlying code will change. This will break any installations.
 The provider will be considered ready for beta use when the version number reaches 0.1.0.
+
+## Environment Variables
++ `TALOS_SKIPREAD` - Optional. Skip reading node state through Talos API. Useful for destroying a virtualised cluster.
++ `TALOS_SKIPDELETE` - Optional. Skip issuing deletion through Talos API. Useful for destroying a virtualised cluster.
+
