@@ -16,10 +16,10 @@ The user running the test must have appropriate permissions to access these prog
 
 # Example
 ```shell
-TF_ACC=1 MACHINELOG_DIR=$(pwd) TALOSCONF_DIR=$(pwd) go test -v ./talos
+RESET_VM=1 TF_ACC=1 MACHINELOG_DIR=$$(pwd) TALOSCONF_DIR=$$(pwd) REGISTRY_CACHE=$$(pwd)/.registrycache go test -v ./talos
 
 # The default acceptance testing makefile target runs the command above.
-make acc-test
+make acctest
 ```
 
 ## Environment Variables
@@ -28,4 +28,4 @@ make acc-test
 + `RESET_VM` - Manually reset VMs when a test is began. Workaround used when test VMs hang on reboot. 
 
 # Tools
-When a test crashes the required virtual machines and containers for running the test are not properly destroyed. In order to manually perform this step run the `tools/failedAcceptance.sh` script.
+When a test crashes the required virtual machines and containers for running the test are not properly destroyed. In order to manually perform this step run the `tools/cleanAcceptance.sh` script.

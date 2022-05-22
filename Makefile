@@ -14,7 +14,7 @@ ARCH=$(shell if [ "$$(uname -m)" == "x86_64" ]; then echo amd64; fi)
 
 .PHONY: build fmt vet test clean install acctest local-dev-install vendor docs
 
-all: build docs
+all: check test build docs
 
 vendor:
 	@echo " -> Grabbing talos vendor code"
@@ -33,11 +33,17 @@ vet:
 
 test:
 	@echo " -> testing code"
-	@go test -v ./talos
+	@go test -v -race -vet=off ./...
 
-acc-test:
+check:
+	@echo " -> checking code"
+	@staticcheck ./...
+	@golint $(go list ./... | grep -v /vendor\|vendor_talos/)
+
+acctest:
 	@echo " -> acceptance testing code"
-	TF_ACC=1 MACHINELOG_DIR=$$(pwd) TALOSCONF_DIR=$$(pwd) REGISTRY_CACHE=$$(pwd)/.registrycache go test -v ./talos
+	RESET_VM=1 TF_ACC=1 MACHINELOG_DIR=$$(pwd) TALOSCONF_DIR=$$(pwd) REGISTRY_CACHE=$$(pwd)/.registrycache go test -v ./talos
+	tools/cleanAcceptance.sh
 
 build:
 	@echo " -> Building"
