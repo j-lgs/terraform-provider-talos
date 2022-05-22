@@ -1760,6 +1760,7 @@ func applyConfig[N nodeResourceData](ctx context.Context, nodeData *N, data conf
 		if err != nil {
 			return "", "Error looking up node IP", err
 		}
+
 		host := net.JoinHostPort(dhcpIP.String(), strconv.Itoa(talosPort))
 		conn, err = insecureConn(ctx, host)
 		if err != nil {

@@ -16,25 +16,36 @@ import (
 	"text/template"
 	"time"
 
+	"io"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	clusterapi "github.com/talos-systems/talos/pkg/machinery/api/cluster"
+	talosmachine "github.com/talos-systems/talos/pkg/machinery/api/machine"
 	talosresource "github.com/talos-systems/talos/pkg/machinery/api/resource"
+	"github.com/talos-systems/talos/pkg/machinery/client"
+	clientconfig "github.com/talos-systems/talos/pkg/machinery/client/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
+	"google.golang.org/grpc/codes"
 )
 
 // Talos configuration related global variables
 var (
-	kubernetesVersion string = "1.23.6"
+	kubernetesVersion    string = "1.23.6"
+	configurationVersion string = "v1.0"
 )
 
 // testConfig defines input variables needed when templating talos_configuration resource
 // Terraform configurations.
 type testConfig struct {
 	Endpoint     string
+	ConfVersion  string
 	KubeEndpoint string
 	KubeVersion  string
 	TalosConfig  string
 }
+
+var talosConfigName string = ".talosconfig"
 
 // talosConfig templates a Terraform configuration describing a talos_configuration resource.
 func testTalosConfig(config *testConfig) string {
@@ -46,14 +57,16 @@ func testTalosConfig(config *testConfig) string {
 	if !exists {
 		dir = "/tmp"
 	}
-	config.TalosConfig = filepath.Join(dir, ".talosconfig")
-	log.Printf("talos: %s\n", filepath.Join(dir, "talosconfig"))
+	config.TalosConfig = filepath.Join(dir, talosConfigName)
+	log.Printf("talosconfig location: %s\n", filepath.Join(dir, talosConfigName))
+
+	config.ConfVersion = configurationVersion
 
 	config.KubeVersion = kubernetesVersion
 	t := template.Must(template.New("").Parse(`
 
 resource "talos_configuration" "cluster" {
-  target_version = "v1.0"
+  target_version = "{{.ConfVersion}}"
   name = "taloscluster"
   talos_endpoints = ["{{.Endpoint}}"]
   kubernetes_endpoint = "{{.KubeEndpoint}}"
@@ -171,48 +184,56 @@ var (
 	kubernetesConnectivityTimeout time.Duration = 3 * time.Minute
 )
 
-func testAccTalosConnectivity(nodeResourcePath string, talosIP string) resource.TestCheckFunc {
+type testConnArg struct {
+	resourcepath string
+	talosIP      string
+}
+
+func testAccTalosConnectivity(args ...testConnArg) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		ctx := context.Background()
-		ctx, cancel := context.WithTimeout(ctx, talosConnectivityTimeout)
-		defer cancel()
+		for _, arg := range args {
+			ctx := context.Background()
+			ctx, cancel := context.WithTimeout(ctx, talosConnectivityTimeout)
+			defer cancel()
 
-		rs, ok := s.RootModule().Resources[nodeResourcePath]
-		if !ok {
-			return fmt.Errorf("not found: %s", nodeResourcePath)
-		}
-		is := rs.Primary
+			rs, ok := s.RootModule().Resources[arg.resourcepath]
+			if !ok {
+				return fmt.Errorf("not found: %s", arg.talosIP)
+			}
+			is := rs.Primary
 
-		inputJSON, ok := is.Attributes["base_config"]
-		if !ok {
-			return fmt.Errorf("testTalosConnectivity: Unable to get base_config from resource")
-		}
+			inputJSON, ok := is.Attributes["base_config"]
+			if !ok {
+				return fmt.Errorf("testTalosConnectivity: Unable to get base_config from resource")
+			}
 
-		// Get Talos input bundle so we can connect to the Talos API endpoint and confirm a connection.
-		input := generate.Input{}
-		if err := json.Unmarshal([]byte(inputJSON), &input); err != nil {
-			return err
-		}
+			// Get Talos input bundle so we can connect to the Talos API endpoint and confirm a connection.
+			input := generate.Input{}
+			if err := json.Unmarshal([]byte(inputJSON), &input); err != nil {
+				return err
+			}
 
-		host := net.JoinHostPort(talosIP, strconv.Itoa(talosPort))
-		conn, diags := secureConn(ctx, input, host)
-		if diags != nil {
-			return fmt.Errorf("testTalosConnectivity: Unable to connect to talos API at %s, maybe timed out", host)
-		}
-		defer conn.Close()
+			host := net.JoinHostPort(arg.talosIP, strconv.Itoa(talosPort))
+			conn, diags := secureConn(ctx, input, host)
+			if diags != nil {
+				return fmt.Errorf("testTalosConnectivity: Unable to connect to talos API at %s, maybe timed out", host)
+			}
+			defer conn.Close()
 
-		client := talosresource.NewResourceServiceClient(conn)
-		resp, err := client.Get(ctx, &talosresource.GetRequest{
-			Type:      "MachineConfig",
-			Namespace: "config",
-			Id:        "v1alpha1",
-		})
-		if err != nil {
-			return fmt.Errorf("error getting machine configuration, error \"%s\"", err.Error())
-		}
+			client := talosresource.NewResourceServiceClient(conn)
+			resp, err := client.Get(ctx, &talosresource.GetRequest{
+				Type:      "MachineConfig",
+				Namespace: "config",
+				Id:        "v1alpha1",
+			})
+			if err != nil {
+				return fmt.Errorf("error getting machine configuration, error \"%s\"", err.Error())
+			}
 
-		if len(resp.Messages) < 1 {
-			return fmt.Errorf("invalid message count recieved. Expected > 1 but got %d", len(resp.Messages))
+			if len(resp.Messages) < 1 {
+				return fmt.Errorf("invalid message count recieved. Expected > 1 but got %d", len(resp.Messages))
+			}
+
 		}
 
 		return nil
@@ -246,6 +267,143 @@ func testAccKubernetesConnectivity(kubernetesEndpoint string) resource.TestCheck
 		}
 
 		defer readyresp.Body.Close()
+
+		return nil
+	}
+}
+
+type clusterNodes struct {
+	Control []string
+	Worker  []string
+}
+
+func testAccTalosHealth(nodes *clusterNodes) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		ctx := context.Background()
+		// total test duration context
+		ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
+		defer cancel()
+
+		rs, ok := s.RootModule().Resources["talos_configuration.cluster"]
+		if !ok {
+			return fmt.Errorf("not found: %s", "talos_configuration.cluster")
+		}
+		is := rs.Primary
+
+		config, ok := is.Attributes["talos_config"]
+		if !ok {
+			return fmt.Errorf("unable to get talos_config from resource")
+		}
+
+		cfg, err := clientconfig.FromString(config)
+		if err != nil {
+			return fmt.Errorf("error getting clientconfig form string: %w", err)
+		}
+
+		opts := []client.OptionFunc{
+			client.WithConfig(cfg),
+		}
+
+		c, err := client.New(ctx, opts...)
+		if err != nil {
+			return fmt.Errorf("error creating client: %w", err)
+		}
+		defer c.Close()
+
+		info := &clusterapi.ClusterInfo{}
+		if len(nodes.Control) > 0 {
+			info.ControlPlaneNodes = nodes.Control
+		}
+		if len(nodes.Worker) > 0 {
+			info.WorkerNodes = nodes.Worker
+		}
+
+		for {
+			err := testAccAttemptHealthcheck(ctx, info, c)
+			if err == nil {
+				return nil
+			}
+			select {
+			case <-ctx.Done():
+				return fmt.Errorf(ctx.Err().Error() + " - Reason - " + err.Error())
+			default:
+				time.Sleep(2 * time.Second)
+			}
+		}
+	}
+}
+
+func testAccAttemptHealthcheck(parentCtx context.Context, info *clusterapi.ClusterInfo, c *client.Client) error {
+	// Wait for the node to fully setup.
+	ctx, cancel := context.WithTimeout(parentCtx, 5*time.Minute)
+	defer cancel()
+
+	check, err := c.ClusterHealthCheck(ctx, 5*time.Minute, info)
+	if err != nil {
+		return fmt.Errorf("error getting healthcheck: %w", err)
+	}
+
+	if err := check.CloseSend(); err != nil {
+		return fmt.Errorf("error running CloseSend on check: %w", err)
+	}
+
+	for {
+		msg, err := check.Recv()
+		if err != nil {
+			if err == io.EOF || client.StatusCode(err) == codes.Canceled {
+				return nil
+			}
+			return fmt.Errorf("error recieving checks: %w", err)
+		}
+		if msg.GetMetadata().GetError() != "" {
+			return fmt.Errorf("healthcheck error: %s", msg.GetMetadata().GetError())
+		}
+	}
+}
+
+func testAccEnsureNMembers(membercount int, ip string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(ctx, talosConnectivityTimeout)
+		defer cancel()
+
+		rs, ok := s.RootModule().Resources["talos_configuration.cluster"]
+		if !ok {
+			return fmt.Errorf("not found: %s", "talos_configuration.cluster")
+		}
+		is := rs.Primary
+
+		inputJSON, ok := is.Attributes["base_config"]
+		if !ok {
+			return fmt.Errorf("unable to get base_config from cluster resource")
+		}
+
+		// Get Talos input bundle so we can connect to the Talos API endpoint and confirm a connection.
+		input := generate.Input{}
+		if err := json.Unmarshal([]byte(inputJSON), &input); err != nil {
+			return err
+		}
+
+		host := net.JoinHostPort(ip, strconv.Itoa(talosPort))
+		conn, diags := secureConn(ctx, input, host)
+		if diags != nil {
+			return fmt.Errorf("testTalosConnectivity: Unable to connect to talos API at %s, maybe timed out", host)
+		}
+		defer conn.Close()
+
+		client := talosmachine.NewMachineServiceClient(conn)
+		resp, err := client.EtcdMemberList(ctx, &talosmachine.EtcdMemberListRequest{})
+		if err != nil {
+			return fmt.Errorf("error getting machine etcd members, error \"%s\"", err.Error())
+		}
+
+		if len(resp.Messages) < 1 {
+			return fmt.Errorf("invalid message count recieved. expected > 1 but got %d", len(resp.Messages))
+		}
+
+		if count := len(resp.Messages[len(resp.Messages)-1].Members); count != membercount {
+			return fmt.Errorf("invalid member count. expected %d but got %d", membercount, count)
+		}
 
 		return nil
 	}

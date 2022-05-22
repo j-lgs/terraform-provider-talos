@@ -3,13 +3,13 @@ package talos
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"text/template"
 	"time"
@@ -41,7 +41,7 @@ var (
 
 // testMACAddresses is a global variable that contains the mac addresses for all virtual machines.
 // This is required by the provider for initially provisioning the machines.
-var testMACAddresses = []string{}
+var testMACAddresses = make([]string, testNcontrol+testNworkers)
 
 // accTestNodeArgs specifies arguments for the accTestNodes template.
 type accTestNodeArgs struct {
@@ -290,13 +290,6 @@ resource "libvirt_domain" "test_node" {
     volume_id = libvirt_volume.boot[count.index].id
   }
 
-  console {
-    type        = "pty"
-    target_port = "0"
-    target_type = "serial"
-    source_path = "/dev/pts/2"
-  }
-
   network_interface {
     network_name   = libvirt_network.talos_network.name
     hostname       = "{{.HostnameBase}}-${count.index}"
@@ -320,7 +313,6 @@ func getiso(ctx context.Context) error {
 		}
 		defer iso.Close()
 
-		fmt.Print("test")
 		resp, err := http.Get(talosIsoURL)
 		if err != nil {
 			return err
@@ -335,22 +327,26 @@ func getiso(ctx context.Context) error {
 		return nil
 	}
 
-	log.Print("Skipped grabbing the Talos iso since tests have been ran before.")
+	log.Print("skipped grabbing the Talos iso since tests have been ran before.")
 
 	return nil
 }
 
-// TestMain starts up virtual machines for acceptance tests if they are running.
 func TestMain(m *testing.M) {
-	_, doacc := os.LookupEnv("TF_ACC")
-	var tf *tfexec.Terraform
-
 	ctx, cancel := context.WithTimeout(context.Background(), testGlobalTimeout)
 	defer cancel()
+	var tf *tfexec.Terraform
 
-	// Bringup of container registry and VMs
+	var doacc bool
+	var err error
+	val, _ := os.LookupEnv("TF_ACC")
+	doacc, err = strconv.ParseBool(val)
+	if err != nil {
+		log.Fatalf("unable to parse boolean value for TF_ACC. got %s", val)
+	}
 	if doacc {
-		log.Print("Running provider acceptance tests. Image cache containers and test VMs will be created.")
+		// Bringup of container registry and VMs
+		log.Print("image cache containers and test VMs for acceptance testing will be created.")
 
 		// Get Talos iso and serve it for VM template.
 		getiso(ctx)
@@ -360,7 +356,7 @@ func TestMain(m *testing.M) {
 			Addr:    ":" + talosLocalIsoPort,
 		}
 		go isoServer.ListenAndServe()
-		log.Print("Talos iso server is up.")
+		log.Printf("Talos iso server is up on port %s\n", talosLocalIsoPort)
 
 		installer := &releases.LatestVersion{
 			Product: product.Terraform,
@@ -380,7 +376,8 @@ func TestMain(m *testing.M) {
 		if !exists {
 			dir = "/tmp"
 		}
-		log.Printf("logs: %s\n", dir)
+		log.Print("note that machine logs are owned by root.\n")
+		log.Printf("machine logs location: %s\n", dir)
 
 		registry, exists := os.LookupEnv("REGISTRY_CACHE")
 		if !exists {
@@ -388,9 +385,9 @@ func TestMain(m *testing.M) {
 		}
 
 		// Template terraform configuration for test VMs.
-		t := template.Must(template.New("").Parse(accTestNodes))
+		tpl := template.Must(template.New("").Parse(accTestNodes))
 		var tfmain bytes.Buffer
-		t.Execute(&tfmain, &accTestNodeArgs{
+		tpl.Execute(&tfmain, &accTestNodeArgs{
 			Controls:      testNcontrol,
 			Workers:       testNworkers,
 			Bootsize:      testDisk4GiB,
@@ -436,25 +433,23 @@ func TestMain(m *testing.M) {
 			}
 		}
 
+		testMACAddresses = []string{}
 		// First interface is used for setup. Should be kept in mind when creating test configurations.
 		for _, node := range nodes {
 			testMACAddresses = append(testMACAddresses,
 				node.AttributeValues["network_interface"].([]interface{})[0].(map[string]interface{})["mac"].(string))
 		}
 
-		log.Print("Test initialisation complete. Starting acceptance tests.")
 	}
 
-	// Teardown of container registry and VMs.
+	code := m.Run()
+
 	if doacc {
 		log.Print("Image cache containers and test VMs are being destroyed.")
 		if err := tf.Destroy(ctx); err != nil {
 			log.Fatalf("error while tearing down test VMs: %s", err)
 		}
 	}
-}
 
-// TestMain starts up virtual machines for acceptance tests if they are running.
-func TestMain(m *testing.M) {
-
+	os.Exit(code)
 }
