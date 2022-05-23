@@ -1805,6 +1805,9 @@ func applyConfig[N nodeResourceData](ctx context.Context, nodeData *N, data conf
 	}
 
 	if data.MachineType == machinetype.TypeControlPlane && data.Bootstrap {
+		// Wait for time to be synchronised.
+		time.Sleep(5 * time.Second)
+
 		ip := data.ConfigIP
 		host := net.JoinHostPort(ip, strconv.Itoa(talosPort))
 		input := generate.Input{}
