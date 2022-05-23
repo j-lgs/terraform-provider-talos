@@ -17,18 +17,61 @@ Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. C
 
 ### Required
 
-- `kubernetes_endpoint` (String) The kubernetes endpoint that the nodes and the kubectl client will connect to. Can be a DNS hostname or an IP address and may include a port number. Must begin with "https://".
 - `kubernetes_version` (String) The version of kubernetes and all it's components (kube-apiserver, kubelet, kube-scheduler, etc) that will be deployed onto the cluster.
 - `name` (String) Configures the cluster's name
 - `talos_endpoints` (List of String) A list of that the talosctl client will connect to. Can be a DNS hostname or an IP address and may include a port number. Must begin with "https://".
 - `target_version` (String) The version of the Talos cluster configuration that will be generated.
 
+### Optional
+
+- `allow_scheduling_on_masters` (Boolean)
+- `cni` (String) Choose cluster CNI. one of flannel, custom and none
+- `debug` (Boolean)
+- `discovery` (Boolean)
+- `disks` (Attributes List) Represents partitioning for disks on the machine. (see [below for nested schema](#nestedatt--disks))
 - `encryption` (Attributes) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption))
+- `external_etcd` (Boolean)
+- `install_disk` (String)
+- `install_extra_kargs` (List of String)
+- `install_image` (String)
+- `k8s_cert_sans` (List of String)
+- `kubernetes_endpoint` (String) The canonical address of the kubernetes control plane.
+						It can be a DNS name, the IP address of a load balancer, or (default) the IP address of the
+						first master node.  It is NOT multi-valued.  It may optionally specify the port.
+- `machine_cert_sans` (List of String)
+- `network` (Attributes List) Represents globally applied network configuration options. (see [below for nested schema](#nestedatt--network))
+- `persist` (Boolean)
+- `pod_network` (List of String)
+- `registry` (Attributes) Represents the image pull options. (see [below for nested schema](#nestedatt--registry))
+- `secret_bundle` (Attributes) Represents secrets used throughout a Talos install. (see [below for nested schema](#nestedatt--secret_bundle))
+- `service_domain` (String)
+- `service_network` (List of String)
+- `sysctls` (Map of String) Used to configure the machine’s sysctls.
+
 ### Read-Only
 
 - `base_config` (String, Sensitive) JSON Serialised object that contains information needed to create controlplane and worker node configurations.
 - `id` (String) Identifier hash, derived from the cluster's name.
 - `talos_config` (String, Sensitive) Talosconfig YAML that can be used by the talosctl client to communicate with the cluster.
+
+<a id="nestedatt--disks"></a>
+### Nested Schema for `disks`
+
+Optional:
+
+- `device_name` (String) Block device name.
+- `partitions` (Attributes List) Represents the options for a disk partition. (see [below for nested schema](#nestedatt--disks--partitions))
+
+<a id="nestedatt--disks--partitions"></a>
+### Nested Schema for `disks.partitions`
+
+Optional:
+
+- `mount_point` (String) Where the partition will be mounted.
+- `size` (String) The size of partition: either bytes or human readable representation.
+If `size:`is omitted, the partition is sized to occupy the full disk.
+
+
 
 <a id="nestedatt--encryption"></a>
 ### Nested Schema for `encryption`
@@ -82,5 +125,259 @@ Optional:
 - `node_id` (Boolean) Represents a deterministically generated key from the node UUID and PartitionLabel. Setting this value to true will enable it.
 - `slot` (Number) Defines the encryption block size.
 
+
+
+
+<a id="nestedatt--network"></a>
+### Nested Schema for `network`
+
+Optional:
+
+- `with_cidr` (Map of String) Configures an interface for static addressing.
+- `with_dhcp` (Map of Boolean) Enables DHCP for an interface.
+- `with_dhcpv4` (Map of Boolean) Enables DHCPv4 for an interface.
+- `with_dhcpv6` (Map of Boolean) Enables DHCPv6 for an interface.
+- `with_ignore` (Map of Boolean) Enables DHCP for an interface.
+- `with_kubespan` (Boolean)
+- `with_mtu` (Map of Number) Configures an interface's MTU.
+- `with_nameservers` (List of String) Sets global nameservers list.
+- `with_networkconfig` (Attributes) (see [below for nested schema](#nestedatt--network--with_networkconfig))
+- `with_vip` (Map of String) Configures an interface for Virtual shared IP. Maps interfaces names to desired CIDRs.
+- `with_wireguard` (Attributes Map) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--network--with_wireguard))
+
+<a id="nestedatt--network--with_networkconfig"></a>
+### Nested Schema for `network.with_networkconfig`
+
+Optional:
+
+- `devices` (Attributes Map) Describes a Talos network device configuration. The map's key is the interface name. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices))
+- `nameservers` (List of String) Used to statically set the nameservers for the machine.
+
+<a id="nestedatt--network--with_networkconfig--devices"></a>
+### Nested Schema for `network.with_networkconfig.devices`
+
+Optional:
+
+- `addresses` (List of String) A list of IP addresses for the interface.
+- `bond` (Attributes) Contains the various options for configuring a bonded interface. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--bond))
+- `dhcp` (Boolean) Indicates if DHCP should be used to configure the interface.
+- `dhcp_options` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--dhcp_options))
+- `dummy` (Boolean) Indicates if the interface is a dummy interface..
+- `ignore` (Boolean) Indicates if the interface should be ignored (skips configuration).
+- `mtu` (Number) The interface’s MTU. If used in combination with DHCP, this will override any MTU settings returned from DHCP server.
+- `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--routes))
+- `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--vip))
+- `vlans` (Attributes List) Represents vlan settings for a device. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--vlans))
+- `wireguard` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard))
+
+<a id="nestedatt--network--with_networkconfig--devices--bond"></a>
+### Nested Schema for `network.with_networkconfig.devices.wireguard`
+
+Optional:
+
+- `ad_actor_sys_prio` (Number) A bond option. Please see the official kernel documentation. Must be a 16 bit unsigned int.
+- `ad_actor_system` (String) A bond option. Please see the official kernel documentation.
+- `ad_select` (String) A bond option. Please see the official kernel documentation.
+- `ad_user_port_key` (Number) A bond option. Please see the official kernel documentation. Must be a 16 bit unsigned int.
+- `all_slaves_active` (Number) A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.
+- `arp_all_targets` (String) A bond option. Please see the official kernel documentation.
+- `arp_interval` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `arp_ip_target` (List of String) A bond option. Please see the official kernel documentation.
+- `arp_validate` (String) A bond option. Please see the official kernel documentation.
+- `down_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `failover_mac` (String) A bond option. Please see the official kernel documentation.
+- `interfaces` (List of String)
+- `lacp_rate` (String) A bond option. Please see the official kernel documentation.
+- `lp_interval` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `mii_mon` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `min_links` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `mode` (String) A bond option. Please see the official kernel documentation.
+- `num_peer_notif` (Number) A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.
+- `packets_per_slave` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `peer_notify_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `primary` (String) A bond option. Please see the official kernel documentation.
+- `primary_reselect` (String) A bond option. Please see the official kernel documentation.
+- `resend_igmp` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `tlb_dynamic_lb` (Number) A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.
+- `up_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `use_carrier` (Boolean) A bond option. Please see the official kernel documentation.
+- `xmit_hash_policy` (String) A bond option. Please see the official kernel documentation.
+
+
+<a id="nestedatt--network--with_networkconfig--devices--dhcp_options"></a>
+### Nested Schema for `network.with_networkconfig.devices.wireguard`
+
+Optional:
+
+- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard--peer))
+- `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
+- `public_key` (String) Automatically derived from the private_key field.
+
+<a id="nestedatt--network--with_networkconfig--devices--wireguard--peer"></a>
+### Nested Schema for `network.with_networkconfig.devices.wireguard.peer`
+
+Optional:
+
+- `allowed_ips` (List of String) AllowedIPs specifies a list of allowed IP addresses in CIDR notation for this peer.
+- `endpoint` (String) Specifies the endpoint of this peer entry.
+- `persistent_keepalive_interval` (Number) Specifies the persistent keepalive interval for this peer. Provided in seconds.
+- `public_key` (String) Specifies the public key of this peer.
+
+
+
+<a id="nestedatt--network--with_networkconfig--devices--routes"></a>
+### Nested Schema for `network.with_networkconfig.devices.wireguard`
+
+Optional:
+
+- `gateway` (String) The route’s gateway (if empty, creates link scope route).
+- `metric` (String) The optional metric for the route.
+- `network` (String) The route’s network (destination).
+- `source` (String) The route’s source address.
+
+
+<a id="nestedatt--network--with_networkconfig--devices--vip"></a>
+### Nested Schema for `network.with_networkconfig.devices.wireguard`
+
+Optional:
+
+- `equinix_metal_api_token` (String) Specifies the Equinix Metal API Token.
+- `hetzner_cloud_api_token` (String) Specifies the Hetzner Cloud API Token.
+- `ip` (String) Specifies the IP address to be used.
+
+
+<a id="nestedatt--network--with_networkconfig--devices--vlans"></a>
+### Nested Schema for `network.with_networkconfig.devices.wireguard`
+
+Optional:
+
+- `addresses` (List of String) A list of IP addresses for the interface.
+- `dhcp` (Boolean) Indicates if DHCP should be used.
+- `mtu` (Number) The VLAN’s MTU. Must be a 32 bit unsigned integer.
+- `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard--routes))
+- `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard--vip))
+- `vlan_id` (Number) The VLAN’s ID. Must be a 16 bit unsigned integer.
+
+<a id="nestedatt--network--with_networkconfig--devices--wireguard--routes"></a>
+### Nested Schema for `network.with_networkconfig.devices.wireguard.routes`
+
+Optional:
+
+- `gateway` (String) The route’s gateway (if empty, creates link scope route).
+- `metric` (String) The optional metric for the route.
+- `network` (String) The route’s network (destination).
+- `source` (String) The route’s source address.
+
+
+<a id="nestedatt--network--with_networkconfig--devices--wireguard--vip"></a>
+### Nested Schema for `network.with_networkconfig.devices.wireguard.vip`
+
+Optional:
+
+- `equinix_metal_api_token` (String) Specifies the Equinix Metal API Token.
+- `hetzner_cloud_api_token` (String) Specifies the Hetzner Cloud API Token.
+- `ip` (String) Specifies the IP address to be used.
+
+
+
+<a id="nestedatt--network--with_networkconfig--devices--wireguard"></a>
+### Nested Schema for `network.with_networkconfig.devices.wireguard`
+
+Optional:
+
+- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard--peer))
+- `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
+- `public_key` (String) Automatically derived from the private_key field.
+
+<a id="nestedatt--network--with_networkconfig--devices--wireguard--peer"></a>
+### Nested Schema for `network.with_networkconfig.devices.wireguard.peer`
+
+Optional:
+
+- `allowed_ips` (List of String) AllowedIPs specifies a list of allowed IP addresses in CIDR notation for this peer.
+- `endpoint` (String) Specifies the endpoint of this peer entry.
+- `persistent_keepalive_interval` (Number) Specifies the persistent keepalive interval for this peer. Provided in seconds.
+- `public_key` (String) Specifies the public key of this peer.
+
+
+
+
+
+<a id="nestedatt--network--with_wireguard"></a>
+### Nested Schema for `network.with_wireguard`
+
+Optional:
+
+- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_wireguard--peer))
+- `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
+- `public_key` (String) Automatically derived from the private_key field.
+
+<a id="nestedatt--network--with_wireguard--peer"></a>
+### Nested Schema for `network.with_wireguard.peer`
+
+Optional:
+
+- `allowed_ips` (List of String) AllowedIPs specifies a list of allowed IP addresses in CIDR notation for this peer.
+- `endpoint` (String) Specifies the endpoint of this peer entry.
+- `persistent_keepalive_interval` (Number) Specifies the persistent keepalive interval for this peer. Provided in seconds.
+- `public_key` (String) Specifies the public key of this peer.
+
+
+
+
+<a id="nestedatt--registry"></a>
+### Nested Schema for `registry`
+
+Optional:
+
+- `configs` (Attributes Map) Specifies TLS & auth configuration for HTTPS image registries. The meaning of each auth_field is the same with the corresponding field in .docker/config.json.
+
+Key description: The first segment of an image identifier, with ‘docker.io’ being default one. To catch any registry names not specified explicitly, use ‘*’. (see [below for nested schema](#nestedatt--registry--configs))
+- `mirrors` (Map of List of String) Specifies mirror configuration for each registry.
+
+<a id="nestedatt--registry--configs"></a>
+### Nested Schema for `registry.configs`
+
+Optional:
+
+- `auth` (String, Sensitive) Auth for optional registry authentication.
+- `ca` (String) CA registry certificate to add the list of trusted certificates. Non base64 encoded.
+- `client_identity_crt` (String, Sensitive) Enable mutual TLS authentication with the registry. Non base64 encoded client certificate.
+- `client_identity_key` (String, Sensitive) Enable mutual TLS authentication with the registry. Non base64 encoded client key.
+- `identity_token` (String, Sensitive) Identity token for optional registry authentication.
+- `insecure_skip_verify` (Boolean) Skip TLS server certificate verification (not recommended)..
+- `password` (String, Sensitive) Password for optional registry authentication.
+- `username` (String) Username for optional registry authentication.
+
+
+
+<a id="nestedatt--secret_bundle"></a>
+### Nested Schema for `secret_bundle`
+
+Optional:
+
+- `aes_cbc_encryption` (String) Unique secret for Talos disk encryption. Base64 encoded binary data.
+- `bootstrap_token` (String) Unique token for Talos bootstrap.
+- `cert_bundle` (Attributes) Represents the keys and certificates throughout Talos. (see [below for nested schema](#nestedatt--secret_bundle--cert_bundle))
+- `id` (String) Unique cluster ID for Talos. Base64 encoded binary data.
+- `secret` (String) Unique cluster secret for Talos. Base64 encoded binary data.
+- `trustd_token` (String) Unique token for Talos trustd.
+
+<a id="nestedatt--secret_bundle--cert_bundle"></a>
+### Nested Schema for `secret_bundle.cert_bundle`
+
+Optional:
+
+- `admin_crt` (String) PEM encoded cluster admin crt.
+- `admin_key` (String) PEM encoded cluster admin key.
+- `etcd_crt` (String) PEM encoded etcd crt.
+- `etcd_key` (String) PEM encoded etcd key.
+- `k8s_aggregator_crt` (String) PEM encoded crt for the k8s aggregator.
+- `k8s_aggregator_key` (String) PEM encoded key for the k8s aggregator.
+- `k8s_crt` (String) PEM encoded crt for k8s..
+- `k8s_key` (String) PEM encoded key for k8s.
+- `k8s_service_key` (String) PEM encoded key for the k8s service.
+- `os_crt` (String) PEM encoded crt for OS.
+- `os_key` (String) PEM encoded key for OS.
 
 

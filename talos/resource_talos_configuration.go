@@ -49,21 +49,120 @@ func (t talosClusterConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Sc
 				MarkdownDescription: "A list of that the talosctl client will connect to. Can be a DNS hostname or an IP address and may include a port number. Must begin with \"https://\".",
 			},
 			"kubernetes_endpoint": {
-				Type:                types.StringType,
-				Required:            true,
-				MarkdownDescription: "The kubernetes endpoint that the nodes and the kubectl client will connect to. Can be a DNS hostname or an IP address and may include a port number. Must begin with \"https://\".",
+				Type:     types.StringType,
+				Optional: true,
+				MarkdownDescription: `The canonical address of the kubernetes control plane.
+						It can be a DNS name, the IP address of a load balancer, or (default) the IP address of the
+						first master node.  It is NOT multi-valued.  It may optionally specify the port.`,
+			},
+			"secret_bundle": {
+				Optional:    true,
+				Description: SecretBundleSchema.MarkdownDescription,
+				Attributes:  tfsdk.SingleNestedAttributes(SecretBundleSchema.Attributes),
+			},
+			"k8s_cert_sans": {
+				Type: types.ListType{
+					ElemType: types.StringType,
+				},
+				Optional: true,
+			},
+			"machine_cert_sans": {
+				Type: types.ListType{
+					ElemType: types.StringType,
+				},
+				Optional: true,
+			},
+			"service_domain": {
+				Type:     types.StringType,
+				Optional: true,
+			},
+			"pod_network": {
+				Type: types.ListType{
+					ElemType: types.StringType,
+				},
+				Optional: true,
+			},
+			"service_network": {
+				Type: types.ListType{
+					ElemType: types.StringType,
+				},
+				Optional: true,
 			},
 			"kubernetes_version": {
 				Type:                types.StringType,
 				Required:            true,
 				MarkdownDescription: "The version of kubernetes and all it's components (kube-apiserver, kubelet, kube-scheduler, etc) that will be deployed onto the cluster.",
 			},
+			"external_etcd": {
+				Type:     types.BoolType,
+				Optional: true,
+			},
+			"install_disk": {
+				Type:     types.StringType,
+				Optional: true,
+			},
+			"install_image": {
+				Type:     types.StringType,
+				Optional: true,
+				// TODO validate
+				// ValidateFunc: validateImage,
+			},
+			"install_extra_kargs": {
+				Type: types.ListType{
+					ElemType: types.StringType,
+				},
+				Optional: true,
+			},
+			"network": {
+				Optional:            true,
+				MarkdownDescription: NetworkConfigOptionSchema.MarkdownDescription,
+				Attributes:          tfsdk.ListNestedAttributes(NetworkConfigOptionSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			},
+			"cni": {
+				Optional:    true,
+				Description: "Choose cluster CNI. one of flannel, custom and none",
+				Type:        types.StringType,
+			},
+			"registry": {
+				Optional:    true,
+				Description: RegistrySchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(RegistrySchema.Attributes),
+			},
+			"disks": {
+				Optional:    true,
+				Description: MachineDiskSchema.MarkdownDescription,
+				Attributes:  tfsdk.ListNestedAttributes(MachineDiskSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			},
 			"encryption": {
 				Optional:    true,
 				Description: EncryptionSchema.MarkdownDescription,
 				Attributes:  tfsdk.SingleNestedAttributes(EncryptionSchema.Attributes),
 			},
+			"sysctls": {
+				Type: types.MapType{
+					ElemType: types.StringType,
+				},
+				Optional:    true,
+				Description: "Used to configure the machine’s sysctls.",
+			},
+			"debug": {
+				Type:     types.BoolType,
+				Optional: true,
+			},
+			"persist": {
+				Type:     types.BoolType,
+				Optional: true,
+			},
+			"allow_scheduling_on_masters": {
+				Type:     types.BoolType,
+				Optional: true,
+			},
+			"discovery": {
+				Type:     types.BoolType,
+				Optional: true,
+			},
 
+			// Generated
 			"talos_config": {
 				Type:                types.StringType,
 				Sensitive:           true,
