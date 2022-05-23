@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 
 	"hash/fnv"
 
 	"github.com/talos-systems/talos/pkg/machinery/config"
+	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 
 	//	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -127,11 +129,6 @@ func (t talosClusterConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Sc
 				Optional:    true,
 				Description: RegistrySchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(RegistrySchema.Attributes),
-			},
-			"disks": {
-				Optional:    true,
-				Description: MachineDiskSchema.MarkdownDescription,
-				Attributes:  tfsdk.ListNestedAttributes(MachineDiskSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			},
 			"encryption": {
 				Optional:    true,

@@ -474,6 +474,24 @@ func (config RegistryConfig) Data() (interface{}, error) {
 	return conf, nil
 }
 
+var NetworkConfigSchema = tfsdk.Schema{
+	MarkdownDescription: "Represents node network configuration options.",
+	Attributes: map[string]tfsdk.Attribute{
+		"devices": {
+			Required:    true,
+			Description: NetworkDeviceSchema.Description,
+			Attributes:  tfsdk.MapNestedAttributes(NetworkDeviceSchema.Attributes, tfsdk.MapNestedAttributesOptions{}),
+		},
+		"nameservers": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "Used to statically set the nameservers for the machine.",
+		},
+	},
+}
+
 // NetworkDevice describes a Talos Device configuration.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#device for more information.
 // TODO: Add network device selector field for interfaces and support it throughout the provider.
