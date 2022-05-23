@@ -339,10 +339,12 @@ func TestMain(m *testing.M) {
 
 	var doacc bool
 	var err error
-	val, _ := os.LookupEnv("TF_ACC")
-	doacc, err = strconv.ParseBool(val)
-	if err != nil {
-		log.Fatalf("unable to parse boolean value for TF_ACC. got %s", val)
+
+	if val, present := os.LookupEnv("TF_ACC"); present {
+		doacc, err = strconv.ParseBool(val)
+		if err != nil {
+			log.Fatalf("unable to parse boolean value for TF_ACC. got %s", val)
+		}
 	}
 	if doacc {
 		// Bringup of container registry and VMs
