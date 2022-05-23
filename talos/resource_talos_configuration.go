@@ -58,6 +58,11 @@ func (t talosClusterConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Sc
 				Required:            true,
 				MarkdownDescription: "The version of kubernetes and all it's components (kube-apiserver, kubelet, kube-scheduler, etc) that will be deployed onto the cluster.",
 			},
+			"encryption": {
+				Optional:    true,
+				Description: EncryptionSchema.MarkdownDescription,
+				Attributes:  tfsdk.SingleNestedAttributes(EncryptionSchema.Attributes),
+			},
 
 			"talos_config": {
 				Type:                types.StringType,
@@ -91,14 +96,96 @@ func (t talosClusterConfigResourceType) NewResource(ctx context.Context, in tfsd
 }
 
 type talosClusterConfigResourceData struct {
-	TargetVersion      types.String   `tfsdk:"target_version"`
-	ClusterName        types.String   `tfsdk:"name"`
-	Endpoints          []types.String `tfsdk:"talos_endpoints"`
-	KubernetesEndpoint types.String   `tfsdk:"kubernetes_endpoint"`
-	KubernetesVersion  types.String   `tfsdk:"kubernetes_version"`
-	TalosConfig        types.String   `tfsdk:"talos_config"`
-	BaseConfig         types.String   `tfsdk:"base_config"`
-	ID                 types.String   `tfsdk:"id"`
+	TargetVersion      types.String    `tfsdk:"target_version"`
+	ClusterName        types.String    `tfsdk:"name"`
+	Endpoints          []types.String  `tfsdk:"talos_endpoints"`
+	KubernetesEndpoint types.String    `tfsdk:"kubernetes_endpoint"`
+	KubernetesVersion  types.String    `tfsdk:"kubernetes_version"`
+	Encryption         *EncryptionData `tfsdk:"encryption"`
+
+	TalosConfig types.String `tfsdk:"talos_config"`
+	BaseConfig  types.String `tfsdk:"base_config"`
+	ID          types.String `tfsdk:"id"`
+}
+
+func (plan *talosClusterConfigResourceData) Generate(opts []generate.GenOption) (err error) {
+	var versionContract = config.TalosVersionCurrent //nolint:wastedassign,ineffassign
+
+	targetVersion := plan.TargetVersion.Value
+	kubernetesVersion := plan.KubernetesVersion.Value
+	clusterName := plan.ClusterName.Value
+
+	versionContract, err = config.ParseContractFromVersion(targetVersion)
+	if err != nil {
+		return fmt.Errorf("unable to parse version contract: %w", err)
+	}
+
+	secrets, err := generate.NewSecretsBundle(generate.NewClock(), generate.WithVersionContract(versionContract))
+	if err != nil {
+		return fmt.Errorf("unable to generate secrets bundle: %w", err)
+	}
+
+	input, err := generate.NewInput(clusterName, plan.KubernetesEndpoint.Value, kubernetesVersion, secrets,
+		opts...,
+	)
+	if err != nil {
+		return fmt.Errorf("error generating input bundle: %w", err)
+	}
+
+	//lint:ignore SA1026 suppress check as it's issue is with a datastructure outside the project's scope
+	inputJSON, err := json.Marshal(input)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal to secrets bundle to a JSON string: %w", err)
+	}
+	plan.BaseConfig = types.String{Value: string(inputJSON)}
+
+	endpoints := []string{}
+	for _, endpoint := range plan.Endpoints {
+		endpoints = append(endpoints, endpoint.Value)
+	}
+	talosconfig, err := generate.Talosconfig(input, generate.WithEndpointList(endpoints))
+	if err != nil {
+		return fmt.Errorf("error generating talosconfig: %w", err)
+	}
+
+	config, err := talosconfig.Bytes()
+	if err != nil {
+		return fmt.Errorf("error getting talosconfig bytes: %w", err)
+	}
+
+	plan.TalosConfig = types.String{Value: string(config)}
+	return
+}
+
+func (plan *talosClusterConfigResourceData) TalosData() (out []generate.GenOption, err error) {
+	var versionContract = config.TalosVersionCurrent //nolint:wastedassign,ineffassign
+
+	out = []generate.GenOption{}
+
+	if plan.Encryption != nil {
+		encryption, err := plan.Encryption.Data()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, generate.WithSystemDiskEncryption(encryption.(*v1alpha1.SystemDiskEncryptionConfig)))
+	}
+
+	generate.WithVersionContract(versionContract)
+
+	return
+}
+
+func (plan *talosClusterConfigResourceData) ReadInto(in *generate.Input) (err error) {
+	if in.SystemDiskEncryptionConfig != nil {
+		if plan.Encryption != nil {
+			err := plan.Encryption.Read(in.SystemDiskEncryptionConfig)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return
 }
 
 type talosClusterConfigResource struct {
@@ -107,9 +194,8 @@ type talosClusterConfigResource struct {
 
 func (r talosClusterConfigResource) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
 	var (
-		versionContract = config.TalosVersionCurrent //nolint:wastedassign,ineffassign
-		err             error
-		data            talosClusterConfigResourceData
+		err  error
+		data talosClusterConfigResourceData
 	)
 
 	if !r.provider.configured {
@@ -123,54 +209,15 @@ func (r talosClusterConfigResource) Create(ctx context.Context, req tfsdk.Create
 		return
 	}
 
-	targetVersion := data.TargetVersion.Value
-	kubernetesVersion := data.KubernetesVersion.Value
+	genopts, err := data.TalosData()
+	if err != nil {
+		resp.Diagnostics.AddError("unable to get TalosData from plan", err.Error())
+		return
+	}
+
+	data.Generate(genopts)
+
 	clusterName := data.ClusterName.Value
-	endpoints := []string{}
-
-	versionContract, err = config.ParseContractFromVersion(targetVersion)
-	if err != nil {
-		diags.AddError("Unable to parse versionContract", err.Error())
-		resp.Diagnostics.Append(diags...)
-		return
-	}
-
-	secrets, err := generate.NewSecretsBundle(generate.NewClock(), generate.WithVersionContract(versionContract))
-	if err != nil {
-		diags.AddError("Unable to generate secrets bundle", err.Error())
-		resp.Diagnostics.Append(diags...)
-		return
-	}
-
-	input, err := generate.NewInput(clusterName, data.KubernetesEndpoint.Value, kubernetesVersion, secrets,
-		generate.WithVersionContract(versionContract),
-	)
-	if err != nil {
-		diags.AddError("Error generating input bundle", err.Error())
-		return
-	}
-
-	//lint:ignore SA1026 suppress check as it's issue is with a datastructure outside the project's scope
-	inputJSON, err := json.Marshal(input)
-	if err != nil {
-		diags.AddError("failed to unmarshal to secrets bundle to a JSON string: ", err.Error())
-		return
-	}
-	data.BaseConfig = types.String{Value: string(inputJSON)}
-
-	talosconfig, err := generate.Talosconfig(input, generate.WithEndpointList(endpoints))
-	if err != nil {
-		diags.AddError("Error generating talosconfig.", err.Error())
-		return
-	}
-
-	config, err := talosconfig.Bytes()
-	if err != nil {
-		diags.AddError("Error getting talosconfig bytes.", err.Error())
-		return
-	}
-	data.TalosConfig = types.String{Value: string(config)}
-
 	hash := fnv.New128().Sum([]byte(clusterName))
 	b64 := make([]byte, base64.StdEncoding.EncodedLen(len(hash)))
 	base64.StdEncoding.Encode(b64, hash)

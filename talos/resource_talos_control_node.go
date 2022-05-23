@@ -167,8 +167,11 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				Description: RegistrySchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(RegistrySchema.Attributes),
 			},
-
-			// system_disk_encryption not implemented
+			"encryption": {
+				Optional:    true,
+				Description: EncryptionSchema.MarkdownDescription,
+				Attributes:  tfsdk.SingleNestedAttributes(EncryptionSchema.Attributes),
+			},
 			// features not implemented
 			"udev": {
 				Type: types.ListType{
@@ -298,6 +301,7 @@ type talosControlNodeResourceData struct {
 	Sysctls                  map[string]types.String   `tfsdk:"sysctls"`
 	Sysfs                    map[string]types.String   `tfsdk:"sysfs"`
 	Registry                 *Registry                 `tfsdk:"registry"`
+	Encryption               *EncryptionData           `tfsdk:"encryption"`
 	Udev                     []types.String            `tfsdk:"udev"`
 	MachineControlPlane      *MachineControlPlane      `tfsdk:"control_plane_config"`
 	APIServer                *APIServerConfig          `tfsdk:"apiserver"`
@@ -439,6 +443,14 @@ func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v
 		for _, arg := range plan.KernelArgs {
 			md.MachineInstall.InstallExtraKernelArgs = append(md.MachineInstall.InstallExtraKernelArgs, arg.Value)
 		}
+	}
+
+	if plan.Encryption != nil {
+		encryption, err := plan.Encryption.Data()
+		if err != nil {
+			return &v1alpha1.Config{}, err
+		}
+		md.MachineSystemDiskEncryption = encryption.(*v1alpha1.SystemDiskEncryptionConfig)
 	}
 
 	if plan.MachineControlPlane != nil {

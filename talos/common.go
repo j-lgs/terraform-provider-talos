@@ -1312,6 +1312,261 @@ func (planMachineControlPlane MachineControlPlane) Data() (interface{}, error) {
 	return controlConf, nil
 }
 
+
+// EncryptionData specifies system disk partitions encryption settings.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#systemdiskencryptionconfig for more information.
+type EncryptionData struct {
+	State     *EncryptionConfigData `tfsdk:"state"`
+	Ephemeral *EncryptionConfigData `tfsdk:"ephemeral"`
+}
+
+// EncryptionSchema specifies system disk partitions encryption settings.
+var EncryptionSchema = tfsdk.Schema{
+	MarkdownDescription: "Specifies system disk partition encryption settings.",
+	Attributes: map[string]tfsdk.Attribute{
+		"state": {
+			Optional:    true,
+			Description: EncryptionConfigSchema.MarkdownDescription,
+			Attributes:  tfsdk.SingleNestedAttributes(EncryptionConfigSchema.Attributes),
+		},
+		"ephemeral": {
+			Optional:    true,
+			Description: EncryptionConfigSchema.MarkdownDescription,
+			Attributes:  tfsdk.SingleNestedAttributes(EncryptionConfigSchema.Attributes),
+		},
+		// TODO requires at least one of
+	},
+}
+
+func (encryptionData EncryptionData) Data() (any, error) {
+	encryption := &v1alpha1.SystemDiskEncryptionConfig{}
+
+	if encryptionData.State != nil {
+		state, err := encryptionData.State.Data()
+		if err != nil {
+			return nil, err
+		}
+		encryption.StatePartition = state.(*v1alpha1.EncryptionConfig)
+	}
+
+	if encryptionData.Ephemeral != nil {
+		ephemeral, err := encryptionData.Ephemeral.Data()
+		if err != nil {
+			return nil, err
+		}
+		encryption.EphemeralPartition = ephemeral.(*v1alpha1.EncryptionConfig)
+	}
+
+	return encryption, nil
+}
+
+func (data *EncryptionData) Read(diskData any) error {
+	encryptionConfig := diskData.(*v1alpha1.SystemDiskEncryptionConfig)
+
+	if encryptionConfig.StatePartition != nil {
+		data.State = &EncryptionConfigData{}
+		err := data.State.Read(encryptionConfig.StatePartition)
+		if err != nil {
+			return err
+		}
+	}
+
+	if encryptionConfig.EphemeralPartition != nil {
+		ephemeralData := &EncryptionConfigData{}
+		err := ephemeralData.Read(encryptionConfig.EphemeralPartition)
+		if err != nil {
+			return err
+		}
+		data.Ephemeral = ephemeralData
+	}
+
+	return nil
+}
+
+// EncryptionConfigData represents partition encryption settings.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#encryptionconfig for more information.
+type EncryptionConfigData struct {
+	Provider    types.String   `tfsdk:"provider"`
+	Keys        []KeyConfig    `tfsdk:"keys"`
+	Cipher      types.String   `tfsdk:"cipher"`
+	KeySize     types.Int64    `tfsdk:"keysize"`
+	BlockSize   types.Int64    `tfsdk:"blocksize"`
+	PerfOptions []types.String `tfsdk:"perf_options"`
+}
+
+// EncryptionConfigSchema represents partition encryption settings.
+var EncryptionConfigSchema = tfsdk.Schema{
+	MarkdownDescription: "Represents partition encryption settings.",
+	Attributes: map[string]tfsdk.Attribute{
+		"provider": {
+			Required:    true,
+			Description: "Encryption provider to use for the encryption.",
+			Type:        types.StringType,
+		},
+		"keys": {
+			Required:    true,
+			Description: KeySchema.MarkdownDescription,
+			Attributes:  tfsdk.ListNestedAttributes(KeySchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+		},
+		"cipher": {
+			Optional:    true,
+			Description: "Cipher kind to use for the encryption. Depends on the encryption provider.",
+			Type:        types.StringType,
+		},
+		"keysize": {
+			Optional:    true,
+			Description: "Defines the encryption key size.",
+			Type:        types.Int64Type,
+		},
+		"blocksize": {
+			Optional:    true,
+			Description: "Defines the encryption block size.",
+			Type:        types.Int64Type,
+		},
+		"perf_options": {
+			Optional:    true,
+			Description: "Additional --perf parameters for LUKS2 encryption.",
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+		},
+	},
+}
+
+func (encryptionData EncryptionConfigData) Data() (any, error) {
+	encryptionConfig := &v1alpha1.EncryptionConfig{
+		EncryptionProvider: encryptionData.Provider.Value,
+	}
+
+	for _, key := range encryptionData.Keys {
+		k, err := key.Data()
+		if err != nil {
+			return nil, err
+		}
+		encryptionConfig.EncryptionKeys = append(encryptionConfig.EncryptionKeys, k.(*v1alpha1.EncryptionKey))
+	}
+
+	if !encryptionData.Cipher.Null {
+		encryptionConfig.EncryptionCipher = encryptionData.Cipher.Value
+	}
+
+	if !encryptionData.KeySize.Null {
+		encryptionConfig.EncryptionKeySize = uint(encryptionData.KeySize.Value)
+	}
+
+	if !encryptionData.BlockSize.Null {
+		encryptionConfig.EncryptionBlockSize = uint64(encryptionData.BlockSize.Value)
+	}
+
+	for _, opt := range encryptionData.PerfOptions {
+		encryptionConfig.EncryptionPerfOptions = append(encryptionConfig.EncryptionPerfOptions, opt.Value)
+	}
+
+	return encryptionConfig, nil
+}
+
+func (data *EncryptionConfigData) Read(encryptionData any) error {
+	partEncryptionConfig := encryptionData.(*v1alpha1.EncryptionConfig)
+
+	data.Provider.Value = partEncryptionConfig.EncryptionProvider
+
+	for _, key := range partEncryptionConfig.EncryptionKeys {
+		keyconfig := KeyConfig{}
+		err := keyconfig.Read(key)
+		if err != nil {
+			return err
+		}
+		data.Keys = append(data.Keys, keyconfig)
+	}
+
+	if partEncryptionConfig.EncryptionCipher != *new(string) {
+		data.Cipher.Value = partEncryptionConfig.EncryptionCipher
+	}
+
+	if partEncryptionConfig.EncryptionKeySize != *new(uint) {
+		data.KeySize.Value = int64(partEncryptionConfig.EncryptionKeySize)
+	}
+
+	if partEncryptionConfig.EncryptionBlockSize != *new(uint64) {
+		data.BlockSize.Value = int64(partEncryptionConfig.EncryptionBlockSize)
+	}
+
+	for _, opt := range partEncryptionConfig.EncryptionPerfOptions {
+		data.PerfOptions = append(data.PerfOptions, types.String{Value: opt})
+	}
+
+	return nil
+}
+
+// KeyConfig represents configuration for disk encryption key.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#encryptionkey for more information.
+type KeyConfig struct {
+	KeyStatic types.String `tfsdk:"key_static"`
+	NodeID    types.Bool   `tfsdk:"node_id"`
+	Slot      types.Int64  `tfsdk:"slot"`
+}
+
+// KeySchema represents configuration for disk encryption key.
+var KeySchema = tfsdk.Schema{
+	MarkdownDescription: "Specifies system disk partition encryption settings.",
+	Attributes: map[string]tfsdk.Attribute{
+		// TODO have key_static and node_id mutually exclusive
+		"key_static": {
+			Optional:    true,
+			Description: "Represents a throw away key type.",
+			Type:        types.StringType,
+		},
+		"node_id": {
+			Optional:    true,
+			Description: "Represents a deterministically generated key from the node UUID and PartitionLabel. Setting this value to true will enable it.",
+			Type:        types.BoolType,
+		},
+		"slot": {
+			Required:    true,
+			Description: "Defines the encryption block size.",
+			Type:        types.Int64Type,
+		},
+	},
+}
+
+func (keyData KeyConfig) Data() (any, error) {
+	encryptionKey := &v1alpha1.EncryptionKey{
+		KeySlot: int(keyData.Slot.Value),
+	}
+
+	if !keyData.KeyStatic.Null {
+		encryptionKey.KeyStatic = &v1alpha1.EncryptionKeyStatic{
+			KeyData: keyData.KeyStatic.Value,
+		}
+	}
+
+	if !keyData.NodeID.Null {
+		encryptionKey.KeyNodeID = &v1alpha1.EncryptionKeyNodeID{}
+	}
+
+	return encryptionKey, nil
+}
+
+func (data *KeyConfig) Read(keyData any) error {
+	key := keyData.(*v1alpha1.EncryptionKey)
+
+	data.Slot.Value = int64(key.KeySlot)
+
+	if key.KeySlot != *new(int) {
+		data.Slot.Value = int64(key.KeySlot)
+	}
+
+	if key.KeyNodeID != nil {
+		data.NodeID.Value = true
+	}
+
+	if key.KeyStatic != nil {
+		data.KeyStatic.Value = key.KeyStatic.KeyData
+	}
+
+	return nil
+}
+
 // AdmissionPluginConfig configures pod admssion rules on the kubelet64Type, denying execution to pods that don't fit them.
 type AdmissionPluginConfig struct {
 	Name          types.String `tfsdk:"name"`

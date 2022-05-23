@@ -23,10 +23,64 @@ Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. C
 - `talos_endpoints` (List of String) A list of that the talosctl client will connect to. Can be a DNS hostname or an IP address and may include a port number. Must begin with "https://".
 - `target_version` (String) The version of the Talos cluster configuration that will be generated.
 
+- `encryption` (Attributes) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption))
 ### Read-Only
 
 - `base_config` (String, Sensitive) JSON Serialised object that contains information needed to create controlplane and worker node configurations.
 - `id` (String) Identifier hash, derived from the cluster's name.
 - `talos_config` (String, Sensitive) Talosconfig YAML that can be used by the talosctl client to communicate with the cluster.
+
+<a id="nestedatt--encryption"></a>
+### Nested Schema for `encryption`
+
+Optional:
+
+- `ephemeral` (Attributes) Represents partition encryption settings. (see [below for nested schema](#nestedatt--encryption--ephemeral))
+- `state` (Attributes) Represents partition encryption settings. (see [below for nested schema](#nestedatt--encryption--state))
+
+<a id="nestedatt--encryption--ephemeral"></a>
+### Nested Schema for `encryption.ephemeral`
+
+Optional:
+
+- `blocksize` (Number) Defines the encryption block size.
+- `cipher` (String) Cipher kind to use for the encryption. Depends on the encryption provider.
+- `keys` (Attributes List) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption--ephemeral--keys))
+- `keysize` (Number) Defines the encryption key size.
+- `perf_options` (List of String) Additional --perf parameters for LUKS2 encryption.
+- `provider` (String) Encryption provider to use for the encryption.
+
+<a id="nestedatt--encryption--ephemeral--keys"></a>
+### Nested Schema for `encryption.ephemeral.keys`
+
+Optional:
+
+- `key_static` (String) Represents a throw away key type.
+- `node_id` (Boolean) Represents a deterministically generated key from the node UUID and PartitionLabel. Setting this value to true will enable it.
+- `slot` (Number) Defines the encryption block size.
+
+
+
+<a id="nestedatt--encryption--state"></a>
+### Nested Schema for `encryption.state`
+
+Optional:
+
+- `blocksize` (Number) Defines the encryption block size.
+- `cipher` (String) Cipher kind to use for the encryption. Depends on the encryption provider.
+- `keys` (Attributes List) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption--state--keys))
+- `keysize` (Number) Defines the encryption key size.
+- `perf_options` (List of String) Additional --perf parameters for LUKS2 encryption.
+- `provider` (String) Encryption provider to use for the encryption.
+
+<a id="nestedatt--encryption--state--keys"></a>
+### Nested Schema for `encryption.state.keys`
+
+Optional:
+
+- `key_static` (String) Represents a throw away key type.
+- `node_id` (Boolean) Represents a deterministically generated key from the node UUID and PartitionLabel. Setting this value to true will enable it.
+- `slot` (Number) Defines the encryption block size.
+
 
 

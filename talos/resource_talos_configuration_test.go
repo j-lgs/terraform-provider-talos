@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	sdiff "github.com/r3labs/diff/v3"
-	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 )
 
@@ -43,9 +43,41 @@ var (
 	}
 
 	tfinput = talosClusterConfigResourceData{
-		TargetVersion:      wraps("v1.0.0"),
-		ClusterName:        wraps(testClusterName),
-		Endpoints:          sl("0.0.0.0"),
+		// For Resource
+		TargetVersion: wraps("v1.0.0"),
+		ClusterName:   wraps(testClusterName),
+		Endpoints:     sl("0.0.0.0"),
+		// Talos related
+		Encryption: &EncryptionData{
+			State: &EncryptionConfigData{
+				Provider: wraps(testSystemDiskEncryptionConfig.StatePartition.EncryptionProvider),
+				Keys: []KeyConfig{
+					{
+						NodeID:    types.Bool{Null: true},
+						KeyStatic: wraps(testSystemDiskEncryptionConfig.StatePartition.EncryptionKeys[0].KeyStatic.KeyData),
+						Slot:      wrapi(testSystemDiskEncryptionConfig.StatePartition.EncryptionKeys[0].KeySlot),
+					},
+				},
+				Cipher:      wraps(testSystemDiskEncryptionConfig.StatePartition.EncryptionCipher),
+				KeySize:     wrapi(int(testSystemDiskEncryptionConfig.StatePartition.EncryptionKeySize)),
+				BlockSize:   wrapi(int(testSystemDiskEncryptionConfig.StatePartition.EncryptionBlockSize)),
+				PerfOptions: sl(testSystemDiskEncryptionConfig.StatePartition.EncryptionPerfOptions...),
+			},
+			Ephemeral: &EncryptionConfigData{
+				Provider: wraps(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionProvider),
+				Keys: []KeyConfig{
+					{
+						KeyStatic: types.String{Null: true},
+						NodeID:    wrapb(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionKeys[0].KeyNodeID != nil),
+						Slot:      wrapi(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionKeys[0].KeySlot),
+					},
+				},
+				Cipher:      wraps(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionCipher),
+				KeySize:     wrapi(int(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionKeySize)),
+				BlockSize:   wrapi(int(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionBlockSize)),
+				PerfOptions: sl(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionPerfOptions...),
+			},
+		},
 		KubernetesEndpoint: wraps(testControlPlaneEndpoint.String()),
 		KubernetesVersion:  wraps(testKubernetesVersion),
 	}
@@ -54,26 +86,17 @@ var (
 func TestCreateTalosConfiguration(t *testing.T) {
 	data := tfinput
 
-	targetVersion := data.TargetVersion.Value
 	kubernetesVersion := data.KubernetesVersion.Value
 	clusterName := data.ClusterName.Value
 
-	endpoints := []string{}
-	for _, e := range data.Endpoints {
-		endpoints = append(endpoints, e.Value)
-	}
+	secrets := &testBundle
 
-	versionContract, err := config.ParseContractFromVersion(targetVersion)
+	genopts, err := data.TalosData()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	clock.SetFixedTimestamp(date)
-
-	secrets := &testBundle
-
 	input, err := generate.NewInput(clusterName, data.KubernetesEndpoint.Value, kubernetesVersion, secrets,
-		generate.WithVersionContract(versionContract),
+		genopts...,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -104,10 +127,10 @@ func TestCreateTalosConfiguration(t *testing.T) {
 }
 
 func TestReadTalosConfiguration(t *testing.T) {
-	var state talosClusterConfigResourceData
-	//testExpected := expectedInput
+	var state talosClusterConfigResourceData = tfinput
+	testExpected := expectedInput
 
-	//state.ReadInto(testExpected)
+	state.ReadInto(&testExpected)
 	changes, err := sdiff.Diff(state, tfinput)
 	if err != nil {
 		t.Fatal(err)

@@ -755,6 +755,36 @@ var (
 		Env:     map[string]types.String{"var": wraps("value")},
 		Sysctls: map[string]types.String{"key": wraps("value")},
 		Sysfs:   map[string]types.String{"key": wraps("value")},
+		Encryption: &EncryptionData{
+			State: &EncryptionConfigData{
+				Provider: wraps(testSystemDiskEncryptionConfig.StatePartition.EncryptionProvider),
+				Keys: []KeyConfig{
+					{
+						NodeID:    types.Bool{Null: true},
+						KeyStatic: wraps(testSystemDiskEncryptionConfig.StatePartition.EncryptionKeys[0].KeyStatic.KeyData),
+						Slot:      wrapi(testSystemDiskEncryptionConfig.StatePartition.EncryptionKeys[0].KeySlot),
+					},
+				},
+				Cipher:      wraps(testSystemDiskEncryptionConfig.StatePartition.EncryptionCipher),
+				KeySize:     wrapi(int(testSystemDiskEncryptionConfig.StatePartition.EncryptionKeySize)),
+				BlockSize:   wrapi(int(testSystemDiskEncryptionConfig.StatePartition.EncryptionBlockSize)),
+				PerfOptions: sl(testSystemDiskEncryptionConfig.StatePartition.EncryptionPerfOptions...),
+			},
+			Ephemeral: &EncryptionConfigData{
+				Provider: wraps(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionProvider),
+				Keys: []KeyConfig{
+					{
+						KeyStatic: types.String{Null: true},
+						NodeID:    wrapb(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionKeys[0].KeyNodeID != nil),
+						Slot:      wrapi(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionKeys[0].KeySlot),
+					},
+				},
+				Cipher:      wraps(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionCipher),
+				KeySize:     wrapi(int(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionKeySize)),
+				BlockSize:   wrapi(int(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionBlockSize)),
+				PerfOptions: sl(testSystemDiskEncryptionConfig.EphemeralPartition.EncryptionPerfOptions...),
+			},
+		},
 		Registry: &Registry{
 			Configs: map[string]RegistryConfig{
 				"test.org": {
