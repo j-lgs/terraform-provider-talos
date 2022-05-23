@@ -1729,32 +1729,41 @@ type configData struct {
 	MAC         string
 }
 
+func genConfig[N nodeResourceData](machineType machinetype.Type, input *generate.Input, nodeData *N) (out string, err error) {
+	cfg, err := generate.Config(machineType, input)
+	if err != nil {
+		err = fmt.Errorf("failed to generate Talos configuration struct for node: %w", err)
+		return
+	}
+
+	(*nodeData).Generate()
+	newCfg, err := (*nodeData).TalosData(cfg)
+	if err != nil {
+		err = fmt.Errorf("failed to generate configuration: %w", err)
+		return
+	}
+
+	var confYaml []byte
+	confYaml, err = newCfg.Bytes()
+	if err != nil {
+		err = fmt.Errorf("failed to generate config yaml: %w", err)
+		return
+	}
+
+	out = string(regexp.MustCompile(`\s*#.*`).ReplaceAll(confYaml, nil))
+	return
+}
+
 func applyConfig[N nodeResourceData](ctx context.Context, nodeData *N, data configData) (out string, errDesc string, err error) {
 	input := generate.Input{}
 	if err := json.Unmarshal([]byte(data.BaseConfig), &input); err != nil {
 		return "", "Failed to unmarshal input bundle", err
 	}
 
-	var cfg *v1alpha1.Config
-	cfg, err = generate.Config(data.MachineType, &input)
+	yaml, err := genConfig(data.MachineType, &input, nodeData)
 	if err != nil {
-		return "", "Failed to generate Talos configuration struct for node.", err
+		return "", "error rendering configuration YAML", err
 	}
-
-	(*nodeData).Generate()
-	newCfg, err := (*nodeData).TalosData(cfg)
-	if err != nil {
-		return "", "Failed to generate configuration", err
-	}
-
-	var confYaml []byte
-	confYaml, err = newCfg.Bytes()
-	if err != nil {
-		return "", "failed to generate config yaml.", err
-	}
-
-	stripComments := regexp.MustCompile(`\s*#.*`).ReplaceAll(confYaml, nil)
-	out = string(stripComments)
 
 	var conn *grpc.ClientConn
 	if data.CreateNode {
@@ -1788,7 +1797,7 @@ func applyConfig[N nodeResourceData](ctx context.Context, nodeData *N, data conf
 	defer conn.Close()
 	client := machine.NewMachineServiceClient(conn)
 	_, err = client.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
-		Data: []byte(out),
+		Data: []byte(yaml),
 		Mode: machine.ApplyConfigurationRequest_Mode(data.Mode),
 	})
 	if err != nil {
