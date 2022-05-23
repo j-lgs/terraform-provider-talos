@@ -1,3 +1,5 @@
+[![Go](https://github.com/j-lgs/terraform-provider-talos/actions/workflows/go.yml/badge.svg)](https://github.com/j-lgs/terraform-provider-talos/actions/workflows/go.yml)
+
 # provider-terraform-talos
 A terraform provider for the [Talos Kubernetes OS](https://github.com/siderolabs/talos) from Siderolabs. Exposes worker nodes, controlplane nodes, and the cluster's configuration as terraform resources.
 
