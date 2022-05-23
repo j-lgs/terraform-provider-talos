@@ -91,14 +91,14 @@ func (t talosClusterConfigResourceType) NewResource(ctx context.Context, in tfsd
 }
 
 type talosClusterConfigResourceData struct {
-	TargetVersion      types.String `tfsdk:"target_version"`
-	ClusterName        types.String `tfsdk:"name"`
-	Endpoints          types.List   `tfsdk:"talos_endpoints"`
-	KubernetesEndpoint types.String `tfsdk:"kubernetes_endpoint"`
-	KubernetesVersion  types.String `tfsdk:"kubernetes_version"`
-	TalosConfig        types.String `tfsdk:"talos_config"`
-	BaseConfig         types.String `tfsdk:"base_config"`
-	ID                 types.String `tfsdk:"id"`
+	TargetVersion      types.String   `tfsdk:"target_version"`
+	ClusterName        types.String   `tfsdk:"name"`
+	Endpoints          []types.String `tfsdk:"talos_endpoints"`
+	KubernetesEndpoint types.String   `tfsdk:"kubernetes_endpoint"`
+	KubernetesVersion  types.String   `tfsdk:"kubernetes_version"`
+	TalosConfig        types.String   `tfsdk:"talos_config"`
+	BaseConfig         types.String   `tfsdk:"base_config"`
+	ID                 types.String   `tfsdk:"id"`
 }
 
 type talosClusterConfigResource struct {
@@ -127,16 +127,6 @@ func (r talosClusterConfigResource) Create(ctx context.Context, req tfsdk.Create
 	kubernetesVersion := data.KubernetesVersion.Value
 	clusterName := data.ClusterName.Value
 	endpoints := []string{}
-	diags = data.Endpoints.ElementsAs(ctx, &endpoints, false)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if err != nil {
-		diags.AddError("Unable to generate secrets bundle", err.Error())
-		resp.Diagnostics.Append(diags...)
-	}
 
 	versionContract, err = config.ParseContractFromVersion(targetVersion)
 	if err != nil {
@@ -159,6 +149,7 @@ func (r talosClusterConfigResource) Create(ctx context.Context, req tfsdk.Create
 		diags.AddError("Error generating input bundle", err.Error())
 		return
 	}
+
 	//lint:ignore SA1026 suppress check as it's issue is with a datastructure outside the project's scope
 	inputJSON, err := json.Marshal(input)
 	if err != nil {
