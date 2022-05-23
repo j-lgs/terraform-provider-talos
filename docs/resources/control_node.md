@@ -61,6 +61,7 @@ Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. C
 Required:
 
 - `addresses` (List of String) A list of IP addresses for the interface.
+- `bond` (Attributes) Contains the various options for configuring a bonded interface. (see [below for nested schema](#nestedatt--devices--bond))
 - `dhcp` (Boolean) Indicates if DHCP should be used to configure the interface.
 - `dhcp_options` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--devices--dhcp_options))
 - `dummy` (Boolean) Indicates if the interface is a dummy interface..
@@ -70,6 +71,40 @@ Required:
 - `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--devices--vip))
 - `vlans` (Attributes List) Represents vlan settings for a device. (see [below for nested schema](#nestedatt--devices--vlans))
 - `wireguard` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--devices--wireguard))
+
+<a id="nestedatt--devices--bond"></a>
+### Nested Schema for `devices.bond`
+
+Required:
+
+- `ad_actor_sys_prio` (Number) A bond option. Please see the official kernel documentation. Must be a 16 bit unsigned int.
+- `ad_actor_system` (String) A bond option. Please see the official kernel documentation.
+- `ad_select` (String) A bond option. Please see the official kernel documentation.
+- `ad_user_port_key` (Number) A bond option. Please see the official kernel documentation. Must be a 16 bit unsigned int.
+- `all_slaves_active` (Number) A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.
+- `arp_all_targets` (String) A bond option. Please see the official kernel documentation.
+- `arp_interval` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `arp_ip_target` (List of String) A bond option. Please see the official kernel documentation.
+- `arp_validate` (String) A bond option. Please see the official kernel documentation.
+- `down_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `failover_mac` (String) A bond option. Please see the official kernel documentation.
+- `interfaces` (List of String)
+- `lacp_rate` (String) A bond option. Please see the official kernel documentation.
+- `lp_interval` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `mii_mon` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `min_links` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `mode` (String) A bond option. Please see the official kernel documentation.
+- `num_peer_notif` (Number) A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.
+- `packets_per_slave` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `peer_notify_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `primary` (String) A bond option. Please see the official kernel documentation.
+- `primary_reselect` (String) A bond option. Please see the official kernel documentation.
+- `resend_igmp` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `tlb_dynamic_lb` (Number) A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.
+- `up_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
+- `use_carrier` (Boolean) A bond option. Please see the official kernel documentation.
+- `xmit_hash_policy` (String) A bond option. Please see the official kernel documentation.
+
 
 <a id="nestedatt--devices--dhcp_options"></a>
 ### Nested Schema for `devices.dhcp_options`
