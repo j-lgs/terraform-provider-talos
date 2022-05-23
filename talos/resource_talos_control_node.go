@@ -699,9 +699,10 @@ func (r talosControlNodeResource) Delete(ctx context.Context, req tfsdk.DeleteRe
 		return
 	}
 
-	// Need to give the system enough time to perform the reset.
-	// TODO figure out how to determine a machine is down. Probably by periodically pinging the machine's
-	// config IP until a response is no longer recieved.
+	// This approach is not ideal is it might take much more or much less time for a talos host to
+	// reset. Ideally there would be an insecure endpoint that can be checked to determine if a host
+	// is up. Likely it would return 200 if up. This is handy too as it can help the provider determine
+	// whether the host's networking stack is up.
 	time.Sleep(60 * time.Second)
 }
 
