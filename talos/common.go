@@ -471,17 +471,17 @@ func (config RegistryConfig) Data() (interface{}, error) {
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#device for more information.
 // TODO: Add network device selector field for interfaces and support it throughout the provider.
 type NetworkDevice struct {
-	Addresses []types.String `tfsdk:"addresses"`
-	Routes    []Route        `tfsdk:"routes"`
-	//	BondData    *BondData      `tfsdk:"bond_data"`
-	VLANs       []VLAN       `tfsdk:"vlans"`
-	MTU         types.Int64  `tfsdk:"mtu"`
-	DHCP        types.Bool   `tfsdk:"dhcp"`
-	DHCPOptions *DHCPOptions `tfsdk:"dhcp_options"`
-	Ignore      types.Bool   `tfsdk:"ignore"`
-	Dummy       types.Bool   `tfsdk:"dummy"`
-	Wireguard   *Wireguard   `tfsdk:"wireguard"`
-	VIP         *VIP         `tfsdk:"vip"`
+	Addresses   []types.String `tfsdk:"addresses"`
+	Routes      []Route        `tfsdk:"routes"`
+	BondData    *BondData      `tfsdk:"bond"`
+	VLANs       []VLAN         `tfsdk:"vlans"`
+	MTU         types.Int64    `tfsdk:"mtu"`
+	DHCP        types.Bool     `tfsdk:"dhcp"`
+	DHCPOptions *DHCPOptions   `tfsdk:"dhcp_options"`
+	Ignore      types.Bool     `tfsdk:"ignore"`
+	Dummy       types.Bool     `tfsdk:"dummy"`
+	Wireguard   *Wireguard     `tfsdk:"wireguard"`
+	VIP         *VIP           `tfsdk:"vip"`
 }
 
 // NetworkDeviceSchema describes a Talos Device configuration.
@@ -504,13 +504,11 @@ var NetworkDeviceSchema tfsdk.Schema = tfsdk.Schema{
 		},
 		// Broken in a way I cannot currently comprehend.
 		// TODO Find a fix for this schema breaking terraform.
-		/*
-			"bond": {
-				Optional:    true,
-				Attributes:  tfsdk.SingleNestedAttributes(BondSchema.Attributes),
-				Description: BondSchema.Description,
-			},
-		*/
+		"bond": {
+			Optional:    true,
+			Attributes:  tfsdk.SingleNestedAttributes(BondSchema.Attributes),
+			Description: BondSchema.Description,
+		},
 		"vlans": {
 			Optional:    true,
 			Attributes:  tfsdk.ListNestedAttributes(VLANSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
@@ -571,15 +569,14 @@ func (planDevice NetworkDevice) Data() (interface{}, error) {
 		}
 		device.DeviceRoutes = append(device.DeviceRoutes, route.(*v1alpha1.Route))
 	}
-	/*
-		if planDevice.Bond != nil {
-			bond, err := planDevice.Bond.Data()
-			if err != nil {
-				return nil, err
-			}
-			device.DeviceBond = bond.(*v1alpha1.Bond)
+
+	if planDevice.BondData != nil {
+		bond, err := planDevice.BondData.Data()
+		if err != nil {
+			return nil, err
 		}
-	*/
+		device.DeviceBond = bond.(*v1alpha1.Bond)
+	}
 
 	if !planDevice.DHCP.Null {
 		device.DeviceDHCP = planDevice.DHCP.Value
@@ -672,6 +669,7 @@ var BondSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Contains the various options for configuring a bonded interface.",
 	Attributes: map[string]tfsdk.Attribute{
 		"interfaces": {
+			Required: true,
 			Type: types.ListType{
 				ElemType: types.StringType,
 			},
@@ -884,7 +882,7 @@ func (planBond BondData) Data() (interface{}, error) {
 		bond.BondAllSlavesActive = uint8(b.AllSlavesActive.Value)
 	}
 	if !b.UseCarrier.Null {
-		*bond.BondUseCarrier = b.UseCarrier.Value
+		bond.BondUseCarrier = &b.UseCarrier.Value
 	}
 	if !b.AdActorSysPrio.Null {
 		bond.BondADActorSysPrio = uint16(b.AdActorSysPrio.Value)
@@ -935,10 +933,10 @@ func (planDHCPOptions DHCPOptions) Data() (interface{}, error) {
 	dhcpOptions := &v1alpha1.DHCPOptions{}
 
 	if !planDHCPOptions.IPV4.Null {
-		*dhcpOptions.DHCPIPv4 = planDHCPOptions.IPV4.Value
+		dhcpOptions.DHCPIPv4 = &planDHCPOptions.IPV4.Value
 	}
 	if !planDHCPOptions.IPV6.Null {
-		*dhcpOptions.DHCPIPv6 = planDHCPOptions.IPV6.Value
+		dhcpOptions.DHCPIPv6 = &planDHCPOptions.IPV6.Value
 	}
 	if !planDHCPOptions.RouteMetric.Null {
 		dhcpOptions.DHCPRouteMetric = uint32(planDHCPOptions.RouteMetric.Value)
