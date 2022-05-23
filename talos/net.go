@@ -37,18 +37,20 @@ func checkArp(mac string) (net.IP, error) {
 	return nil, nil
 }
 
+func ipup(ctx context.Context, ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
+
+	err := exec.CommandContext(ctx, "ping", "-c1", "-w1", ip.String()).Run()
+	if exitError, ok := err.(*exec.ExitError); ok {
+		return exitError.ExitCode() == 0
+	}
+	return false
+}
+
 func lookupIP(ctx context.Context, network string, mac string) (net.IP, error) {
-	// Check if it's in the initial table
-
 	var ip net.IP
-	var err error
-
-	if ip, err = checkArp(mac); err != nil {
-		return nil, err
-	}
-	if ip != nil {
-		return ip, err
-	}
 
 	ctx, cancel := context.WithTimeout(ctx, 180*time.Second)
 	defer cancel()
@@ -60,12 +62,12 @@ func lookupIP(ctx context.Context, network string, mac string) (net.IP, error) {
 		default:
 			err := exec.CommandContext(ctx, "nmap", "-sP", network).Run()
 			if err != nil {
-				return nil, fmt.Errorf("%s", err)
+				return nil, err
 			}
 			if ip, err = checkArp(mac); err != nil {
 				return nil, err
 			}
-			if ip != nil {
+			if ipup(ctx, ip) {
 				return ip, nil
 			}
 			time.Sleep(5 * time.Second)
@@ -102,9 +104,6 @@ func makeTLSConfig(certs generate.Certs, secure bool) (tls.Config, error) {
 }
 
 func waitTillTalosMachineUp(ctx context.Context, tlsConfig *tls.Config, host string, secure bool) error {
-	tflog.Info(ctx, "Waiting for talos machine to be up")
-	// overall timeout should be 5 mins
-
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 		grpc.WithBlock(),
@@ -121,8 +120,6 @@ func waitTillTalosMachineUp(ctx context.Context, tlsConfig *tls.Config, host str
 			time.Sleep(5 * time.Second)
 		}
 	}
-
-	tflog.Info(ctx, "Waiting for talos machine to be up")
 
 	return nil
 }
