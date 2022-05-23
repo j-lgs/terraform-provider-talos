@@ -252,6 +252,12 @@ func (kubelet KubeletConfig) Data() (interface{}, error) {
 	for _, dns := range kubelet.ClusterDNS {
 		talosKubelet.KubeletClusterDNS = append(talosKubelet.KubeletClusterDNS, dns.Value)
 	}
+	if len(kubelet.ExtraArgs) > 0 {
+		talosKubelet.KubeletExtraArgs = map[string]string{}
+	}
+	for k, arg := range kubelet.ExtraArgs {
+		talosKubelet.KubeletExtraArgs[k] = arg.Value
+	}
 	for _, mount := range kubelet.ExtraMounts {
 		m, err := mount.Data()
 		if err != nil {
@@ -261,9 +267,10 @@ func (kubelet KubeletConfig) Data() (interface{}, error) {
 	}
 	if len(kubelet.NodeIPValidSubnets) > 0 {
 		talosKubelet.KubeletNodeIP = v1alpha1.KubeletNodeIPConfig{}
-	}
-	for _, subnet := range kubelet.NodeIPValidSubnets {
-		talosKubelet.KubeletNodeIP.KubeletNodeIPValidSubnets = append(talosKubelet.KubeletClusterDNS, subnet.Value)
+		for _, subnet := range kubelet.NodeIPValidSubnets {
+			talosKubelet.KubeletNodeIP.KubeletNodeIPValidSubnets =
+				append(talosKubelet.KubeletNodeIP.KubeletNodeIPValidSubnets, subnet.Value)
+		}
 	}
 	return talosKubelet, nil
 }
