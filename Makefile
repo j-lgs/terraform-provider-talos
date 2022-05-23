@@ -14,7 +14,7 @@ ARCH=$(shell if [ "$$(uname -m)" == "x86_64" ]; then echo amd64; fi)
 
 .PHONY: build fmt vet check test clean install acctest local-dev-install docs
 
-all: check test build docs
+all: check build docs test
 
 fmt:
 	@echo " -> checking code style"
