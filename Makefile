@@ -12,16 +12,9 @@ TIME                = $(shell date +'%H:%M:%S')
 KERNEL=$(shell if [ "$$(uname -s)" == "Linux" ]; then echo linux; fi)
 ARCH=$(shell if [ "$$(uname -m)" == "x86_64" ]; then echo amd64; fi)
 
-.PHONY: build fmt vet test clean install acctest local-dev-install vendor docs
+.PHONY: build fmt vet check test clean install acctest local-dev-install docs
 
 all: check test build docs
-
-vendor:
-	@echo " -> Grabbing talos vendor code"
-	mkdir -p vendor_talos
-	git clone --depth=1 https://github.com/siderolabs/talos.git vendor_talos/talos
-	mv talos vendor_talos/talos
-	go mod vendor
 
 fmt:
 	@echo " -> checking code style"
