@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 MAJOR := 0
 MINOR := 0
-MICRO := 0
+MICRO := 10
 NEXT_MICRO := 10
 CURRENT_VERSION_MICRO := $(MAJOR).$(MINOR).$(MICRO)
 
