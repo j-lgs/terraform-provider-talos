@@ -5,10 +5,23 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+type CertBundle struct {
+	AdminCRT         types.String `tfsdk:"admin_crt"`
+	AdminKey         types.String `tfsdk:"admin_key"`
+	EtcdCRT          types.String `tfsdk:"etcd_crt"`
+	EtcdKey          types.String `tfsdk:"etcd_key"`
+	K8sCRT           types.String `tfsdk:"k8s_crt"`
+	K8sKey           types.String `tfsdk:"k8s_key"`
+	K8sAggregatorCRT types.String `tfsdk:"k8s_aggregator_crt"`
+	K8sAggregatorKey types.String `tfsdk:"k8s_aggregator_key"`
+	K8sServiceKey    types.String `tfsdk:"k8s_service_key"`
+	OSCRT            types.String `tfsdk:"os_crt"`
+	OSKey            types.String `tfsdk:"os_key"`
+}
+
 var CertBundleSchema = tfsdk.Schema{
 	MarkdownDescription: "Represents the keys and certificates throughout Talos.",
 	Attributes: map[string]tfsdk.Attribute{
-
 		"admin_crt": {
 			Optional:            true,
 			Type:                types.StringType,
@@ -67,10 +80,23 @@ var CertBundleSchema = tfsdk.Schema{
 	},
 }
 
+type NetworkConfigOptions struct {
+	Kubespan      types.Bool              `tfsdk:"with_kubespan"`
+	VIP           map[string]types.String `tfsdk:"with_vip"`
+	Wireguard     map[string]Wireguard    `tfsdk:"with_wireguard"`
+	MTU           map[string]types.Int64  `tfsdk:"with_mtu"`
+	CIDR          map[string]types.String `tfsdk:"with_cidr"`
+	DHCPv6        map[string]types.Bool   `tfsdk:"with_dhcpv6"`
+	DHCPv4        map[string]types.Bool   `tfsdk:"with_dhcpv4"`
+	DHCP          map[string]types.Bool   `tfsdk:"with_dhcp"`
+	Ignore        map[string]types.Bool   `tfsdk:"with_ignore"`
+	Nameservers   []types.String          `tfsdk:"with_nameservers"`
+	NetworkConfig *NetworkConfig          `tfsdk:"with_networkconfig"`
+}
+
 var NetworkConfigOptionSchema = tfsdk.Schema{
 	MarkdownDescription: "Represents globally applied network configuration options.",
 	Attributes: map[string]tfsdk.Attribute{
-
 		"with_kubespan": {
 			Type:     types.BoolType,
 			Optional: true,
@@ -142,6 +168,15 @@ var NetworkConfigOptionSchema = tfsdk.Schema{
 			Attributes:  tfsdk.SingleNestedAttributes(NetworkConfigSchema.Attributes),
 		},
 	},
+}
+
+type SecretBundle struct {
+	ID             types.String `tfsdk:"id"`
+	CertBundle     *CertBundle  `tfsdk:"cert_bundle"`
+	Secret         types.String `tfsdk:"secret"`
+	BootstrapToken types.String `tfsdk:"bootstrap_token"`
+	AESEncryption  types.String `tfsdk:"aes_cbc_encryption"`
+	TrustdToken    types.String `tfsdk:"trustd_token"`
 }
 
 var SecretBundleSchema = tfsdk.Schema{

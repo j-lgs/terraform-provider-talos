@@ -475,11 +475,24 @@ func (config RegistryConfig) Data() (interface{}, error) {
 	return conf, nil
 }
 
+type NetworkConfig struct {
+	Hostname    types.String              `tfsdk:"hostname"`
+	Devices     map[string]NetworkDevice  `tfsdk:"devices"`
+	Nameservers []types.String            `tfsdk:"nameservers"`
+	ExtraHosts  map[string][]types.String `tfsdk:"extra_hosts"`
+	Kubespan    types.Bool                `tfsdk:"kubespan"`
+}
+
 var NetworkConfigSchema = tfsdk.Schema{
 	MarkdownDescription: "Represents node network configuration options.",
 	Attributes: map[string]tfsdk.Attribute{
+		"hostname": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Used to statically set the hostname for the machine..",
+		},
 		"devices": {
-			Required:    true,
+			Optional:    true,
 			Description: NetworkDeviceSchema.Description,
 			Attributes:  tfsdk.MapNestedAttributes(NetworkDeviceSchema.Attributes, tfsdk.MapNestedAttributesOptions{}),
 		},
@@ -489,6 +502,20 @@ var NetworkConfigSchema = tfsdk.Schema{
 			},
 			Optional:    true,
 			Description: "Used to statically set the nameservers for the machine.",
+		},
+		"extra_hosts": {
+			Type: types.MapType{
+				ElemType: types.ListType{
+					ElemType: types.StringType,
+				},
+			},
+			Optional:    true,
+			Description: "Allows for extra entries to be added to the `/etc/hosts` file.",
+		},
+		"kubespan": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Configures the KubeSpan wireguard network feature.",
 		},
 	},
 }
