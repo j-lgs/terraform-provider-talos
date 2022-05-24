@@ -3,6 +3,8 @@ module terraform-provider-talos
 go 1.18
 
 replace (
+	// workaround checksum issue when releasing
+	github.com/cilium/ebpf => github.com/cilium/ebpf v0.8.1
 	// use same forked yaml that talos does.
 	gopkg.in/yaml.v3 => github.com/unix4ever/yaml v0.0.0-20210315173758-8fb30b8e5a5b
 	// workaround for talos siderolabs not working
