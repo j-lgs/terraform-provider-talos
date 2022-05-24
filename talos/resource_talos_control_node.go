@@ -131,7 +131,11 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				// TODO validate
 			},
 			// kubespan not implemented
-			// disks not implemented
+			"disks": {
+				Optional:    true,
+				Description: MachineDiskSchema.MarkdownDescription,
+				Attributes:  tfsdk.ListNestedAttributes(MachineDiskSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			},
 			// install not implemented
 			"files": {
 				Optional:    true,
@@ -301,6 +305,7 @@ type talosControlNodeResourceData struct {
 	Sysctls                  map[string]types.String   `tfsdk:"sysctls"`
 	Sysfs                    map[string]types.String   `tfsdk:"sysfs"`
 	Registry                 *Registry                 `tfsdk:"registry"`
+	Disks                    []MachineDiskData         `tfsdk:"disks"`
 	Encryption               *EncryptionData           `tfsdk:"encryption"`
 	Udev                     []types.String            `tfsdk:"udev"`
 	MachineControlPlane      *MachineControlPlane      `tfsdk:"control_plane_config"`

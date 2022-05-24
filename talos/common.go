@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	talosx509 "github.com/talos-systems/crypto/x509"
 	"github.com/talos-systems/talos/pkg/machinery/api/machine"
@@ -1330,6 +1331,112 @@ func (planMachineControlPlane MachineControlPlane) Data() (interface{}, error) {
 	return controlConf, nil
 }
 
+// PartitionData represents the options for a disk partition.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#diskpartition for more information.
+type PartitionData struct {
+	Size       types.String `tfsdk:"size"`
+	MountPoint types.String `tfsdk:"mount_point"`
+}
+
+// PartitionSchema represents the options for a disk partition.
+var PartitionSchema = tfsdk.Schema{
+	MarkdownDescription: `Represents the options for a disk partition.`,
+	Attributes: map[string]tfsdk.Attribute{
+		"size": {
+			Required: true,
+			MarkdownDescription: `The size of partition: either bytes or human readable representation.
+If ` + "`size:`" + `is omitted, the partition is sized to occupy the full disk.`,
+			Type: types.StringType,
+		},
+		"mount_point": {
+			Required:    true,
+			Description: "Where the partition will be mounted.",
+			Type:        types.StringType,
+		},
+	},
+}
+
+func (partition PartitionData) Data() (any, error) {
+	size, err := humanize.ParseBytes(partition.Size.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	part := &v1alpha1.DiskPartition{
+		DiskSize:       v1alpha1.DiskSize(size),
+		DiskMountPoint: partition.Size.Value,
+	}
+
+	return part, nil
+}
+
+func (partition *PartitionData) Read(part any) error {
+	diskPartition := part.(*v1alpha1.DiskPartition)
+
+	size, err := diskPartition.DiskSize.MarshalYAML()
+	if err != nil {
+		return err
+	}
+	partition.Size = types.String{Value: size.(string)}
+
+	return nil
+}
+
+// MachineDiskData represents the options available for partitioning, formatting, and mounting extra disks.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#machinedisk for more information.
+type MachineDiskData struct {
+	DeviceName types.String    `tfsdk:"device_name"`
+	Partitions []PartitionData `tfsdk:"partitions"`
+}
+
+// MachineDiskSchema represents the options available for partitioning, formatting, and mounting extra disks.
+var MachineDiskSchema = tfsdk.Schema{
+	MarkdownDescription: "Represents partitioning for disks on the machine.",
+	Attributes: map[string]tfsdk.Attribute{
+		"device_name": {
+			Required:    true,
+			Description: "Block device name.",
+			Type:        types.StringType,
+		},
+		"partitions": {
+			Required:    true,
+			Description: PartitionSchema.MarkdownDescription,
+			Attributes:  tfsdk.ListNestedAttributes(PartitionSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+		},
+	},
+}
+
+func (diskData MachineDiskData) Data() (any, error) {
+	disk := v1alpha1.MachineDisk{
+		DeviceName: diskData.DeviceName.Value,
+	}
+
+	for _, partition := range diskData.Partitions {
+		part, err := partition.Data()
+		if err != nil {
+			return nil, err
+		}
+		disk.DiskPartitions = append(disk.DiskPartitions, part.(*v1alpha1.DiskPartition))
+	}
+
+	return disk, nil
+}
+
+func (data *MachineDiskData) Read(diskData any) error {
+	machineDisk := diskData.(v1alpha1.MachineDisk)
+
+	data.DeviceName.Value = machineDisk.DeviceName
+	for _, partition := range machineDisk.DiskPartitions {
+		part := PartitionData{}
+		err := part.Read(partition)
+		if err != nil {
+			return err
+		}
+		data.Partitions = append(data.Partitions, part)
+	}
+
+	return nil
+}
 
 // EncryptionData specifies system disk partitions encryption settings.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#systemdiskencryptionconfig for more information.

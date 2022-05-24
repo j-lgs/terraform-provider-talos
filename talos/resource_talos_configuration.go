@@ -130,6 +130,11 @@ func (t talosClusterConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Sc
 				Description: RegistrySchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(RegistrySchema.Attributes),
 			},
+			"disks": {
+				Optional:    true,
+				Description: MachineDiskSchema.MarkdownDescription,
+				Attributes:  tfsdk.ListNestedAttributes(MachineDiskSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			},
 			"encryption": {
 				Optional:    true,
 				Description: EncryptionSchema.MarkdownDescription,
@@ -202,6 +207,7 @@ type talosClusterConfigResourceData struct {
 	TalosConfig types.String `tfsdk:"talos_config"`
 	BaseConfig  types.String `tfsdk:"base_config"`
 	ID          types.String `tfsdk:"id"`
+	Disks                    []MachineDiskData       `tfsdk:"disks"`
 }
 
 func (plan *talosClusterConfigResourceData) Generate(opts []generate.GenOption) (err error) {

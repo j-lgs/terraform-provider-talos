@@ -34,6 +34,7 @@ Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. C
 - `cert_sans` (List of String) Extra certificate subject alternative names for the machine’s certificate.
 - `control_plane` (Attributes) Represents the control plane configuration options. (see [below for nested schema](#nestedatt--control_plane))
 - `control_plane_config` (Attributes) Configures options pertaining to the Kubernetes control plane that's installed onto the machine (see [below for nested schema](#nestedatt--control_plane_config))
+- `disks` (Attributes List) Represents partitioning for disks on the machine. (see [below for nested schema](#nestedatt--disks))
 - `encryption` (Attributes) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption))
 - `env` (Map of String) Allows for the addition of environment variables. All environment variables are set on PID 1 in addition to every service.
 - `extra_host` (Map of List of String) Allows the addition of user specified files.
@@ -253,6 +254,25 @@ Optional:
 
 - `controller_manager_disabled` (Boolean) Disable kube-controller-manager on the node.
 - `scheduler_disabled` (Boolean) Disable kube-scheduler on the node.
+
+
+<a id="nestedatt--disks"></a>
+### Nested Schema for `disks`
+
+Optional:
+
+- `device_name` (String) Block device name.
+- `partitions` (Attributes List) Represents the options for a disk partition. (see [below for nested schema](#nestedatt--disks--partitions))
+
+<a id="nestedatt--disks--partitions"></a>
+### Nested Schema for `disks.partitions`
+
+Optional:
+
+- `mount_point` (String) Where the partition will be mounted.
+- `size` (String) The size of partition: either bytes or human readable representation.
+If `size:`is omitted, the partition is sized to occupy the full disk.
+
 
 
 <a id="nestedatt--encryption"></a>
