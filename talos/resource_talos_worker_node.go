@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net"
 	"strconv"
+	"terraform-provider-talos/talos/datatypes"
 
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 
@@ -82,20 +83,20 @@ func (t talosWorkerNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema,
 
 			"control_plane": {
 				Optional:    true,
-				Description: ControlPlaneConfigSchema.Description,
-				Attributes:  tfsdk.SingleNestedAttributes(ControlPlaneConfigSchema.Attributes),
+				Description: datatypes.ControlPlaneConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.ControlPlaneConfigSchema.Attributes),
 			},
 
 			"kubelet": {
 				Optional:    true,
-				Description: KubeletConfigSchema.Description,
-				Attributes:  tfsdk.SingleNestedAttributes(KubeletConfigSchema.Attributes),
+				Description: datatypes.KubeletConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.KubeletConfigSchema.Attributes),
 			},
 
 			"proxy": {
 				Optional:    true,
-				Description: ProxyConfigSchema.Description,
-				Attributes:  tfsdk.SingleNestedAttributes(ProxyConfigSchema.Attributes),
+				Description: datatypes.ProxyConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.ProxyConfigSchema.Attributes),
 			},
 
 			"pod": {
@@ -109,8 +110,8 @@ func (t talosWorkerNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema,
 			// hostname derived from name
 			"devices": {
 				Required:    true,
-				Description: NetworkDeviceSchema.Description,
-				Attributes:  tfsdk.MapNestedAttributes(NetworkDeviceSchema.Attributes, tfsdk.MapNestedAttributesOptions{}),
+				Description: datatypes.NetworkDeviceSchema.Description,
+				Attributes:  tfsdk.MapNestedAttributes(datatypes.NetworkDeviceSchema.Attributes, tfsdk.MapNestedAttributesOptions{}),
 			},
 			"nameservers": {
 				Type: types.ListType{
@@ -136,8 +137,8 @@ func (t talosWorkerNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema,
 			// install not implemented
 			"files": {
 				Optional:    true,
-				Description: FileSchema.Description,
-				Attributes:  tfsdk.ListNestedAttributes(FileSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+				Description: datatypes.FileSchema.Description,
+				Attributes:  tfsdk.ListNestedAttributes(datatypes.FileSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			},
 
 			"env": {
@@ -165,8 +166,8 @@ func (t talosWorkerNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema,
 
 			"registry": {
 				Optional:    true,
-				Description: RegistrySchema.Description,
-				Attributes:  tfsdk.SingleNestedAttributes(RegistrySchema.Attributes),
+				Description: datatypes.RegistrySchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.RegistrySchema.Attributes),
 			},
 
 			// system_disk_encryption not implemented
@@ -224,30 +225,30 @@ func (t talosWorkerNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema,
 }
 
 type talosWorkerNodeResourceData struct {
-	Name            types.String              `tfsdk:"name"`
-	InstallDisk     types.String              `tfsdk:"install_disk"`
-	TalosImage      types.String              `tfsdk:"talos_image"`
-	KernelArgs      []types.String            `tfsdk:"kernel_args"`
-	Macaddr         types.String              `tfsdk:"macaddr"`
-	DHCPNetworkCidr types.String              `tfsdk:"dhcp_network_cidr"`
-	CertSANS        []types.String            `tfsdk:"cert_sans"`
-	ControlPlane    *ControlPlaneConfig       `tfsdk:"control_plane"`
-	Kubelet         *KubeletConfig            `tfsdk:"kubelet"`
-	Pod             []types.String            `tfsdk:"pod"`
-	NetworkDevices  map[string]NetworkDevice  `tfsdk:"devices"`
-	Nameservers     []types.String            `tfsdk:"nameservers"`
-	ExtraHost       map[string][]types.String `tfsdk:"extra_host"`
-	Files           []File                    `tfsdk:"files"`
-	Env             map[string]types.String   `tfsdk:"env"`
-	Proxy           *ProxyConfig              `tfsdk:"proxy"`
-	Sysctls         map[string]types.String   `tfsdk:"sysctls"`
-	Sysfs           map[string]types.String   `tfsdk:"sysfs"`
-	Registry        *Registry                 `tfsdk:"registry"`
-	Udev            []types.String            `tfsdk:"udev"`
-	ConfigIP        types.String              `tfsdk:"config_ip"`
-	BaseConfig      types.String              `tfsdk:"base_config"`
-	Patch           types.String              `tfsdk:"patch"`
-	ID              types.String              `tfsdk:"id"`
+	Name            types.String                       `tfsdk:"name"`
+	InstallDisk     types.String                       `tfsdk:"install_disk"`
+	TalosImage      types.String                       `tfsdk:"talos_image"`
+	KernelArgs      []types.String                     `tfsdk:"kernel_args"`
+	Macaddr         types.String                       `tfsdk:"macaddr"`
+	DHCPNetworkCidr types.String                       `tfsdk:"dhcp_network_cidr"`
+	CertSANS        []types.String                     `tfsdk:"cert_sans"`
+	ControlPlane    *datatypes.ControlPlaneConfig      `tfsdk:"control_plane"`
+	Kubelet         *datatypes.KubeletConfig           `tfsdk:"kubelet"`
+	Pod             []types.String                     `tfsdk:"pod"`
+	NetworkDevices  map[string]datatypes.NetworkDevice `tfsdk:"devices"`
+	Nameservers     []types.String                     `tfsdk:"nameservers"`
+	ExtraHost       map[string][]types.String          `tfsdk:"extra_host"`
+	Files           []datatypes.File                   `tfsdk:"files"`
+	Env             map[string]types.String            `tfsdk:"env"`
+	Proxy           *datatypes.ProxyConfig             `tfsdk:"proxy"`
+	Sysctls         map[string]types.String            `tfsdk:"sysctls"`
+	Sysfs           map[string]types.String            `tfsdk:"sysfs"`
+	Registry        *datatypes.Registry                `tfsdk:"registry"`
+	Udev            []types.String                     `tfsdk:"udev"`
+	ConfigIP        types.String                       `tfsdk:"config_ip"`
+	BaseConfig      types.String                       `tfsdk:"base_config"`
+	Patch           types.String                       `tfsdk:"patch"`
+	ID              types.String                       `tfsdk:"id"`
 }
 
 func (plan *talosWorkerNodeResourceData) Generate() (err error) {

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"terraform-provider-talos/talos/datatypes"
 	"time"
 
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
@@ -32,33 +33,14 @@ type talosControlNodeResourceType struct{}
 // Note: It will fail on runtime with a Terraform crash if either of required or optional aren't included.
 func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
-		MarkdownDescription: "Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. Contains information that is shared with, and essential for the creation of, worker and controlplane nodes.",
-
+		MarkdownDescription: "Represents a Talos controlplane node.",
 		Attributes: map[string]tfsdk.Attribute{
-			// Mandatory for minimal template generation
 			"name": {
 				Type:     types.StringType,
 				Required: true,
 				// ValidateFunc: validateDomain,
 				// ForceNew: true,
 				// TODO validate and fix forcenew
-			},
-			// Install arguments
-			"install_disk": {
-				Type:     types.StringType,
-				Required: true,
-			},
-			"talos_image": {
-				Type:     types.StringType,
-				Required: true,
-				// TODO validate
-				// ValidateFunc: validateImage,
-			},
-			"kernel_args": {
-				Type: types.ListType{
-					ElemType: types.StringType,
-				},
-				Optional: true,
 			},
 			"macaddr": {
 				Type:     types.StringType,
@@ -75,7 +57,11 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 			},
 			// --- MachineConfig.
 			// See https://www.talos.dev/v1.0/reference/configuration/#machineconfig for full spec.
-
+			"install": {
+				Required:    true,
+				Description: datatypes.InstallSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.InstallSchema.Attributes),
+			},
 			"cert_sans": {
 				Type: types.ListType{
 					ElemType: types.StringType,
@@ -87,16 +73,15 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 
 			"control_plane": {
 				Optional:    true,
-				Description: ControlPlaneConfigSchema.Description,
-				Attributes:  tfsdk.SingleNestedAttributes(ControlPlaneConfigSchema.Attributes),
+				Description: datatypes.ControlPlaneConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.ControlPlaneConfigSchema.Attributes),
 			},
 
 			"kubelet": {
 				Optional:    true,
-				Description: KubeletConfigSchema.Description,
-				Attributes:  tfsdk.SingleNestedAttributes(KubeletConfigSchema.Attributes),
+				Description: datatypes.KubeletConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.KubeletConfigSchema.Attributes),
 			},
-
 			"pod": {
 				Type: types.ListType{
 					ElemType: types.StringType,
@@ -105,42 +90,22 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				// TODO validation
 				Description: "Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.",
 			},
-			// hostname derived from name
 			"devices": {
 				Required:    true,
-				Description: NetworkDeviceSchema.Description,
-				Attributes:  tfsdk.MapNestedAttributes(NetworkDeviceSchema.Attributes, tfsdk.MapNestedAttributesOptions{}),
-			},
-			"nameservers": {
-				Type: types.ListType{
-					ElemType: types.StringType,
-				},
-				Optional: true,
-				// TODO validation
-				// validateEndpoint
-				Description: "Used to statically set the nameservers for the machine.",
-			},
-			"extra_host": {
-				Type: types.MapType{
-					ElemType: types.ListType{
-						ElemType: types.StringType,
-					},
-				},
-				Optional:    true,
-				Description: "Allows the addition of user specified files.",
-				// TODO validate
+				Description: datatypes.NetworkConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.NetworkConfigSchema.Attributes),
 			},
 			// kubespan not implemented
 			"disks": {
 				Optional:    true,
-				Description: MachineDiskSchema.MarkdownDescription,
-				Attributes:  tfsdk.ListNestedAttributes(MachineDiskSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+				Description: datatypes.MachineDiskSchema.MarkdownDescription,
+				Attributes:  tfsdk.ListNestedAttributes(datatypes.MachineDiskSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			},
 			// install not implemented
 			"files": {
 				Optional:    true,
-				Description: FileSchema.Description,
-				Attributes:  tfsdk.ListNestedAttributes(FileSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+				Description: datatypes.FileSchema.Description,
+				Attributes:  tfsdk.ListNestedAttributes(datatypes.FileSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			},
 
 			"env": {
@@ -168,13 +133,13 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 
 			"registry": {
 				Optional:    true,
-				Description: RegistrySchema.Description,
-				Attributes:  tfsdk.SingleNestedAttributes(RegistrySchema.Attributes),
+				Description: datatypes.RegistrySchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.RegistrySchema.Attributes),
 			},
 			"encryption": {
 				Optional:    true,
-				Description: EncryptionSchema.MarkdownDescription,
-				Attributes:  tfsdk.SingleNestedAttributes(EncryptionSchema.Attributes),
+				Description: datatypes.EncryptionSchema.MarkdownDescription,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.EncryptionSchema.Attributes),
 			},
 			// features not implemented
 			"udev": {
@@ -192,23 +157,23 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 
 			"control_plane_config": {
 				Optional:    true,
-				Description: MachineControlPlaneSchema.Description,
-				Attributes:  tfsdk.SingleNestedAttributes(MachineControlPlaneSchema.Attributes),
+				Description: datatypes.MachineControlPlaneSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.MachineControlPlaneSchema.Attributes),
 			},
 
 			// clustername already filled
 			// cluster_network not implemented
 			"apiserver": {
 				Optional:    true,
-				Description: APIServerConfigSchema.Description,
-				Attributes:  tfsdk.SingleNestedAttributes(APIServerConfigSchema.Attributes),
+				Description: datatypes.APIServerConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.APIServerConfigSchema.Attributes),
 			},
 
 			// controller manager not implemented
 			"proxy": {
 				Optional:    true,
-				Description: ProxyConfigSchema.Description,
-				Attributes:  tfsdk.SingleNestedAttributes(ProxyConfigSchema.Attributes),
+				Description: datatypes.ProxyConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.ProxyConfigSchema.Attributes),
 			},
 
 			// scheduler not implemented
@@ -228,8 +193,8 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 			// inline_manifests not implemented
 			"inline_manifests": {
 				Optional:    true,
-				Description: InlineManifestSchema.Description,
-				Attributes:  tfsdk.ListNestedAttributes(InlineManifestSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+				Description: datatypes.InlineManifestSchema.Description,
+				Attributes:  tfsdk.ListNestedAttributes(datatypes.InlineManifestSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			},
 
 			// admin_kubeconfig not implemented
@@ -286,44 +251,83 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 	}, nil
 }
 
+var (
+	talosControlNodeResourceDataExample = &talosControlNodeResourceData{
+		Name:         datatypes.Wraps("test-node"),
+		Install:      datatypes.InstallExample,
+		CertSANS:     datatypes.Wrapsl(datatypes.MachineCertSANsExample...),
+		ControlPlane: datatypes.ControlPlaneConfigExample,
+		Kubelet:      datatypes.KubeletExample,
+		Pod:          datatypes.Wrapsl(datatypes.MachinePodsStringExample),
+		Network:      *&datatypes.NetworkConfigExample,
+		Files: []datatypes.File{
+			datatypes.FileExample,
+		},
+		Env: map[string]types.String{
+			"GRPC_GO_LOG_VERBOSITY_LEVEL": datatypes.Wraps("99"),
+			"GRPC_GO_LOG_SEVERITY_LEVEL":  datatypes.Wraps("info"),
+			"https_proxy":                 datatypes.Wraps("http://DOMAIN\\USERNAME:PASSWORD@SERVER:PORT/"),
+		},
+		Sysctls: map[string]types.String{
+			"kernel.domainname":   datatypes.Wraps("talos.dev"),
+			"net.ipv4.ip_forward": datatypes.Wraps("0"),
+		},
+		Sysfs: map[string]types.String{
+			"devices.system.cpu.cpu0.cpufreq.scaling_governor": datatypes.Wraps("performance"),
+		},
+		Disks: []datatypes.MachineDiskData{
+			*datatypes.MachineDiskExample,
+		},
+		Encryption:          datatypes.EncryptionDataExample,
+		Registry:            datatypes.RegistryExample,
+		Udev:                datatypes.Wrapsl(datatypes.UdevExample...),
+		MachineControlPlane: datatypes.MachineControlPlaneExample,
+		APIServer:           datatypes.APIServerExample,
+		Proxy:               datatypes.ProxyConfigExample,
+		ExtraManifests: datatypes.Wrapsl(
+			"https://www.example.com/manifest1.yaml", "https://www.example.com/manifest2.yaml"),
+		InlineManifests: []datatypes.InlineManifest{
+			datatypes.InlineManifestExample,
+		},
+		AllowSchedulingOnMasters: datatypes.Wrapb(datatypes.AllowSchedulingOnMastersExample),
+	}
+)
+
 type talosControlNodeResourceData struct {
-	Name                     types.String              `tfsdk:"name"`
-	InstallDisk              types.String              `tfsdk:"install_disk"`
-	TalosImage               types.String              `tfsdk:"talos_image"`
-	KernelArgs               []types.String            `tfsdk:"kernel_args"`
-	Macaddr                  types.String              `tfsdk:"macaddr"`
-	DHCPNetworkCidr          types.String              `tfsdk:"dhcp_network_cidr"`
-	CertSANS                 []types.String            `tfsdk:"cert_sans"`
-	ControlPlane             *ControlPlaneConfig       `tfsdk:"control_plane"`
-	Kubelet                  *KubeletConfig            `tfsdk:"kubelet"`
-	Pod                      []types.String            `tfsdk:"pod"`
-	NetworkDevices           map[string]NetworkDevice  `tfsdk:"devices"`
-	Nameservers              []types.String            `tfsdk:"nameservers"`
-	ExtraHost                map[string][]types.String `tfsdk:"extra_host"`
-	Files                    []File                    `tfsdk:"files"`
-	Env                      map[string]types.String   `tfsdk:"env"`
-	Sysctls                  map[string]types.String   `tfsdk:"sysctls"`
-	Sysfs                    map[string]types.String   `tfsdk:"sysfs"`
-	Registry                 *Registry                 `tfsdk:"registry"`
-	Disks                    []MachineDiskData         `tfsdk:"disks"`
-	Encryption               *EncryptionData           `tfsdk:"encryption"`
-	Udev                     []types.String            `tfsdk:"udev"`
-	MachineControlPlane      *MachineControlPlane      `tfsdk:"control_plane_config"`
-	APIServer                *APIServerConfig          `tfsdk:"apiserver"`
-	Proxy                    *ProxyConfig              `tfsdk:"proxy"`
-	ExtraManifests           []types.String            `tfsdk:"extra_manifests"`
-	InlineManifests          []InlineManifest          `tfsdk:"inline_manifests"`
-	AllowSchedulingOnMasters types.Bool                `tfsdk:"allow_scheduling_on_masters"`
-	Bootstrap                types.Bool                `tfsdk:"bootstrap"`
-	ConfigIP                 types.String              `tfsdk:"bootstrap_ip"`
-	BaseConfig               types.String              `tfsdk:"base_config"`
-	Patch                    types.String              `tfsdk:"patch"`
-	ID                       types.String              `tfsdk:"id"`
+	Name                     types.String                   `tfsdk:"name"`
+	Macaddr                  types.String                   `tfsdk:"macaddr"`
+	DHCPNetworkCidr          types.String                   `tfsdk:"dhcp_network_cidr"`
+	Install                  *datatypes.InstallConfig       `tfsdk:"install"`
+	CertSANS                 []types.String                 `tfsdk:"cert_sans"`
+	ControlPlane             *datatypes.ControlPlaneConfig  `tfsdk:"control_plane"`
+	Kubelet                  *datatypes.KubeletConfig       `tfsdk:"kubelet"`
+	Pod                      []types.String                 `tfsdk:"pod"`
+	Network                  *datatypes.NetworkConfig       `tfsdk:"network"`
+	Files                    []datatypes.File               `tfsdk:"files"`
+	Env                      map[string]types.String        `tfsdk:"env"`
+	Sysctls                  map[string]types.String        `tfsdk:"sysctls"`
+	Sysfs                    map[string]types.String        `tfsdk:"sysfs"`
+	Registry                 *datatypes.Registry            `tfsdk:"registry"`
+	Disks                    []datatypes.MachineDiskData    `tfsdk:"disks"`
+	Encryption               *datatypes.EncryptionData      `tfsdk:"encryption"`
+	Udev                     []types.String                 `tfsdk:"udev"`
+	MachineControlPlane      *datatypes.MachineControlPlane `tfsdk:"control_plane_config"`
+	APIServer                *datatypes.APIServerConfig     `tfsdk:"apiserver"`
+	Proxy                    *datatypes.ProxyConfig         `tfsdk:"proxy"`
+	ExtraManifests           []types.String                 `tfsdk:"extra_manifests"`
+	InlineManifests          []datatypes.InlineManifest     `tfsdk:"inline_manifests"`
+	AllowSchedulingOnMasters types.Bool                     `tfsdk:"allow_scheduling_on_masters"`
+	Bootstrap                types.Bool                     `tfsdk:"bootstrap"`
+
+	ConfigIP   types.String `tfsdk:"config_ip"`
+	BaseConfig types.String `tfsdk:"base_config"`
+	Patch      types.String `tfsdk:"patch"`
+	ID         types.String `tfsdk:"id"`
 }
 
 func (plan *talosControlNodeResourceData) Generate() (err error) {
 	// Generate wireguard keys.
-	for _, device := range plan.NetworkDevices {
+	for _, device := range plan.Network.Devices {
 		// If the device's wireguard configuration exists, derive the public key from it's private key.
 		if device.Wireguard != nil {
 			var pk wgtypes.Key
@@ -347,9 +351,10 @@ func (plan *talosControlNodeResourceData) Generate() (err error) {
 }
 
 func (plan *talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err error) {
-	plan.Nameservers = []types.String{}
+	plan.Network = &datatypes.NetworkConfig{}
+	plan.Network.Nameservers = []types.String{}
 	for _, ns := range in.MachineConfig.MachineNetwork.NameServers {
-		plan.Nameservers = append(plan.Nameservers, types.String{Value: ns})
+		plan.Network.Nameservers = append(plan.Network.Nameservers, types.String{Value: ns})
 	}
 	/*
 		plan.ExtraManifests = []types.String{}
@@ -411,43 +416,20 @@ func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v
 		md.MachineKubelet = kubelet.(*v1alpha1.KubeletConfig)
 	}
 
-	// NetworkDevices
-	md.MachineNetwork = &v1alpha1.NetworkConfig{}
-	md.MachineNetwork.NetworkHostname = plan.Name.Value
-	md.MachineNetwork.NetworkInterfaces = []*v1alpha1.Device{}
-	// set device interfaces after get as it's the map key
-	for netInterface, device := range plan.NetworkDevices {
-		dev, err := device.Data()
+	if plan.Network != nil {
+		net, err := plan.Network.Data()
 		if err != nil {
 			return &v1alpha1.Config{}, err
 		}
-		dev.(*v1alpha1.Device).DeviceInterface = netInterface
-		md.MachineNetwork.NetworkInterfaces = append(md.MachineNetwork.NetworkInterfaces, dev.(*v1alpha1.Device))
-	}
-	for _, ns := range plan.Nameservers {
-		md.MachineNetwork.NameServers = append(md.MachineNetwork.NameServers, ns.Value)
-	}
-	md.MachineNetwork.ExtraHostEntries = []*v1alpha1.ExtraHost{}
-	for hostname, addresses := range plan.ExtraHost {
-		host := &v1alpha1.ExtraHost{
-			HostIP: hostname,
-		}
-		md.MachineNetwork.ExtraHostEntries = append(md.MachineNetwork.ExtraHostEntries, host)
-		for _, address := range addresses {
-			host.HostAliases = append(host.HostAliases, address.Value)
-		}
+		md.MachineNetwork = net.(*v1alpha1.NetworkConfig)
 	}
 
-	md.MachineInstall = &v1alpha1.InstallConfig{
-		InstallDisk:       plan.InstallDisk.Value,
-		InstallImage:      plan.TalosImage.Value,
-		InstallBootloader: true,
-	}
-	if plan.KernelArgs != nil {
-		md.MachineInstall.InstallExtraKernelArgs = []string{}
-		for _, arg := range plan.KernelArgs {
-			md.MachineInstall.InstallExtraKernelArgs = append(md.MachineInstall.InstallExtraKernelArgs, arg.Value)
+	if plan.Install != nil {
+		install, err := plan.Install.Data()
+		if err != nil {
+			return &v1alpha1.Config{}, err
 		}
+		md.MachineInstall = install.(*v1alpha1.InstallConfig)
 	}
 
 	if plan.Encryption != nil {

@@ -29,14 +29,15 @@ require (
 )
 
 require (
-	github.com/davecgh/go-spew v1.1.1
 	github.com/dustin/go-humanize v1.0.0
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 	github.com/r3labs/diff/v3 v3.0.0
 	github.com/talos-systems/go-blockdevice v0.3.1
+	github.com/wI2L/jsondiff v0.2.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220504211119-3d4a969bb56b
 	google.golang.org/grpc v1.46.2
 	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
 
 require (
@@ -47,6 +48,7 @@ require (
 	github.com/containerd/go-cni v1.1.3 // indirect
 	github.com/containernetworking/cni v1.0.1 // indirect
 	github.com/cosi-project/runtime v0.0.0-20211216175730-264f8fcd1a4f // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
@@ -86,6 +88,9 @@ require (
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/talos-systems/go-debug v0.2.1 // indirect
 	github.com/talos-systems/net v0.3.2 // indirect
+	github.com/tidwall/gjson v1.14.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/vmihailenco/msgpack/v4 v4.3.12 // indirect
 	github.com/vmihailenco/tagparser v0.1.1 // indirect
@@ -98,5 +103,4 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220228155957-1da8797a5878 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )

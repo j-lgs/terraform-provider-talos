@@ -3,12 +3,12 @@
 page_title: "talos_control_node Resource - terraform-provider-talos"
 subcategory: ""
 description: |-
-  Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. Contains information that is shared with, and essential for the creation of, worker and controlplane nodes.
+  Represents a Talos controlplane node.
 ---
 
 # talos_control_node (Resource)
 
-Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. Contains information that is shared with, and essential for the creation of, worker and controlplane nodes.
+Represents a Talos controlplane node.
 
 
 
@@ -20,12 +20,11 @@ Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. C
 - `base_config` (String, Sensitive)
 - `bootstrap` (Boolean)
 - `bootstrap_ip` (String)
-- `devices` (Attributes Map) Describes a Talos network device configuration. The map's key is the interface name. (see [below for nested schema](#nestedatt--devices))
+- `devices` (Attributes) (see [below for nested schema](#nestedatt--devices))
 - `dhcp_network_cidr` (String)
-- `install_disk` (String)
+- `install` (Attributes) Represents installation options for Talos nodes. (see [below for nested schema](#nestedatt--install))
 - `macaddr` (String)
 - `name` (String)
-- `talos_image` (String)
 
 ### Optional
 
@@ -37,13 +36,10 @@ Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. C
 - `disks` (Attributes List) Represents partitioning for disks on the machine. (see [below for nested schema](#nestedatt--disks))
 - `encryption` (Attributes) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption))
 - `env` (Map of String) Allows for the addition of environment variables. All environment variables are set on PID 1 in addition to every service.
-- `extra_host` (Map of List of String) Allows the addition of user specified files.
 - `extra_manifests` (List of String) A list of urls that point to additional manifests. These will get automatically deployed as part of the bootstrap.
 - `files` (Attributes List) Describes a machine's files and it's contents and how it will be written to the node's filesystem. (see [below for nested schema](#nestedatt--files))
 - `inline_manifests` (Attributes List) Describes inline bootstrap manifests for the user. These will get automatically deployed as part of the bootstrap. (see [below for nested schema](#nestedatt--inline_manifests))
-- `kernel_args` (List of String)
 - `kubelet` (Attributes) Represents the kubelet's config values. (see [below for nested schema](#nestedatt--kubelet))
-- `nameservers` (List of String) Used to statically set the nameservers for the machine.
 - `pod` (List of String) Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.
 - `proxy` (Attributes) Represents the kube proxy configuration options. (see [below for nested schema](#nestedatt--proxy))
 - `registry` (Attributes) Represents the image pull options. (see [below for nested schema](#nestedatt--registry))
@@ -61,20 +57,32 @@ Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. C
 
 Required:
 
+- `devices` (Attributes List) Describes a Talos network device configuration. The map's key is the interface name. (see [below for nested schema](#nestedatt--devices--devices))
+- `extra_hosts` (Map of List of String) Allows for extra entries to be added to the `/etc/hosts` file.
+- `hostname` (Boolean) Used to statically set the hostname for the machine..
+- `kubespan` (Boolean) Configures the KubeSpan wireguard network feature.
+- `nameservers` (List of String) Used to statically set the nameservers for the machine.
+
+<a id="nestedatt--devices--devices"></a>
+### Nested Schema for `devices.devices`
+
+Required:
+
 - `addresses` (List of String) A list of IP addresses for the interface.
-- `bond` (Attributes) Contains the various options for configuring a bonded interface. (see [below for nested schema](#nestedatt--devices--bond))
+- `bond` (Attributes) Contains the various options for configuring a bonded interface. (see [below for nested schema](#nestedatt--devices--devices--bond))
 - `dhcp` (Boolean) Indicates if DHCP should be used to configure the interface.
-- `dhcp_options` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--devices--dhcp_options))
+- `dhcp_options` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--devices--devices--dhcp_options))
 - `dummy` (Boolean) Indicates if the interface is a dummy interface..
 - `ignore` (Boolean) Indicates if the interface should be ignored (skips configuration).
 - `mtu` (Number) The interface’s MTU. If used in combination with DHCP, this will override any MTU settings returned from DHCP server.
-- `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--devices--routes))
-- `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--devices--vip))
-- `vlans` (Attributes List) Represents vlan settings for a device. (see [below for nested schema](#nestedatt--devices--vlans))
-- `wireguard` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--devices--wireguard))
+- `name` (String) Network device's Linux interface name.
+- `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--devices--devices--routes))
+- `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--devices--devices--vip))
+- `vlans` (Attributes List) Represents vlan settings for a device. (see [below for nested schema](#nestedatt--devices--devices--vlans))
+- `wireguard` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--devices--devices--wireguard))
 
-<a id="nestedatt--devices--bond"></a>
-### Nested Schema for `devices.bond`
+<a id="nestedatt--devices--devices--bond"></a>
+### Nested Schema for `devices.devices.bond`
 
 Required:
 
@@ -107,17 +115,17 @@ Required:
 - `xmit_hash_policy` (String) A bond option. Please see the official kernel documentation.
 
 
-<a id="nestedatt--devices--dhcp_options"></a>
-### Nested Schema for `devices.dhcp_options`
+<a id="nestedatt--devices--devices--dhcp_options"></a>
+### Nested Schema for `devices.devices.dhcp_options`
 
 Required:
 
-- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--devices--dhcp_options--peer))
+- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--devices--devices--dhcp_options--peer))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
 - `public_key` (String) Automatically derived from the private_key field.
 
-<a id="nestedatt--devices--dhcp_options--peer"></a>
-### Nested Schema for `devices.dhcp_options.peer`
+<a id="nestedatt--devices--devices--dhcp_options--peer"></a>
+### Nested Schema for `devices.devices.dhcp_options.public_key`
 
 Required:
 
@@ -128,19 +136,19 @@ Required:
 
 
 
-<a id="nestedatt--devices--routes"></a>
-### Nested Schema for `devices.routes`
+<a id="nestedatt--devices--devices--routes"></a>
+### Nested Schema for `devices.devices.routes`
 
 Required:
 
 - `gateway` (String) The route’s gateway (if empty, creates link scope route).
-- `metric` (String) The optional metric for the route.
+- `metric` (Number) The optional metric for the route.
 - `network` (String) The route’s network (destination).
 - `source` (String) The route’s source address.
 
 
-<a id="nestedatt--devices--vip"></a>
-### Nested Schema for `devices.vip`
+<a id="nestedatt--devices--devices--vip"></a>
+### Nested Schema for `devices.devices.vip`
 
 Required:
 
@@ -149,31 +157,31 @@ Required:
 - `ip` (String) Specifies the IP address to be used.
 
 
-<a id="nestedatt--devices--vlans"></a>
-### Nested Schema for `devices.vlans`
+<a id="nestedatt--devices--devices--vlans"></a>
+### Nested Schema for `devices.devices.vlans`
 
 Required:
 
 - `addresses` (List of String) A list of IP addresses for the interface.
 - `dhcp` (Boolean) Indicates if DHCP should be used.
 - `mtu` (Number) The VLAN’s MTU. Must be a 32 bit unsigned integer.
-- `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--devices--vlans--routes))
-- `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--devices--vlans--vip))
+- `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--devices--devices--vlans--routes))
+- `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--devices--devices--vlans--vip))
 - `vlan_id` (Number) The VLAN’s ID. Must be a 16 bit unsigned integer.
 
-<a id="nestedatt--devices--vlans--routes"></a>
-### Nested Schema for `devices.vlans.routes`
+<a id="nestedatt--devices--devices--vlans--routes"></a>
+### Nested Schema for `devices.devices.vlans.vlan_id`
 
 Required:
 
 - `gateway` (String) The route’s gateway (if empty, creates link scope route).
-- `metric` (String) The optional metric for the route.
+- `metric` (Number) The optional metric for the route.
 - `network` (String) The route’s network (destination).
 - `source` (String) The route’s source address.
 
 
-<a id="nestedatt--devices--vlans--vip"></a>
-### Nested Schema for `devices.vlans.vip`
+<a id="nestedatt--devices--devices--vlans--vip"></a>
+### Nested Schema for `devices.devices.vlans.vlan_id`
 
 Required:
 
@@ -183,17 +191,17 @@ Required:
 
 
 
-<a id="nestedatt--devices--wireguard"></a>
-### Nested Schema for `devices.wireguard`
+<a id="nestedatt--devices--devices--wireguard"></a>
+### Nested Schema for `devices.devices.wireguard`
 
 Required:
 
-- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--devices--wireguard--peer))
+- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--devices--devices--wireguard--peer))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
 - `public_key` (String) Automatically derived from the private_key field.
 
-<a id="nestedatt--devices--wireguard--peer"></a>
-### Nested Schema for `devices.wireguard.peer`
+<a id="nestedatt--devices--devices--wireguard--peer"></a>
+### Nested Schema for `devices.devices.wireguard.public_key`
 
 Required:
 
@@ -203,6 +211,17 @@ Required:
 - `public_key` (String) Specifies the public key of this peer.
 
 
+
+
+
+<a id="nestedatt--install"></a>
+### Nested Schema for `install`
+
+Required:
+
+- `disk` (String)
+- `image` (String)
+- `kernel_args` (List of String)
 
 
 <a id="nestedatt--apiserver"></a>

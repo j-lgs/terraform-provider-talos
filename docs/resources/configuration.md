@@ -25,15 +25,13 @@ Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. C
 ### Optional
 
 - `allow_scheduling_on_masters` (Boolean)
-- `cni` (String) Choose cluster CNI. one of flannel, custom and none
+- `cni` (Attributes) Represents CNI options. (see [below for nested schema](#nestedatt--cni))
 - `debug` (Boolean)
 - `discovery` (Boolean)
 - `disks` (Attributes List) Represents partitioning for disks on the machine. (see [below for nested schema](#nestedatt--disks))
 - `encryption` (Attributes) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption))
 - `external_etcd` (Boolean)
-- `install_disk` (String)
-- `install_extra_kargs` (List of String)
-- `install_image` (String)
+- `install` (Attributes) Represents installation options for Talos nodes. (see [below for nested schema](#nestedatt--install))
 - `k8s_cert_sans` (List of String)
 - `kubernetes_endpoint` (String) The canonical address of the kubernetes control plane.
 						It can be a DNS name, the IP address of a load balancer, or (default) the IP address of the
@@ -53,6 +51,15 @@ Represents the basic CA/CRT bundle that's needed to provision a Talos cluster. C
 - `base_config` (String, Sensitive) JSON Serialised object that contains information needed to create controlplane and worker node configurations.
 - `id` (String) Identifier hash, derived from the cluster's name.
 - `talos_config` (String, Sensitive) Talosconfig YAML that can be used by the talosctl client to communicate with the cluster.
+
+<a id="nestedatt--cni"></a>
+### Nested Schema for `cni`
+
+Optional:
+
+- `name` (String)
+- `urls` (List of String)
+
 
 <a id="nestedatt--disks"></a>
 ### Nested Schema for `disks`
@@ -128,6 +135,16 @@ Optional:
 
 
 
+<a id="nestedatt--install"></a>
+### Nested Schema for `install`
+
+Optional:
+
+- `disk` (String)
+- `image` (String)
+- `kernel_args` (List of String)
+
+
 <a id="nestedatt--network"></a>
 ### Nested Schema for `network`
 
@@ -150,7 +167,7 @@ Optional:
 
 Optional:
 
-- `devices` (Attributes Map) Describes a Talos network device configuration. The map's key is the interface name. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices))
+- `devices` (Attributes List) Describes a Talos network device configuration. The map's key is the interface name. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices))
 - `extra_hosts` (Map of List of String) Allows for extra entries to be added to the `/etc/hosts` file.
 - `hostname` (Boolean) Used to statically set the hostname for the machine..
 - `kubespan` (Boolean) Configures the KubeSpan wireguard network feature.
@@ -168,6 +185,7 @@ Optional:
 - `dummy` (Boolean) Indicates if the interface is a dummy interface..
 - `ignore` (Boolean) Indicates if the interface should be ignored (skips configuration).
 - `mtu` (Number) The interface’s MTU. If used in combination with DHCP, this will override any MTU settings returned from DHCP server.
+- `name` (String) Network device's Linux interface name.
 - `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--routes))
 - `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--vip))
 - `vlans` (Attributes List) Represents vlan settings for a device. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--vlans))
@@ -234,7 +252,7 @@ Optional:
 Optional:
 
 - `gateway` (String) The route’s gateway (if empty, creates link scope route).
-- `metric` (String) The optional metric for the route.
+- `metric` (Number) The optional metric for the route.
 - `network` (String) The route’s network (destination).
 - `source` (String) The route’s source address.
 
@@ -267,7 +285,7 @@ Optional:
 Optional:
 
 - `gateway` (String) The route’s gateway (if empty, creates link scope route).
-- `metric` (String) The optional metric for the route.
+- `metric` (Number) The optional metric for the route.
 - `network` (String) The route’s network (destination).
 - `source` (String) The route’s source address.
 

@@ -60,6 +60,7 @@ Required:
 - `dummy` (Boolean) Indicates if the interface is a dummy interface..
 - `ignore` (Boolean) Indicates if the interface should be ignored (skips configuration).
 - `mtu` (Number) The interface’s MTU. If used in combination with DHCP, this will override any MTU settings returned from DHCP server.
+- `name` (String) Network device's Linux interface name.
 - `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--devices--routes))
 - `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--devices--vip))
 - `vlans` (Attributes List) Represents vlan settings for a device. (see [below for nested schema](#nestedatt--devices--vlans))
@@ -126,7 +127,7 @@ Required:
 Required:
 
 - `gateway` (String) The route’s gateway (if empty, creates link scope route).
-- `metric` (String) The optional metric for the route.
+- `metric` (Number) The optional metric for the route.
 - `network` (String) The route’s network (destination).
 - `source` (String) The route’s source address.
 
@@ -159,7 +160,7 @@ Required:
 Required:
 
 - `gateway` (String) The route’s gateway (if empty, creates link scope route).
-- `metric` (String) The optional metric for the route.
+- `metric` (Number) The optional metric for the route.
 - `network` (String) The route’s network (destination).
 - `source` (String) The route’s source address.
 

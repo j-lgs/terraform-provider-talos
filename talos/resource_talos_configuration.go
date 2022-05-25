@@ -5,11 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"terraform-provider-talos/talos/datatypes"
 
 	"hash/fnv"
 
 	"github.com/talos-systems/talos/pkg/machinery/config"
-	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 
 	//	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -58,8 +59,8 @@ func (t talosClusterConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Sc
 			},
 			"secret_bundle": {
 				Optional:    true,
-				Description: SecretBundleSchema.MarkdownDescription,
-				Attributes:  tfsdk.SingleNestedAttributes(SecretBundleSchema.Attributes),
+				Description: datatypes.SecretBundleSchema.MarkdownDescription,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.SecretBundleSchema.Attributes),
 			},
 			"k8s_cert_sans": {
 				Type: types.ListType{
@@ -98,46 +99,35 @@ func (t talosClusterConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Sc
 				Type:     types.BoolType,
 				Optional: true,
 			},
-			"install_disk": {
-				Type:     types.StringType,
-				Optional: true,
-			},
-			"install_image": {
-				Type:     types.StringType,
-				Optional: true,
-				// TODO validate
-				// ValidateFunc: validateImage,
-			},
-			"install_extra_kargs": {
-				Type: types.ListType{
-					ElemType: types.StringType,
-				},
-				Optional: true,
+			"install": {
+				Optional:    true,
+				Description: datatypes.InstallSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.InstallSchema.Attributes),
 			},
 			"network": {
 				Optional:            true,
-				MarkdownDescription: NetworkConfigOptionSchema.MarkdownDescription,
-				Attributes:          tfsdk.ListNestedAttributes(NetworkConfigOptionSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+				MarkdownDescription: datatypes.NetworkConfigOptionSchema.MarkdownDescription,
+				Attributes:          tfsdk.ListNestedAttributes(datatypes.NetworkConfigOptionSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			},
 			"cni": {
 				Optional:    true,
-				Description: "Choose cluster CNI. one of flannel, custom and none",
-				Type:        types.StringType,
+				Description: datatypes.CNISchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.CNISchema.Attributes),
 			},
 			"registry": {
 				Optional:    true,
-				Description: RegistrySchema.Description,
-				Attributes:  tfsdk.SingleNestedAttributes(RegistrySchema.Attributes),
+				Description: datatypes.RegistrySchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.RegistrySchema.Attributes),
 			},
 			"disks": {
 				Optional:    true,
-				Description: MachineDiskSchema.MarkdownDescription,
-				Attributes:  tfsdk.ListNestedAttributes(MachineDiskSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+				Description: datatypes.MachineDiskSchema.MarkdownDescription,
+				Attributes:  tfsdk.ListNestedAttributes(datatypes.MachineDiskSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			},
 			"encryption": {
 				Optional:    true,
-				Description: EncryptionSchema.MarkdownDescription,
-				Attributes:  tfsdk.SingleNestedAttributes(EncryptionSchema.Attributes),
+				Description: datatypes.EncryptionSchema.MarkdownDescription,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.EncryptionSchema.Attributes),
 			},
 			"sysctls": {
 				Type: types.MapType{
@@ -195,34 +185,32 @@ func (t talosClusterConfigResourceType) NewResource(ctx context.Context, in tfsd
 }
 
 type talosClusterConfigResourceData struct {
-	TargetVersion            types.String            `tfsdk:"target_version"`
-	ClusterName              types.String            `tfsdk:"name"`
-	Endpoints                []types.String          `tfsdk:"talos_endpoints"`
-	KubernetesEndpoint       types.String            `tfsdk:"kubernetes_endpoint"`
-	SecretBundle             *SecretBundle           `tfsdk:"secret_bundle"`
-	K8sCertSANs              []types.String          `tfsdk:"k8s_cert_sans"`
-	MachineCertSANs          []types.String          `tfsdk:"machine_cert_sans"`
-	ServiceDomain            types.String            `tfsdk:"service_domain"`
-	PodNetwork               []types.String          `tfsdk:"pod_network"`
-	ServiceNetwork           []types.String          `tfsdk:"service_network"`
-	KubernetesVersion        types.String            `tfsdk:"kubernetes_version"`
-	ExternalEtcd             types.Bool              `tfsdk:"external_etcd"`
-	InstallDisk              types.String            `tfsdk:"install_disk"`
-	InstallImage             types.String            `tfsdk:"install_image"`
-	InstallExtraKargs        []types.String          `tfsdk:"install_extra_kargs"`
-	Network                  []NetworkConfigOptions  `tfsdk:"network"`
-	CNI                      types.String            `tfsdk:"cni"`
-	Registry                 *Registry               `tfsdk:"registry"`
-	Disks                    []MachineDiskData       `tfsdk:"disks"`
-	Encryption               *EncryptionData         `tfsdk:"encryption"`
-	Sysctls                  map[string]types.String `tfsdk:"sysctls"`
-	AllowSchedulingOnMasters types.Bool              `tfsdk:"allow_scheduling_on_masters"`
-	Persist                  types.Bool              `tfsdk:"persist"`
-	Debug                    types.Bool              `tfsdk:"debug"`
-	Discovery                types.Bool              `tfsdk:"discovery"`
-	TalosConfig              types.String            `tfsdk:"talos_config"`
-	BaseConfig               types.String            `tfsdk:"base_config"`
-	ID                       types.String            `tfsdk:"id"`
+	TargetVersion            types.String                     `tfsdk:"target_version"`
+	ClusterName              types.String                     `tfsdk:"name"`
+	Endpoints                []types.String                   `tfsdk:"talos_endpoints"`
+	KubernetesEndpoint       types.String                     `tfsdk:"kubernetes_endpoint"`
+	SecretBundle             *datatypes.SecretBundle          `tfsdk:"secret_bundle"`
+	K8sCertSANs              []types.String                   `tfsdk:"k8s_cert_sans"`
+	MachineCertSANs          []types.String                   `tfsdk:"machine_cert_sans"`
+	ServiceDomain            types.String                     `tfsdk:"service_domain"`
+	PodNetwork               []types.String                   `tfsdk:"pod_network"`
+	ServiceNetwork           []types.String                   `tfsdk:"service_network"`
+	KubernetesVersion        types.String                     `tfsdk:"kubernetes_version"`
+	ExternalEtcd             types.Bool                       `tfsdk:"external_etcd"`
+	Install                  *datatypes.InstallConfig         `tfsdk:"install"`
+	Network                  []datatypes.NetworkConfigOptions `tfsdk:"network"`
+	CNI                      *datatypes.CNI                   `tfsdk:"cni"`
+	Registry                 *datatypes.Registry              `tfsdk:"registry"`
+	Disks                    datatypes.MachineDiskDataList    `tfsdk:"disks"`
+	Encryption               *datatypes.EncryptionData        `tfsdk:"encryption"`
+	Sysctls                  datatypes.SysctlData             `tfsdk:"sysctls"`
+	AllowSchedulingOnMasters types.Bool                       `tfsdk:"allow_scheduling_on_masters"`
+	Persist                  types.Bool                       `tfsdk:"persist"`
+	Debug                    types.Bool                       `tfsdk:"debug"`
+	Discovery                types.Bool                       `tfsdk:"discovery"`
+	TalosConfig              types.String                     `tfsdk:"talos_config"`
+	BaseConfig               types.String                     `tfsdk:"base_config"`
+	ID                       types.String                     `tfsdk:"id"`
 }
 
 func (plan *talosClusterConfigResourceData) Generate(opts []generate.GenOption) (err error) {
@@ -276,29 +264,48 @@ func (plan *talosClusterConfigResourceData) Generate(opts []generate.GenOption) 
 
 func (plan *talosClusterConfigResourceData) TalosData() (out []generate.GenOption, err error) {
 	var versionContract = config.TalosVersionCurrent //nolint:wastedassign,ineffassign
+	out = append(out, generate.WithVersionContract(versionContract))
 
-	out = []generate.GenOption{}
-
-	if plan.Encryption != nil {
-		encryption, err := plan.Encryption.Data()
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, generate.WithSystemDiskEncryption(encryption.(*v1alpha1.SystemDiskEncryptionConfig)))
+	if !plan.AllowSchedulingOnMasters.Null {
+		out = append(out, generate.WithAllowSchedulingOnMasters(plan.AllowSchedulingOnMasters.Value))
 	}
 
-	generate.WithVersionContract(versionContract)
+	optionals := []datatypes.PlanToGenopts{
+		plan.Registry, plan.Disks, plan.Encryption, plan.Install, plan.Sysctls, plan.CNI,
+	}
+	out, err = appendGenOpt(out, optionals...)
+	if err != nil {
+		return nil, err
+	}
+
+	return
+}
+
+func appendGenOpt(in []generate.GenOption, datas ...datatypes.PlanToGenopts) (out []generate.GenOption, err error) {
+	out = in
+
+	for _, data := range datas {
+		if !reflect.ValueOf(data).IsZero() {
+			genopts, err := data.GenOpts()
+			if err != nil {
+				return nil, err
+			}
+
+			out = append(out, genopts...)
+		}
+	}
 
 	return
 }
 
 func (plan *talosClusterConfigResourceData) ReadInto(in *generate.Input) (err error) {
+	*plan = talosClusterConfigResourceData{}
+
 	if in.SystemDiskEncryptionConfig != nil {
-		if plan.Encryption != nil {
-			err := plan.Encryption.Read(in.SystemDiskEncryptionConfig)
-			if err != nil {
-				return err
-			}
+		plan.Encryption = &datatypes.EncryptionData{}
+		err := plan.Encryption.Read(in.SystemDiskEncryptionConfig)
+		if err != nil {
+			return err
 		}
 	}
 
