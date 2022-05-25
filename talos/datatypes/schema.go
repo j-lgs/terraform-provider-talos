@@ -91,7 +91,7 @@ var KubeletConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Attributes: map[string]tfsdk.Attribute{
 		"image": {
 			Type:        types.StringType,
-			Required:    true,
+			Optional:    true,
 			Description: "An optional reference to an alternative kubelet image.",
 			//			ValidateFunc: validateImage,
 		},
@@ -785,7 +785,7 @@ var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Attributes: map[string]tfsdk.Attribute{
 		"image": {
 			Type:        types.StringType,
-			Required:    true,
+			Optional:    true,
 			Description: "The container image used in the API server manifest.",
 			// TODO validation
 			// ValidateFunc: validateImage,
@@ -856,7 +856,7 @@ var ProxyConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Attributes: map[string]tfsdk.Attribute{
 		"image": {
 			Type:        types.StringType,
-			Required:    true,
+			Optional:    true,
 			Description: "The container image used in the kube-proxy manifest.",
 			// TODO validate
 			// ValidateFunc: validateImage,
