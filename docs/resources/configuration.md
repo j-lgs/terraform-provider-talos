@@ -152,10 +152,10 @@ Optional:
 
 - `blocksize` (Number) Defines the encryption block size.
 - `cipher` (String) Cipher kind to use for the encryption. Depends on the encryption provider.
+- `crypt_provider` (String) Encryption provider to use for the encryption.
 - `keys` (Attributes List) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption--ephemeral--keys))
 - `keysize` (Number) Defines the encryption key size.
 - `perf_options` (List of String) Additional --perf parameters for LUKS2 encryption.
-- `provider` (String) Encryption provider to use for the encryption.
 
 <a id="nestedatt--encryption--ephemeral--keys"></a>
 ### Nested Schema for `encryption.ephemeral.keys`
@@ -175,10 +175,10 @@ Optional:
 
 - `blocksize` (Number) Defines the encryption block size.
 - `cipher` (String) Cipher kind to use for the encryption. Depends on the encryption provider.
+- `crypt_provider` (String) Encryption provider to use for the encryption.
 - `keys` (Attributes List) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption--state--keys))
 - `keysize` (Number) Defines the encryption key size.
 - `perf_options` (List of String) Additional --perf parameters for LUKS2 encryption.
-- `provider` (String) Encryption provider to use for the encryption.
 
 <a id="nestedatt--encryption--state--keys"></a>
 ### Nested Schema for `encryption.state.keys`

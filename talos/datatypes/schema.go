@@ -721,7 +721,7 @@ If ` + "`size:`" + `is omitted, the partition is sized to occupy the full disk.`
 var EncryptionConfigSchema = tfsdk.Schema{
 	MarkdownDescription: "Represents partition encryption settings.",
 	Attributes: map[string]tfsdk.Attribute{
-		"provider": {
+		"crypt_provider": {
 			Required:    true,
 			Description: "Encryption provider to use for the encryption.",
 			Type:        types.StringType,
@@ -823,7 +823,6 @@ var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
 			Optional:    true,
 			Description: "Disable PodSecurityPolicy in the API server and default manifests.",
 		},
-
 		"admission_control": {
 			Optional:    true,
 			Description: AdmissionPluginSchema.Description,

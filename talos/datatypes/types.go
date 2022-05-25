@@ -539,7 +539,7 @@ type EncryptionData struct {
 // EncryptionConfigData represents partition encryption settings.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#encryptionconfig for more information.
 type EncryptionConfigData struct {
-	Provider    types.String   `tfsdk:"provider"`
+	Provider    types.String   `tfsdk:"crypt_provider"`
 	Keys        []KeyConfig    `tfsdk:"keys"`
 	Cipher      types.String   `tfsdk:"cipher"`
 	KeySize     types.Int64    `tfsdk:"keysize"`

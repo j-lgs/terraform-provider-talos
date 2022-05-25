@@ -70,19 +70,17 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				// TODO validation
 				Description: "Extra certificate subject alternative names for the machine’s certificate.",
 			},
-
 			"control_plane": {
 				Optional:    true,
 				Description: datatypes.ControlPlaneConfigSchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(datatypes.ControlPlaneConfigSchema.Attributes),
 			},
-
 			"kubelet": {
 				Optional:    true,
 				Description: datatypes.KubeletConfigSchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(datatypes.KubeletConfigSchema.Attributes),
 			},
-			"pod": {
+			"pods": {
 				Type: types.ListType{
 					ElemType: types.StringType,
 				},
@@ -90,7 +88,7 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				// TODO validation
 				Description: "Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.",
 			},
-			"devices": {
+			"network": {
 				Required:    true,
 				Description: datatypes.NetworkConfigSchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(datatypes.NetworkConfigSchema.Attributes),
@@ -101,13 +99,11 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				Description: datatypes.MachineDiskSchema.MarkdownDescription,
 				Attributes:  tfsdk.ListNestedAttributes(datatypes.MachineDiskSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			},
-			// install not implemented
 			"files": {
 				Optional:    true,
 				Description: datatypes.FileSchema.Description,
 				Attributes:  tfsdk.ListNestedAttributes(datatypes.FileSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			},
-
 			"env": {
 				Type: types.MapType{
 					ElemType: types.StringType,
@@ -130,7 +126,6 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				Optional:    true,
 				Description: "Used to configure the machine’s sysctls.",
 			},
-
 			"registry": {
 				Optional:    true,
 				Description: datatypes.RegistrySchema.Description,
@@ -301,7 +296,7 @@ type talosControlNodeResourceData struct {
 	CertSANS                 []types.String                 `tfsdk:"cert_sans"`
 	ControlPlane             *datatypes.ControlPlaneConfig  `tfsdk:"control_plane"`
 	Kubelet                  *datatypes.KubeletConfig       `tfsdk:"kubelet"`
-	Pod                      []types.String                 `tfsdk:"pod"`
+	Pod                      []types.String                 `tfsdk:"pods"`
 	Network                  *datatypes.NetworkConfig       `tfsdk:"network"`
 	Files                    []datatypes.File               `tfsdk:"files"`
 	Env                      map[string]types.String        `tfsdk:"env"`
