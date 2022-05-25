@@ -220,7 +220,7 @@ MC4CAQAwBQYDK2VwBCIEIJCuZGq2GPWZnvtJvmwC+HIu6e95GecdBxC9qR4nGw4t
 		EtcdConfig:                    etcdConfigExample,
 		CoreDNSConfig:                 coreDNSExample,
 		ExternalCloudProviderConfig:   externalCloudProviderExample,
-		ExtraManifests:                extraManifestExample,
+		ExtraManifests:                ExtraManifestExample,
 		ExtraManifestHeaders:          extraManifestHeaderExample,
 		ClusterInlineManifests:        inlineManifestsExample,
 		AdminKubeconfigConfig:         adminKubeconfigExample,

@@ -188,7 +188,7 @@ var (
 	discoveryRegistryKubernetesEnabledExample = true
 	discoveryRegistryServiceEnabledExample    = true
 
-	extraManifestExample       = []string{""}
+	ExtraManifestExample       = []string{"https://www.example.com/manifest1.yaml", "https://www.example.com/manifest2.yaml"}
 	extraManifestHeaderExample = map[string]string{
 		"Token":       "1234567",
 		"X-ExtraInfo": "info",

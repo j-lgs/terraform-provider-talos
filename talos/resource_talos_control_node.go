@@ -279,8 +279,7 @@ var (
 		MachineControlPlane: datatypes.MachineControlPlaneExample,
 		APIServer:           datatypes.APIServerExample,
 		Proxy:               datatypes.ProxyConfigExample,
-		ExtraManifests: datatypes.Wrapsl(
-			"https://www.example.com/manifest1.yaml", "https://www.example.com/manifest2.yaml"),
+		ExtraManifests:      datatypes.Wrapsl(datatypes.ExtraManifestExample...),
 		InlineManifests: []datatypes.InlineManifest{
 			datatypes.InlineManifestExample,
 		},
