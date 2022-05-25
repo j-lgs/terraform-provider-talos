@@ -24,7 +24,7 @@ var (
 		"feature-gates": "serverSideApply=true",
 	}
 	KubeletMountExample = specs.Mount{
-		Destination: "/var/lib/exanple",
+		Destination: "/var/lib/example",
 		Type:        "bind",
 		Source:      "/var/lib/example",
 		Options: []string{
