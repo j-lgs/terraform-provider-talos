@@ -224,16 +224,6 @@ Required:
 
 
 
-<a id="nestedatt--install"></a>
-### Nested Schema for `install`
-
-Required:
-
-- `disk` (String)
-- `image` (String)
-- `kernel_args` (List of String)
-
-
 <a id="nestedatt--apiserver"></a>
 ### Nested Schema for `apiserver`
 
