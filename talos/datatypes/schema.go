@@ -1167,3 +1167,20 @@ var SecretBundleSchema = tfsdk.Schema{
 		},
 	},
 }
+
+// MachineControlPlaneSchema configures options pertaining to the Kubernetes control plane that's installed onto the machine.
+var MachineControlPlaneSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Configures options pertaining to the Kubernetes control plane that's installed onto the machine",
+	Attributes: map[string]tfsdk.Attribute{
+		"controller_manager_disabled": {
+			Type:     types.BoolType,
+			Optional: true,
+			Description: "Disable kube-controller-manager on the node.	",
+		},
+		"scheduler_disabled": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Disable kube-scheduler on the node.",
+		},
+	},
+}
