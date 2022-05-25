@@ -5,6 +5,8 @@ A terraform provider for the [Talos Kubernetes OS](https://github.com/siderolabs
 
 So far this provider isn't ready for most people's use, as it's a personal project to learn the go programming language. The version number will reflect this fact until it reaches an acceptable quality.
 
+Check it out [Here](https://registry.terraform.io/providers/j-lgs/talos/latest)
+
 # Use
 Check the examples folder to see how the provider can be used. Also check out my [homelab provisioning](https://github.com/j-lgs/provisioning) repo to see the provider used to set up a Kubernetes cluster on Proxmox hosts.
 
