@@ -17,3 +17,8 @@ The provider will be considered ready for beta use when the version number reach
 + `TALOS_SKIPREAD` - Optional. Skip reading node state through Talos API. Useful for destroying a virtualised cluster.
 + `TALOS_SKIPDELETE` - Optional. Skip issuing deletion through Talos API. Useful for destroying a virtualised cluster.
 
+## Example usage
+
+{{tffile "examples/provider/provider.tf"}}
+
+{{.SchemaMarkdown | trimspace}}
