@@ -25,7 +25,7 @@ require (
 // talos
 require (
 	github.com/talos-systems/crypto v0.3.5
-	github.com/talos-systems/talos/pkg/machinery v1.0.4
+	github.com/talos-systems/talos/pkg/machinery v1.0.5
 )
 
 require (
@@ -44,13 +44,12 @@ require (
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/agext/levenshtein v1.2.2 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
-	github.com/containerd/go-cni v1.1.3 // indirect
-	github.com/containernetworking/cni v1.0.1 // indirect
+	github.com/containerd/go-cni v1.1.5 // indirect
+	github.com/containernetworking/cni v1.1.0 // indirect
 	github.com/cosi-project/runtime v0.0.0-20211216175730-264f8fcd1a4f // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/fatih/color v1.13.0 // indirect
-	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.8 // indirect
