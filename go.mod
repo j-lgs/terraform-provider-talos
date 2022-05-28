@@ -31,7 +31,6 @@ require (
 require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
-	github.com/r3labs/diff/v3 v3.0.0
 	github.com/talos-systems/go-blockdevice v0.3.1
 	github.com/wI2L/jsondiff v0.2.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220504211119-3d4a969bb56b
