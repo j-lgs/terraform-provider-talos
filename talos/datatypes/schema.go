@@ -621,6 +621,16 @@ var WireguardSchema tfsdk.Schema = tfsdk.Schema{
 			Attributes:  tfsdk.ListNestedAttributes(WireguardPeerSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			Description: WireguardPeerSchema.Description,
 		},
+		"firewall_mark": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "Firewall mark for wireguard packets.",
+		},
+		"listen_port": {
+			Type:        types.Int64Type,
+			Optional:    true,
+			Description: "Listening port for if this node should be a wireguard server.",
+		},
 		"public_key": {
 			Type:        types.StringType,
 			Computed:    true,
@@ -913,6 +923,14 @@ var InstallSchema tfsdk.Schema = tfsdk.Schema{
 			Optional: true,
 			// TODO validate
 			// ValidateFunc: validateImage,
+		},
+		"bootloader": {
+			Type:     types.BoolType,
+			Optional: true,
+		},
+		"wipe": {
+			Type:     types.BoolType,
+			Optional: true,
 		},
 		"kernel_args": {
 			Type: types.ListType{

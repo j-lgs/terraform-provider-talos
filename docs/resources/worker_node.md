@@ -105,6 +105,8 @@ Required:
 
 Required:
 
+- `firewall_mark` (Number) Firewall mark for wireguard packets.
+- `listen_port` (Number) Listening port for if this node should be a wireguard server.
 - `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--devices--dhcp_options--peer))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
 - `public_key` (String) Automatically derived from the private_key field.
@@ -181,6 +183,8 @@ Required:
 
 Required:
 
+- `firewall_mark` (Number) Firewall mark for wireguard packets.
+- `listen_port` (Number) Listening port for if this node should be a wireguard server.
 - `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--devices--wireguard--peer))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
 - `public_key` (String) Automatically derived from the private_key field.

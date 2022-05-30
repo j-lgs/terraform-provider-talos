@@ -197,9 +197,11 @@ Optional:
 
 Optional:
 
+- `bootloader` (Boolean)
 - `disk` (String)
 - `image` (String)
 - `kernel_args` (List of String)
+- `wipe` (Boolean)
 
 
 <a id="nestedatt--network"></a>
@@ -287,6 +289,8 @@ Optional:
 
 Optional:
 
+- `firewall_mark` (Number) Firewall mark for wireguard packets.
+- `listen_port` (Number) Listening port for if this node should be a wireguard server.
 - `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard--peer))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
 - `public_key` (String) Automatically derived from the private_key field.
@@ -363,6 +367,8 @@ Optional:
 
 Optional:
 
+- `firewall_mark` (Number) Firewall mark for wireguard packets.
+- `listen_port` (Number) Listening port for if this node should be a wireguard server.
 - `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard--peer))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
 - `public_key` (String) Automatically derived from the private_key field.
@@ -386,6 +392,8 @@ Optional:
 
 Optional:
 
+- `firewall_mark` (Number) Firewall mark for wireguard packets.
+- `listen_port` (Number) Listening port for if this node should be a wireguard server.
 - `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_wireguard--peer))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
 - `public_key` (String) Automatically derived from the private_key field.
