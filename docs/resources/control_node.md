@@ -343,12 +343,11 @@ TOC
 
 - `base_config` (String, Sensitive)
 - `bootstrap` (Boolean)
-- `bootstrap_ip` (String)
-- `dhcp_network_cidr` (String)
+- `configure_ip` (String)
 - `install` (Attributes) Represents installation options for Talos nodes. (see [below for nested schema](#nestedatt--install))
-- `macaddr` (String)
 - `name` (String)
 - `network` (Attributes) (see [below for nested schema](#nestedatt--network))
+- `provision_ip` (String) IP address of the machine to be provisioned.
 
 ### Optional
 

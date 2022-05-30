@@ -56,6 +56,7 @@ type accTestNodeArgs struct {
 	LibvirtCustom string
 	DockerCustom  string
 	RegistryMount string
+	InitialIPs    []string
 }
 
 // accTestNodes contains a Terraform configuration that manages the VMs used for
@@ -71,6 +72,10 @@ terraform {
     docker = {
       source  = "kreuzwerker/docker"
       version = "2.16.0"
+    }
+    macaddress = {
+      source = "ivoronin/macaddress"
+      version = "0.3.0"
     }
   }
 }
@@ -252,6 +257,37 @@ locals {
 TOC
   ]
 {{end}}
+  nethosts = <<TOC
+<?xml version="1.0" encoding="UTF-8" ?>
+<xsl:transform version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  <xsl:output omit-xml-declaration="yes" indent="yes"/>
+  <xsl:template match="node()|@*">
+     <xsl:copy>
+       <xsl:apply-templates select="node()|@*"/>
+     </xsl:copy>
+  </xsl:template>
+
+  <xsl:template match="/network/ip/dhcp">
+    <xsl:copy>
+      <xsl:apply-templates select="node()|@*"/>
+{{range $index, $ip := .InitialIPs}} 
+      <xsl:element name="host">
+        <xsl:attribute name="mac">${macaddress.leases[{{$index}}].address}</xsl:attribute>
+
+        <xsl:attribute name="name">node-{{$index}}</xsl:attribute>
+
+        <xsl:attribute name="ip">{{$ip}}</xsl:attribute>
+      </xsl:element>
+{{end}}
+    </xsl:copy>
+  </xsl:template>
+</xsl:transform>
+TOC
+}
+
+resource "macaddress" "leases" {
+  count  = local.n_nodes
+  prefix = [82,84,00]
 }
 
 resource "libvirt_network" "talos_network" {
@@ -260,6 +296,9 @@ resource "libvirt_network" "talos_network" {
   addresses = ["192.168.124.0/24"]
   dns {
     enabled = true
+  }
+  xml {
+    xslt = local.nethosts
   }
 }
 
@@ -294,6 +333,7 @@ resource "libvirt_domain" "test_node" {
     network_name   = libvirt_network.talos_network.name
     hostname       = "{{.HostnameBase}}-${count.index}"
     wait_for_lease = true
+    mac            = macaddress.leases[count.index].address
   }
 
   xml {
@@ -386,6 +426,11 @@ func TestMain(m *testing.M) {
 			registry = ""
 		}
 
+		ips := []string{}
+		for current := testInitialIPs.From(); current != testInitialIPs.To(); current = current.Next() {
+			ips = append(ips, current.String())
+		}
+
 		// Template terraform configuration for test VMs.
 		tpl := template.Must(template.New("").Parse(accTestNodes))
 		var tfmain bytes.Buffer
@@ -399,6 +444,7 @@ func TestMain(m *testing.M) {
 			LocalIsoURL:   talosLocalIsoURL,
 			MachineLogDir: dir,
 			RegistryMount: registry,
+			InitialIPs:    ips,
 		})
 
 		tmpfn := filepath.Join(wd, "main.tf")

@@ -56,10 +56,10 @@ func TestAccResourceTalosControlSingleMaster(t *testing.T) {
 				Config: testTalosConfig(&testConfig{
 					Endpoint: testControlIPs[0],
 				}) + testControlConfig(&testNode{
-					IP:        testControlIPs[0],
-					MAC:       testMACAddresses[0],
-					Index:     0,
-					Bootstrap: true,
+					IP:          testControlIPs[0],
+					ProvisionIP: ips[0],
+					Index:       0,
+					Bootstrap:   true,
 				}),
 				Check: resource.ComposeTestCheckFunc(
 					testAccTalosConnectivity(testConnArg{
@@ -78,6 +78,11 @@ func TestAccResourceTalosControlSingleMaster(t *testing.T) {
 }
 
 func TestAccResourceTalosControlThreeMaster(t *testing.T) {
+	ips := []string{}
+	for current := testInitialIPs.From(); current != testInitialIPs.To(); current = current.Next() {
+		ips = append(ips, current.String())
+	}
+
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
 			if _, reset := os.LookupEnv("RESET_VM"); reset {
@@ -98,20 +103,20 @@ func TestAccResourceTalosControlThreeMaster(t *testing.T) {
 				Config: testTalosConfig(&testConfig{
 					Endpoint: testControlIPs[1],
 				}) + testControlConfig(&testNode{
-					IP:        testControlIPs[0],
-					MAC:       testMACAddresses[0],
-					Index:     0,
-					Bootstrap: false,
+					IP:          testControlIPs[0],
+					ProvisionIP: ips[0],
+					Index:       0,
+					Bootstrap:   false,
 				}, &testNode{
-					IP:        testControlIPs[1],
-					MAC:       testMACAddresses[1],
-					Index:     1,
-					Bootstrap: true,
+					IP:          testControlIPs[1],
+					ProvisionIP: ips[1],
+					Index:       1,
+					Bootstrap:   true,
 				}, &testNode{
-					IP:        testControlIPs[2],
-					MAC:       testMACAddresses[2],
-					Index:     2,
-					Bootstrap: false,
+					IP:          testControlIPs[2],
+					ProvisionIP: ips[2],
+					Index:       2,
+					Bootstrap:   false,
 				}),
 				Check: resource.ComposeTestCheckFunc(
 					testAccTalosConnectivity(testConnArg{

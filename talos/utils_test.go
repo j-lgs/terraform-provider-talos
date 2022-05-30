@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"inet.af/netaddr"
 	"log"
 	"net"
 	"net/http"
@@ -37,6 +38,7 @@ var (
 	testKubernetesVersion string = constants.DefaultKubernetesVersion
 )
 
+var testInitialIPs = netaddr.MustParseIPRange("192.168.124.15-192.168.124.19")
 var configurationVersion string = "v1.0"
 
 // testConfig defines input variables needed when templating talos_configuration resource
@@ -93,7 +95,6 @@ var (
 	installDisk string = "/dev/vdb"
 	//	talosVersion string = "v1.0.5"
 	installImage string = generate.DefaultGenOptions().InstallImage
-	setupNetwork string = "192.168.124.0/24"
 	gateway      string = "192.168.124.1"
 	nameserver   string = "192.168.124.1"
 )
@@ -104,35 +105,32 @@ type testNode struct {
 	// Required
 	IP        string
 	Index     int
-	MAC       string
 	Bootstrap bool
 
 	// Optional
-	Disk             string
-	Image            string
-	NodeSetupNetwork string
-	Nameserver       string
-	Gateway          string
+	Disk        string
+	Image       string
+	ProvisionIP string
+	Nameserver  string
+	Gateway     string
 }
 
 // testControlConfig
 func testControlConfig(nodes ...*testNode) string {
 	tpl := `resource "talos_control_node" "control_{{.Index}}" {
   name = "control-{{.Index}}"
-  macaddr = "{{.MAC}}"
 
   bootstrap = {{.Bootstrap}}
-  bootstrap_ip = "{{.IP}}"
-
-  dhcp_network_cidr = "{{.NodeSetupNetwork}}"
+  configure_ip = "{{.IP}}"
+  provision_ip = "{{.ProvisionIP}}"
 
   install = {
     disk = "{{.Disk}}"
-    image = "{{.Image}}"
   }
 
-  devices = {
-    "eth0" : {
+  networkconfig = {
+    devices = [{
+      name = "eth0"
       addresses = [
         "{{.IP}}/24"
       ]
@@ -140,15 +138,13 @@ func testControlConfig(nodes ...*testNode) string {
         network = "0.0.0.0/0"
         gateway = "{{.Gateway}}"
       }]
-    }
+    }]
+    nameservers = [
+      "{{.Nameserver}}"
+    ]
   }
-
-  nameservers = [
-    "{{.Nameserver}}"
-  ]
-
   registry = {
-	mirrors = {
+    mirrors = {
       "docker.io":  [ "http://172.17.0.1:55000" ],
       "k8s.gcr.io": [ "http://172.17.0.1:55001" ],
       "quay.io":    [ "http://172.17.0.1:55002" ],
@@ -161,11 +157,9 @@ func testControlConfig(nodes ...*testNode) string {
 }
 `
 	var config strings.Builder
-
 	for _, n := range nodes {
 		n.Disk = installDisk
 		n.Image = installImage
-		n.NodeSetupNetwork = setupNetwork
 		n.Nameserver = nameserver
 		n.Gateway = gateway
 		t := template.Must(template.New("").Parse(tpl))

@@ -42,21 +42,17 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				// ForceNew: true,
 				// TODO validate and fix forcenew
 			},
-			"macaddr": {
-				Type:     types.StringType,
-				Required: true,
+			"provision_ip": {
+				Type:        types.StringType,
+				Description: "IP address of the machine to be provisioned.",
+				Required:    true,
 				// TODO validate and forcenew
-				// ForceNew: true,
-				// ValidateFunc: validateMAC,
-			},
-			"dhcp_network_cidr": {
-				Type:     types.StringType,
-				Required: true,
-				// TODO validate
-				// ValidateFunc: validateCIDR,
+				// ForceNew: false
+				// doesn't matter if changed after initial creation.
 			},
 			// --- MachineConfig.
 			// See https://www.talos.dev/v1.0/reference/configuration/#machineconfig for full spec.
+
 			"install": {
 				Required:    true,
 				Description: datatypes.InstallSchema.Description,
@@ -199,13 +195,12 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				Description: "Allows running workload on master nodes.",
 			},
 			// ----- ClusterConfig End
-
 			// ----- Resource Cluster bootstrap configuration
 			"bootstrap": {
 				Type:     types.BoolType,
 				Required: true,
 			},
-			"bootstrap_ip": {
+			"configure_ip": {
 				Type:     types.StringType,
 				Required: true,
 				// ValidateFunc: validateIP,
@@ -313,10 +308,11 @@ type talosControlNodeResourceData struct {
 	AllowSchedulingOnMasters types.Bool                     `tfsdk:"allow_scheduling_on_masters"`
 	Bootstrap                types.Bool                     `tfsdk:"bootstrap"`
 
-	ConfigIP   types.String `tfsdk:"config_ip"`
-	BaseConfig types.String `tfsdk:"base_config"`
-	Patch      types.String `tfsdk:"patch"`
-	ID         types.String `tfsdk:"id"`
+	ProvisionIP types.String `tfsdk:"provision_ip"`
+	ConfigIP    types.String `tfsdk:"configure_ip"`
+	BaseConfig  types.String `tfsdk:"base_config"`
+	Patch       types.String `tfsdk:"patch"`
+	ID          types.String `tfsdk:"id"`
 }
 
 func (plan *talosControlNodeResourceData) Generate() (err error) {
@@ -542,12 +538,11 @@ func (r talosControlNodeResource) Create(ctx context.Context, req tfsdk.CreateRe
 	config, errDesc, err := applyConfig(ctx, &p, configData{
 		Bootstrap:   plan.Bootstrap.Value,
 		ConfigIP:    plan.ConfigIP.Value,
+		ProvisionIP: plan.ProvisionIP.Value,
 		CreateNode:  true,
 		Mode:        machine.ApplyConfigurationRequest_REBOOT,
 		BaseConfig:  plan.BaseConfig.Value,
 		MachineType: machinetype.TypeControlPlane,
-		Network:     plan.DHCPNetworkCidr.Value,
-		MAC:         plan.Macaddr.Value,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(errDesc, err.Error())
@@ -614,12 +609,11 @@ func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateRe
 	p := &state
 	config, errDesc, err := applyConfig(ctx, &p, configData{
 		Bootstrap:   false,
+		ProvisionIP: state.ProvisionIP.Value,
 		ConfigIP:    state.ConfigIP.Value,
 		Mode:        machine.ApplyConfigurationRequest_AUTO,
 		BaseConfig:  state.BaseConfig.Value,
 		MachineType: machinetype.TypeControlPlane,
-		Network:     state.DHCPNetworkCidr.Value,
-		MAC:         state.Macaddr.Value,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(errDesc, err.Error())

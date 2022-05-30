@@ -1,15 +1,10 @@
 package talos
 
 import (
-	"bufio"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"net"
-	"os"
-	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
@@ -18,64 +13,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
-
-func checkArp(mac string) (net.IP, error) {
-	arp, err := os.Open("/proc/net/arp")
-	if err != nil {
-		return nil, err
-	}
-	defer arp.Close()
-
-	scanner := bufio.NewScanner(arp)
-	for scanner.Scan() {
-		f := strings.Fields(scanner.Text())
-		if strings.EqualFold(f[3], mac) {
-			return net.ParseIP(f[0]), nil
-		}
-	}
-
-	return nil, nil
-}
-
-func ipup(ctx context.Context, ip net.IP) bool {
-	if ip == nil {
-		return false
-	}
-
-	err := exec.CommandContext(ctx, "ping", "-c1", "-w1", ip.String()).Run()
-	if exitError, ok := err.(*exec.ExitError); ok {
-		return exitError.ExitCode() == 0
-	}
-	return false
-}
-
-func lookupIP(ctx context.Context, network string, mac string) (net.IP, error) {
-	var ip net.IP
-
-	ctx, cancel := context.WithTimeout(ctx, 180*time.Second)
-	defer cancel()
-
-	for poll := true; poll; poll = (ip == nil) {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-			err := exec.CommandContext(ctx, "nmap", "-sP", network).Run()
-			if err != nil {
-				return nil, err
-			}
-			if ip, err = checkArp(mac); err != nil {
-				return nil, err
-			}
-			if ipup(ctx, ip) {
-				return ip, nil
-			}
-			time.Sleep(5 * time.Second)
-		}
-	}
-
-	return ip, nil
-}
 
 func makeTLSConfig(certs generate.Certs, secure bool) (tls.Config, error) {
 	tlsConfig := &tls.Config{}

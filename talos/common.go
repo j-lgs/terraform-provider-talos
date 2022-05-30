@@ -71,11 +71,10 @@ type configData struct {
 	Bootstrap   bool
 	CreateNode  bool
 	Mode        machine.ApplyConfigurationRequest_Mode
+	ProvisionIP string
 	ConfigIP    string
 	BaseConfig  string
 	MachineType machinetype.Type
-	Network     string
-	MAC         string
 }
 
 func genConfig[N nodeResourceData](machineType machinetype.Type, input *generate.Input, nodeData *N) (out string, err error) {
@@ -116,15 +115,8 @@ func applyConfig[N nodeResourceData](ctx context.Context, nodeData *N, data conf
 
 	var conn *grpc.ClientConn
 	if data.CreateNode {
-		network := data.Network
-		mac := data.MAC
-
-		dhcpIP, err := lookupIP(ctx, network, mac)
-		if err != nil {
-			return "", "Error looking up node IP", err
-		}
-
-		host := net.JoinHostPort(dhcpIP.String(), strconv.Itoa(talosPort))
+		ip := data.ProvisionIP
+		host := net.JoinHostPort(ip, strconv.Itoa(talosPort))
 		conn, err = insecureConn(ctx, host)
 		if err != nil {
 			return "", "Unable to make insecure connection to Talos machine. Ensure it is in maintainence mode.", err

@@ -406,8 +406,6 @@ func (r talosWorkerNodeResource) Create(ctx context.Context, req tfsdk.CreateRes
 		Mode:        machine.ApplyConfigurationRequest_REBOOT,
 		BaseConfig:  plan.BaseConfig.Value,
 		MachineType: machinetype.TypeWorker,
-		Network:     plan.DHCPNetworkCidr.Value,
-		MAC:         plan.Macaddr.Value,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(errDesc, err.Error())
@@ -478,8 +476,6 @@ func (r talosWorkerNodeResource) Update(ctx context.Context, req tfsdk.UpdateRes
 		Mode:        machine.ApplyConfigurationRequest_AUTO,
 		BaseConfig:  state.BaseConfig.Value,
 		MachineType: machinetype.TypeWorker,
-		Network:     state.DHCPNetworkCidr.Value,
-		MAC:         state.Macaddr.Value,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(errDesc, err.Error())
