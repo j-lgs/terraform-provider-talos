@@ -239,9 +239,9 @@ var NetworkConfigSchema = tfsdk.Schema{
 	MarkdownDescription: "Represents node network configuration options.",
 	Attributes: map[string]tfsdk.Attribute{
 		"hostname": {
-			Type:        types.BoolType,
+			Type:        types.StringType,
 			Optional:    true,
-			Description: "Used to statically set the hostname for the machine..",
+			Description: "Used to statically set the hostname for the machine.",
 		},
 		"devices": {
 			Optional:    true,
