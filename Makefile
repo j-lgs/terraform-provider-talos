@@ -44,7 +44,7 @@ build:
 	@echo "Built terraform-provider-talos"
 
 docs:
-	tfplugindocs
+	@go generate ./...
 
 install: build
 	cp dist/terraform-provider-talos_linux_amd64_v1/terraform-provider-talos_* $$GOPATH/bin/terraform-provider-talos
