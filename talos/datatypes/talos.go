@@ -243,7 +243,7 @@ MC4CAQAwBQYDK2VwBCIEIJCuZGq2GPWZnvtJvmwC+HIu6e95GecdBxC9qR4nGw4t
 		MachineDisks: []*v1alpha1.MachineDisk{
 			machineDiskExample,
 		},
-		MachineInstall: installConfigExample,
+		MachineInstall: InstallConfigExample,
 		MachineFiles: []*v1alpha1.MachineFile{
 			machineFileExample,
 		},
@@ -289,7 +289,7 @@ MC4CAQAwBQYDK2VwBCIEIJCuZGq2GPWZnvtJvmwC+HIu6e95GecdBxC9qR4nGw4t
 		},
 	}
 
-	installConfigExample = &v1alpha1.InstallConfig{
+	InstallConfigExample = &v1alpha1.InstallConfig{
 		InstallDisk:            installDiskExample,
 		InstallDiskSelector:    installDiskSelectorExample,
 		InstallExtraKernelArgs: installKernelArgsExample,

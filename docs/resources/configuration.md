@@ -228,7 +228,7 @@ Optional:
 
 - `devices` (Attributes List) Describes a Talos network device configuration. The map's key is the interface name. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices))
 - `extra_hosts` (Map of List of String) Allows for extra entries to be added to the `/etc/hosts` file.
-- `hostname` (Boolean) Used to statically set the hostname for the machine..
+- `hostname` (String) Used to statically set the hostname for the machine.
 - `kubespan` (Boolean) Configures the KubeSpan wireguard network feature.
 - `nameservers` (List of String) Used to statically set the nameservers for the machine.
 

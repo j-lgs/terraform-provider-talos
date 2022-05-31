@@ -85,7 +85,7 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				// TODO validation
 				Description: "Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.",
 			},
-			"network": {
+			"networkconfig": {
 				Required:    true,
 				Description: datatypes.NetworkConfigSchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(datatypes.NetworkConfigSchema.Attributes),
@@ -285,14 +285,12 @@ var (
 
 type talosControlNodeResourceData struct {
 	Name                     types.String                   `tfsdk:"name"`
-	Macaddr                  types.String                   `tfsdk:"macaddr"`
-	DHCPNetworkCidr          types.String                   `tfsdk:"dhcp_network_cidr"`
 	Install                  *datatypes.InstallConfig       `tfsdk:"install"`
 	CertSANS                 []types.String                 `tfsdk:"cert_sans"`
 	ControlPlane             *datatypes.ControlPlaneConfig  `tfsdk:"control_plane"`
 	Kubelet                  *datatypes.KubeletConfig       `tfsdk:"kubelet"`
 	Pod                      []types.String                 `tfsdk:"pods"`
-	Network                  *datatypes.NetworkConfig       `tfsdk:"network"`
+	Network                  *datatypes.NetworkConfig       `tfsdk:"networkconfig"`
 	Files                    []datatypes.File               `tfsdk:"files"`
 	Env                      map[string]types.String        `tfsdk:"env"`
 	Sysctls                  map[string]types.String        `tfsdk:"sysctls"`
@@ -392,7 +390,6 @@ func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v
 		cd.APIServerConfig = apiserver.(*v1alpha1.APIServerConfig)
 
 	}
-
 	md := out.MachineConfig
 	for _, san := range plan.CertSANS {
 		md.MachineCertSANs = append(md.MachineCertSANs, san.Value)
@@ -406,7 +403,6 @@ func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v
 		}
 		md.MachineKubelet = kubelet.(*v1alpha1.KubeletConfig)
 	}
-
 	if plan.Network != nil {
 		net, err := plan.Network.Data()
 		if err != nil {
@@ -422,7 +418,6 @@ func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v
 		}
 		md.MachineInstall = install.(*v1alpha1.InstallConfig)
 	}
-
 	if plan.Encryption != nil {
 		encryption, err := plan.Encryption.Data()
 		if err != nil {
@@ -479,7 +474,6 @@ func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v
 		}
 		cd.ProxyConfig = proxy.(*v1alpha1.ProxyConfig)
 	}
-
 	if plan.Registry != nil {
 		registries, err := plan.Registry.Data()
 		if err != nil {
@@ -487,7 +481,6 @@ func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v
 		}
 		md.MachineRegistries = *registries.(*v1alpha1.RegistriesConfig)
 	}
-
 	md.MachineUdev = &v1alpha1.UdevConfig{}
 	for _, rule := range plan.Udev {
 		md.MachineUdev.UdevRules = append(md.MachineUdev.UdevRules, rule.Value)
@@ -504,7 +497,6 @@ func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v
 		}
 		cd.ClusterInlineManifests = append(cd.ClusterInlineManifests, manifest.(v1alpha1.ClusterInlineManifest))
 	}
-
 	return
 }
 
