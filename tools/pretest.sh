@@ -95,6 +95,7 @@ cat << EOF > test/etc/resolv.conf
 nameserver 10.0.2.3
 EOF
 
+mkdir -p test/run
 # Create namespace and run tests inside of it
 unshare --user --map-root-user --net --mount sh -c 'sleep 1800' &
 pid=$!
