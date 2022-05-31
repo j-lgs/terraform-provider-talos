@@ -73,7 +73,7 @@ if [ ! -f test/bin/registry-v${registry_version} ]; then
 
     curl -o registry.tar.gz --fail -L \
 	 "https://github.com/distribution/distribution/releases/download/v${registry_version}/registry_${registry_version}_linux_${registry_arch}.tar.gz";
-    echo "$registry_sha256 test/bin/registry.tar.gz" | sha256sum -c -;
+    echo "$registry_sha256 registry.tar.gz" | sha256sum -c -;
     tar --extract --verbose --file registry.tar.gz --directory test/bin/ registry;
 
     mv test/bin/registry test/bin/registry-v${registry_version}
