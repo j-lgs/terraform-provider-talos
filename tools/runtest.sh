@@ -91,6 +91,9 @@ vmup() {
 		       -device virtio-rng-pci \
     		       -qmp unix:/tmp/qmp/vm-node-"$1".sock,server,nowait \
 		       ${kvm}
+
+
+    tail -f test/run/vm-"$1".log | sed 's/^/(vm-node-$1 LOG): /' &
 }
 
 mkdir -p test/run
