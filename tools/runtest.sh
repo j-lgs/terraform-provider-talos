@@ -78,7 +78,7 @@ vmup() {
     MAC=$(echo $MACS | awk -F ' ' "{print \$($1+1)}")
 
     qemu-img create -f qcow2 "test/opt/vm-$1.qcow2" 4G
-    qemu-system-x86_64 -m 1536 -boot d  \
+    qemu-system-x86_64 -m 2048 -boot d  \
 		       -cdrom test/opt/talos-amd64-v1.0.5.iso \
 		       -drive file=test/opt/vm-"$1".qcow2,format=qcow2,if=virtio \
 		       -netdev tap,id=mynet0,ifname=tap"$1",script=no,downscript=no \
@@ -88,7 +88,6 @@ vmup() {
 		       -device virtio-rng-pci \
     		       -qmp unix:/tmp/qmp/vm-node-"$1".sock,server,nowait \
 		       ${kvm}
-
 
     tail -f test/run/vm-"$1".log | sed "s/^/(vm-node-$1 LOG): /" &
 }
