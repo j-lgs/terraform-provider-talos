@@ -340,6 +340,10 @@ func (plan *talosControlNodeResourceData) Generate() (err error) {
 }
 
 func (plan *talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err error) {
+	if in == nil {
+		return
+	}
+
 	plan.Network = &datatypes.NetworkConfig{}
 	plan.Network.Nameservers = []types.String{}
 	for _, ns := range in.MachineConfig.MachineNetwork.NameServers {
@@ -593,7 +597,7 @@ func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateRe
 		return
 	}
 
-	diags := req.Config.Get(ctx, &state)
+	diags := req.Plan.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -643,14 +647,13 @@ func (r talosControlNodeResource) Delete(ctx context.Context, req tfsdk.DeleteRe
 		return
 	}
 
-	if r.provider.skipdelete {
-		resp.Diagnostics.AddError("skipdelete set", "skipdelete set")
-		return
-	}
-
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if r.provider.skipdelete {
 		return
 	}
 

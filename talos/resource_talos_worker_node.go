@@ -463,7 +463,7 @@ func (r talosWorkerNodeResource) Update(ctx context.Context, req tfsdk.UpdateRes
 		return
 	}
 
-	diags := req.Config.Get(ctx, &state)
+	diags := req.Plan.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
