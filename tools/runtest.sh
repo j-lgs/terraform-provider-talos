@@ -73,10 +73,7 @@ REGISTRY_PROXY_REMOTEURL=https://ghcr.io \
 mkdir -p /tmp/qmp
 
 vmup() {
-    kvm=""
-    if [ -z ${GITHUB_ACTIONS+x} ] ; then
-	kvm="--enable-kvm"
-    fi
+    kvm="--enable-kvm"
 
     MAC=$(echo $MACS | awk -F ' ' "{print \$($1+1)}")
 
