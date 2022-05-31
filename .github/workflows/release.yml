@@ -6,7 +6,7 @@ on:
 permissions:
   contents: write
 env:
-  GO_VERSION: '1.1'7
+  GO_VERSION: '1.17'
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
