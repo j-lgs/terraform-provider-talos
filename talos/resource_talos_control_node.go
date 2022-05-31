@@ -579,6 +579,7 @@ func (r talosControlNodeResource) Read(ctx context.Context, req tfsdk.ReadResour
 			resp.Diagnostics.AddError(errDesc, err.Error())
 			return
 		}
+		conf = nil
 
 		state.ReadInto(conf)
 	}
