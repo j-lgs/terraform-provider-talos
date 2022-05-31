@@ -93,7 +93,7 @@ vmup() {
 		       ${kvm}
 
 
-    tail -f test/run/vm-"$1".log | sed 's/^/(vm-node-$1 LOG): /' &
+    tail -f test/run/vm-"$1".log | sed "s/^/(vm-node-$1 LOG): /" &
 }
 
 mkdir -p test/run
