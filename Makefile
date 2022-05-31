@@ -18,7 +18,7 @@ all: check build docs test
 
 fmt:
 	@echo " -> checking code style"
-	@! gofmt -d $(shell find . -path ./vendor -prune -o -path ./talos_vendor -prune -o -name '*.go' -print) | grep '^'
+	@! gofmt -d $(shell find . -path ./vendor -prune -o -name '*.go' -print) | grep '^'
 
 vet:
 	@echo " -> vetting code"
@@ -28,18 +28,18 @@ test:
 	@echo " -> testing code"
 	@go test -v -race -vet=off ./...
 
-check:
+check: vet
 	@echo " -> checking code"
-	@staticcheck ./...
-	@golint $(go list ./... | grep -v /vendor\|vendor_talos/)
+	@go run honnef.co/go/tools/cmd/staticcheck ./talos
 
 acctest:
 	@echo " -> acceptance testing code"
 	tools/pretest.sh
 
-build:
+build: check
 	@echo " -> Building"
-	goreleaser build --rm-dist --single-target --snapshot
+	@go build -v .
+	#goreleaser build --rm-dist --single-target --snapshot
 	@echo "Built terraform-provider-talos"
 
 docs:

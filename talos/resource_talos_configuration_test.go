@@ -21,10 +21,12 @@ var (
 		// Talos related
 		Install:            datatypes.InstallExample,
 		CNI:                datatypes.CniExample,
+		/*
 		Sysctls:            nodeData.Sysctls,
 		Registry:           nodeData.Registry,
 		Disks:              nodeData.Disks,
 		Encryption:         nodeData.Encryption,
+		*/
 		KubernetesEndpoint: datatypes.Wraps(datatypes.EndpointExample.String()),
 		KubernetesVersion:  datatypes.Wraps(testKubernetesVersion),
 	}

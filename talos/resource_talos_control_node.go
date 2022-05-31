@@ -250,7 +250,7 @@ var (
 		ControlPlane: datatypes.ControlPlaneConfigExample,
 		Kubelet:      datatypes.KubeletExample,
 		Pod:          datatypes.Wrapsl(datatypes.MachinePodsStringExample),
-		Network:      *&datatypes.NetworkConfigExample,
+		Network:      datatypes.NetworkConfigExample,
 		Files: []datatypes.File{
 			datatypes.FileExample,
 		},
@@ -531,6 +531,27 @@ func (r talosControlNodeResource) Create(ctx context.Context, req tfsdk.CreateRe
 		return
 	}
 
+	/*
+			config, err := r.provider.client.GetConfig()
+			if err != nil {
+				resp.Diagnostics.AddError(errDesc, err.Error())
+				return
+			}
+
+			err := r.provider.createNode(machinetype.TypeControlPlane, plan.ProvisionIP.Value)
+			if err != nil {
+				resp.Diagnostics.AddError(errDesc, err.Error())
+				return
+			}
+
+			if plan.Bootstrap.Value {
+				err := r.provider.client.Bootstrap(plan.ConfigIP.Value)
+			        if err != nil {
+		  		  resp.Diagnostics.AddError(errDesc, err.Error())
+				  return
+			        }
+			}
+	*/
 	p := &plan
 	config, errDesc, err := applyConfig(ctx, &p, configData{
 		Bootstrap:   plan.Bootstrap.Value,
@@ -571,17 +592,18 @@ func (r talosControlNodeResource) Read(ctx context.Context, req tfsdk.ReadResour
 	}
 
 	if !r.provider.skipread {
-		conf, errDesc, err := readConfig(ctx, &state, readData{
-			ConfigIP:   state.ConfigIP.Value,
-			BaseConfig: state.BaseConfig.Value,
-		})
-		if err != nil {
-			resp.Diagnostics.AddError(errDesc, err.Error())
-			return
-		}
-		conf = nil
-
-		state.ReadInto(conf)
+		/*
+			conf, errDesc, err := readConfig(ctx, &state, readData{
+				ConfigIP:   state.ConfigIP.Value,
+				BaseConfig: state.BaseConfig.Value,
+			})
+			if err != nil {
+				resp.Diagnostics.AddError(errDesc, err.Error())
+				return
+			}
+			conf = nil
+		*/
+		state.ReadInto(nil)
 	}
 
 	diags = resp.State.Set(ctx, &state)

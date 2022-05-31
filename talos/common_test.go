@@ -6,24 +6,22 @@ import (
 	"reflect"
 	"terraform-provider-talos/talos/datatypes"
 	"testing"
-	"time"
 
 	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/wI2L/jsondiff"
 
 	configloader "github.com/talos-systems/talos/pkg/machinery/config/configloader"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
-	genv1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
 )
 
 var (
-	date  = time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
-	clock = genv1alpha1.NewClock()
+	//date  = time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
+	//clock = genv1alpha1.NewClock()
 
 	testBundle = datatypes.SecretsBundleExample
 
-	expectedNode *v1alpha1.Config              = datatypes.MachineConfigExample
+	//expectedNode *v1alpha1.Config              = datatypes.MachineConfigExample
 	nodeData     *talosControlNodeResourceData = talosControlNodeResourceDataExample
 )
 

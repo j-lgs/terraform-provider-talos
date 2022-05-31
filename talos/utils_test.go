@@ -26,7 +26,6 @@ import (
 	talosresource "github.com/talos-systems/talos/pkg/machinery/api/resource"
 	"github.com/talos-systems/talos/pkg/machinery/client"
 	clientconfig "github.com/talos-systems/talos/pkg/machinery/client/config"
-	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	"github.com/talos-systems/talos/pkg/machinery/constants"
 	"google.golang.org/grpc/codes"
@@ -34,7 +33,7 @@ import (
 
 // Talos configuration related global variables
 var (
-	testVersionContract          = config.TalosVersionCurrent
+	//testVersionContract          = config.TalosVersionCurrent
 	testKubernetesVersion string = constants.DefaultKubernetesVersion
 )
 
@@ -194,10 +193,6 @@ var (
 type testConnArg struct {
 	resourcepath string
 	talosIP      string
-}
-
-func ignoreErr(val any, err error) any {
-	return val
 }
 
 func testAccTalosConnectivity(args ...testConnArg) resource.TestCheckFunc {

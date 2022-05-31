@@ -2,7 +2,6 @@ package talos
 
 import (
 	"testing"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
@@ -11,7 +10,7 @@ import (
 var (
 	testControlIPs []string = []string{"10.0.2.200", "10.0.2.201", "10.0.2.202"}
 	// testControlWGIPs []string      = []string{"192.168.125.5", "192.168.125.6", "192.168.125.7"}
-	resetWaitTime time.Duration = 3 * time.Second
+	//resetWaitTime time.Duration = 3 * time.Second
 )
 
 // TestAccResourceTalosControlSingleMaster runs tests involving a single master node.
