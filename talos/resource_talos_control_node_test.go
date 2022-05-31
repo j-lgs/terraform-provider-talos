@@ -1,10 +1,6 @@
 package talos
 
 import (
-	"bytes"
-	"os"
-	"os/exec"
-	"strconv"
 	"testing"
 	"time"
 
@@ -13,35 +9,20 @@ import (
 
 // Global variables
 var (
-	testControlIPs []string = []string{"192.168.124.5", "192.168.124.6", "192.168.124.7"}
+	testControlIPs []string = []string{"10.0.2.200", "10.0.2.201", "10.0.2.202"}
 	// testControlWGIPs []string      = []string{"192.168.125.5", "192.168.125.6", "192.168.125.7"}
 	resetWaitTime time.Duration = 3 * time.Second
 )
 
-// testResetVM is a workaround for Virtual machines hanging on reboot when reset by Talos API.
-// It is toggled by the environment variable RESET_VM
-func testResetVM(t *testing.T, vmprefix string, vmIndicies ...int) {
-	// Enough time for the reset process to run to completion on a fast system.
-	for _, idx := range vmIndicies {
-		var stdout bytes.Buffer
-		cmd := exec.Command("virsh", "-c", "qemu:///system", "reset", "test_"+vmprefix+"_"+strconv.Itoa(idx))
-		cmd.Stdout = &stdout
-		if err := cmd.Run(); err != nil {
-			t.Error(err)
-			t.FailNow()
-		}
-	}
-	time.Sleep(resetWaitTime)
-}
-
 // TestAccResourceTalosControlSingleMaster runs tests involving a single master node.
 func TestAccResourceTalosControlSingleMaster(t *testing.T) {
+	ips := []string{}
+	for current := testInitialIPs.From(); current != testInitialIPs.To(); current = current.Next() {
+		ips = append(ips, current.String())
+	}
+
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
-			if _, reset := os.LookupEnv("RESET_VM"); reset {
-				testResetVM(t, "control", 0)
-			}
-
 			testAccPreCheck(t)
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -62,6 +43,24 @@ func TestAccResourceTalosControlSingleMaster(t *testing.T) {
 					Bootstrap:   true,
 				}),
 				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "name"),
+					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "bootstrap"),
+					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "configure_ip"),
+					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "provision_ip"),
+					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "install.disk"),
+					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "base_config"),
+
+					resource.TestCheckResourceAttr("talos_control_node.control_0",
+						"networkconfig.devices.0.name", "eth0"),
+					resource.TestCheckResourceAttr("talos_control_node.control_0",
+						"networkconfig.devices.0.addresses.0", testControlIPs[0]+"/24"),
+					resource.TestCheckResourceAttr("talos_control_node.control_0",
+						"networkconfig.devices.0.routes.0.network", "0.0.0.0/0"),
+					resource.TestCheckResourceAttr("talos_control_node.control_0",
+						"networkconfig.devices.0.routes.0.gateway", gateway),
+					resource.TestCheckResourceAttr("talos_control_node.control_0",
+						"networkconfig.nameservers.0", nameserver),
+
 					testAccTalosConnectivity(testConnArg{
 						resourcepath: testControlNodePath(0),
 						talosIP:      testControlIPs[0],
@@ -85,10 +84,6 @@ func TestAccResourceTalosControlThreeMaster(t *testing.T) {
 
 	resource.Test(t, resource.TestCase{
 		PreCheck: func() {
-			if _, reset := os.LookupEnv("RESET_VM"); reset {
-				testResetVM(t, "control", 0, 1, 2)
-			}
-
 			testAccPreCheck(t)
 		},
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

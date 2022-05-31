@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"regexp"
 	"strconv"
 	"time"
@@ -146,8 +147,14 @@ func applyConfig[N nodeResourceData](ctx context.Context, nodeData *N, data conf
 	}
 
 	if data.MachineType == machinetype.TypeControlPlane && data.Bootstrap {
-		// Wait for time to be synchronised.
-		time.Sleep(5 * time.Second)
+		// Wait for time to be synchronised after installation.
+		// TODO: Figure out a better way of handling this. most likely by polling
+		// api endpoint.
+		time.Sleep(15 * time.Second)
+		// Require more time if inside a Github Action
+		if _, set := os.LookupEnv("GITHUB_ACTIONS"); set {
+			time.Sleep(60 * time.Second)
+		}
 
 		ip := data.ConfigIP
 		host := net.JoinHostPort(ip, strconv.Itoa(talosPort))

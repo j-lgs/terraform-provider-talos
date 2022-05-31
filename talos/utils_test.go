@@ -38,7 +38,7 @@ var (
 	testKubernetesVersion string = constants.DefaultKubernetesVersion
 )
 
-var testInitialIPs = netaddr.MustParseIPRange("192.168.124.15-192.168.124.19")
+var testInitialIPs = netaddr.MustParseIPRange("10.0.2.15-10.0.2.18")
 var configurationVersion string = "v1.0"
 
 // testConfig defines input variables needed when templating talos_configuration resource
@@ -92,11 +92,11 @@ resource "local_file" "talosconfig" {
 
 // Control and worker node related global variables.
 var (
-	installDisk string = "/dev/vdb"
+	installDisk string = "/dev/vda"
 	//	talosVersion string = "v1.0.5"
 	installImage string = generate.DefaultGenOptions().InstallImage
-	gateway      string = "192.168.124.1"
-	nameserver   string = "192.168.124.1"
+	gateway      string = "10.0.2.2"
+	nameserver   string = "10.0.2.3"
 )
 
 // testNode defines input variables needed when templating talos_*_node resource
@@ -126,9 +126,15 @@ func testControlConfig(nodes ...*testNode) string {
 
   install = {
     disk = "{{.Disk}}"
+    kernel_args = [
+      // Required for testing in QEMU VMs.
+      "reboot=h,e,f",
+      "talos.shutdown=halt"
+    ]
   }
 
   networkconfig = {
+    hostname = "node-{{.Index}}"
     devices = [{
       name = "eth0"
       addresses = [
@@ -145,11 +151,11 @@ func testControlConfig(nodes ...*testNode) string {
   }
   registry = {
     mirrors = {
-      "docker.io":  [ "http://172.17.0.1:55000" ],
-      "k8s.gcr.io": [ "http://172.17.0.1:55001" ],
-      "quay.io":    [ "http://172.17.0.1:55002" ],
-      "gcr.io":     [ "http://172.17.0.1:55003" ],
-      "ghcr.io":    [ "http://172.17.0.1:55004" ],
+      "docker.io":  [ "http://10.0.2.100:5000" ],
+      "k8s.gcr.io": [ "http://10.0.2.100:5001" ],
+      "quay.io":    [ "http://10.0.2.100:5002" ],
+      "gcr.io":     [ "http://10.0.2.100:5003" ],
+      "ghcr.io":    [ "http://10.0.2.100:5004" ],
     }
   }
 
@@ -181,8 +187,8 @@ func testWorkerNodePath(index int) string {
 */
 
 var (
-	talosConnectivityTimeout      time.Duration = 1 * time.Minute
-	kubernetesConnectivityTimeout time.Duration = 3 * time.Minute
+	talosConnectivityTimeout      time.Duration = 5 * time.Minute
+	kubernetesConnectivityTimeout time.Duration = 20 * time.Minute
 )
 
 type testConnArg struct {

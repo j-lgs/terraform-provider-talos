@@ -35,8 +35,7 @@ check:
 
 acctest:
 	@echo " -> acceptance testing code"
-	RESET_VM=1 TF_ACC=1 MACHINELOG_DIR=$$(pwd) TALOSCONF_DIR=$$(pwd) REGISTRY_CACHE=$$(pwd)/.registrycache go test -v ./talos
-	tools/cleanAcceptance.sh
+	tools/pretest.sh
 
 build:
 	@echo " -> Building"

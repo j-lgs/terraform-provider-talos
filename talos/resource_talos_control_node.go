@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/url"
+	"os"
 	"strconv"
 	"terraform-provider-talos/talos/datatypes"
 	"time"
@@ -682,15 +683,65 @@ func (r talosControlNodeResource) Delete(ctx context.Context, req tfsdk.DeleteRe
 		Reboot:   true,
 	})
 	if err != nil {
-		resp.Diagnostics.AddError("error while attempting to connect to reset maachine", err.Error())
+		resp.Diagnostics.AddError("error while attempting to connect to reset machine", err.Error())
 		return
 	}
 
-	// This approach is not ideal is it might take much more or much less time for a talos host to
-	// reset. Ideally there would be an insecure endpoint that can be checked to determine if a host
-	// is up. Likely it would return 200 if up. This is handy too as it can help the provider determine
-	// whether the host's networking stack is up.
-	time.Sleep(60 * time.Second)
+	// The testing environment has issues regarding reboots
+	// Here we will manually send a command to the qemu socket to forcefully reset the machine.
+	if val, set := os.LookupEnv("TF_ACC"); set {
+		// This approach is not ideal is it might take much more or much less time for a talos host to
+		// reset. Ideally there would be an insecure endpoint that can be checked to determine if a host
+		// is up. Likely it would return 200 if up. This is handy too as it can help the provider determine
+		// whether the host's networking stack is up.
+		time.Sleep(50 * time.Second)
+
+		// Require more time if inside a Github Action
+		if _, set := os.LookupEnv("GITHUB_ACTIONS"); set {
+			time.Sleep(60 * time.Second)
+		}
+
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			resp.Diagnostics.AddError("environment parse error",
+				"error parsing boolean value for TF_ACC:"+err.Error())
+			return
+		}
+
+		if !b {
+			return
+		}
+
+		hostname := state.Network.Hostname.Value
+		conn, err := net.Dial("unix", "/tmp/qmp/vm-"+hostname+".sock")
+		if err != nil {
+			resp.Diagnostics.AddError("VM socket connect error",
+				"Issue connecting to VM socket at /tmp/qmp/vm-"+hostname+".sock: "+err.Error())
+			return
+		}
+		defer conn.Close()
+
+		buf := make([]byte, 256)
+		if n, err := conn.Read(buf); n <= 0 || err != nil {
+			resp.Diagnostics.AddError("VM socket read error",
+				"got "+strconv.Itoa(n)+"bytes. error: "+err.Error())
+			return
+		}
+
+		conn.Write([]byte(`{"execute": "qmp_capabilities"}`))
+		if n, err := conn.Read(buf); n <= 0 || err != nil {
+			resp.Diagnostics.AddError("VM socket read error",
+				"got "+strconv.Itoa(n)+"bytes. error: "+err.Error())
+			return
+		}
+
+		conn.Write([]byte(`{"execute": "system_reset"}`))
+		if n, err := conn.Read(buf); n <= 0 || err != nil {
+			resp.Diagnostics.AddError("VM socket read error",
+				"got "+strconv.Itoa(n)+"bytes. error: "+err.Error())
+			return
+		}
+	}
 }
 
 func (r talosControlNodeResource) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
