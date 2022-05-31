@@ -367,7 +367,7 @@ func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v
 	in.DeepCopyInto(out)
 	cd := out.ClusterConfig
 	if plan.ControlPlane != nil {
-		/* Refrain from setting this for now because it's set in the cluster config resource */
+		// Refrain from setting this for now because it's set in the cluster config resource
 		if !plan.ControlPlane.Endpoint.Null {
 			url, err := url.Parse(plan.ControlPlane.Endpoint.Value)
 			if err != nil {
