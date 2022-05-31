@@ -59,5 +59,4 @@ terraform.rc
 # Acceptance testing
 *.log
 *.iso
-tools
 test/
