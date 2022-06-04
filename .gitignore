@@ -60,3 +60,6 @@ terraform.rc
 *.log
 *.iso
 test/
+
+# coverage
+*.out
