@@ -49,3 +49,16 @@ func (planAPIServer APIServerConfig) Data() (interface{}, error) {
 
 	return apiServer, nil
 }
+
+func (planAPIServer APIServerConfig) DataFunc() [](func(*v1alpha1.Config) error) {
+	return [](func(*v1alpha1.Config) error){
+		func(cfg *v1alpha1.Config) error {
+			ins, err := planAPIServer.Data()
+			if err != nil {
+				return err
+			}
+			cfg.ClusterConfig.APIServerConfig = ins.(*v1alpha1.APIServerConfig)
+			return nil
+		},
+	}
+}

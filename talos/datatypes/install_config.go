@@ -28,6 +28,19 @@ func (install InstallConfig) Data() (any, error) {
 	return installConfig, nil
 }
 
+func (install InstallConfig) DataFunc() [](func(*v1alpha1.Config) error) {
+	return [](func(*v1alpha1.Config) error){
+		func(cfg *v1alpha1.Config) error {
+			ins, err := install.Data()
+			if err != nil {
+				return err
+			}
+			cfg.MachineConfig.MachineInstall = ins.(*v1alpha1.InstallConfig)
+			return nil
+		},
+	}
+}
+
 func (install InstallConfig) GenOpts() (out []generate.GenOption, err error) {
 	if !install.Image.Null {
 		out = append(out, generate.WithInstallImage(install.Image.Value))

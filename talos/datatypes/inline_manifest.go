@@ -17,6 +17,20 @@ func (planManifest InlineManifest) Data() (interface{}, error) {
 	return manifest, nil
 }
 
+func (manifest InlineManifest) DataFunc() [](func(*v1alpha1.Config) error) {
+	return [](func(*v1alpha1.Config) error){
+		func(cfg *v1alpha1.Config) error {
+			val, err := manifest.Data()
+			if err != nil {
+				return err
+			}
+
+			cfg.ClusterConfig.ClusterInlineManifests = append(cfg.ClusterConfig.ClusterInlineManifests, val.(v1alpha1.ClusterInlineManifest))
+			return nil
+		},
+	}
+}
+
 // Read copies data from talos types to terraform state types.
 func (planManifest *InlineManifest) Read(talosInlineManifest interface{}) error {
 	manifest := talosInlineManifest.(v1alpha1.ClusterInlineManifest)

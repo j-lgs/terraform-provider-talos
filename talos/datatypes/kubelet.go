@@ -1,12 +1,65 @@
 package datatypes
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"gopkg.in/yaml.v3"
 )
+
+func (kubelet KubeletConfig) DataFunc() [](func(*v1alpha1.Config) error) {
+	funs := [](func(*v1alpha1.Config) error){
+		func(cfg *v1alpha1.Config) error {
+			fmt.Println("thing")
+
+			talosKubelet := &v1alpha1.KubeletConfig{}
+			if !kubelet.Image.Null {
+				talosKubelet.KubeletImage = kubelet.Image.Value
+			}
+			if !kubelet.RegisterWithFQDN.Null {
+				talosKubelet.KubeletRegisterWithFQDN = kubelet.RegisterWithFQDN.Value
+			}
+			if !kubelet.ExtraConfig.Null {
+				var conf v1alpha1.Unstructured
+				if err := yaml.Unmarshal([]byte(kubelet.ExtraConfig.Value), &conf); err != nil {
+					return err
+				}
+
+				talosKubelet.KubeletExtraConfig = conf
+			}
+			for _, dns := range kubelet.ClusterDNS {
+				talosKubelet.KubeletClusterDNS = append(talosKubelet.KubeletClusterDNS, dns.Value)
+			}
+			if len(kubelet.ExtraArgs) > 0 {
+				talosKubelet.KubeletExtraArgs = map[string]string{}
+			}
+			for k, arg := range kubelet.ExtraArgs {
+				talosKubelet.KubeletExtraArgs[k] = arg.Value
+			}
+			for _, mount := range kubelet.ExtraMounts {
+				m, err := mount.Data()
+				if err != nil {
+					return err
+				}
+				talosKubelet.KubeletExtraMounts = append(talosKubelet.KubeletExtraMounts, m.(v1alpha1.ExtraMount))
+			}
+			if len(kubelet.NodeIPValidSubnets) > 0 {
+				talosKubelet.KubeletNodeIP = v1alpha1.KubeletNodeIPConfig{}
+				for _, subnet := range kubelet.NodeIPValidSubnets {
+					talosKubelet.KubeletNodeIP.KubeletNodeIPValidSubnets =
+						append(talosKubelet.KubeletNodeIP.KubeletNodeIPValidSubnets, subnet.Value)
+				}
+			}
+
+			cfg.MachineConfig.MachineKubelet = talosKubelet
+
+			return nil
+		},
+	}
+	return funs
+}
 
 // Data copies data from terraform state types to talos types.
 func (kubelet KubeletConfig) Data() (interface{}, error) {

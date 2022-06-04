@@ -43,3 +43,16 @@ func (planNetwork NetworkConfig) Data() (any, error) {
 
 	return network, nil
 }
+
+func (planNetwork NetworkConfig) DataFunc() [](func(*v1alpha1.Config) error) {
+	return [](func(*v1alpha1.Config) error){
+		func(cfg *v1alpha1.Config) error {
+			ins, err := planNetwork.Data()
+			if err != nil {
+				return err
+			}
+			cfg.MachineConfig.MachineNetwork = ins.(*v1alpha1.NetworkConfig)
+			return nil
+		},
+	}
+}

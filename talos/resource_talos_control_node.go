@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net"
-	"net/url"
 	"os"
 	"strconv"
 	"terraform-provider-talos/talos/datatypes"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/talos-systems/talos/pkg/machinery/api/machine"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	"gopkg.in/yaml.v2"
 
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	machinetype "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
@@ -240,13 +238,30 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 }
 
 var (
+	CertSANsExample = []datatypes.MachineCertSAN{
+		{Value: datatypes.Wraps(datatypes.MachineCertSANsExample[0])},
+	}
+
+	PodsExample = []datatypes.MachinePod{
+		{Value: datatypes.Wraps(datatypes.MachinePodsStringExample)},
+	}
+
+	UdevExample = []datatypes.MachineUdev{
+		{Value: datatypes.Wraps(datatypes.UdevExample[0])},
+	}
+
+	ExtraManifestExample = []datatypes.ClusterExtraManifest{
+		{Value: datatypes.Wraps(datatypes.ExtraManifestExample[0])},
+		{Value: datatypes.Wraps(datatypes.ExtraManifestExample[1])},
+	}
+
 	talosControlNodeResourceDataExample = &talosControlNodeResourceData{
 		Name:         datatypes.Wraps("test-node"),
 		Install:      datatypes.InstallExample,
-		CertSANS:     datatypes.Wrapsl(datatypes.MachineCertSANsExample...),
+		CertSANS:     CertSANsExample,
 		ControlPlane: datatypes.ControlPlaneConfigExample,
 		Kubelet:      datatypes.KubeletExample,
-		Pod:          datatypes.Wrapsl(datatypes.MachinePodsStringExample),
+		Pod:          PodsExample,
 		Network:      datatypes.NetworkConfigExample,
 		Files: []datatypes.File{
 			datatypes.FileExample,
@@ -268,11 +283,11 @@ var (
 		},
 		Encryption:          datatypes.EncryptionDataExample,
 		Registry:            datatypes.RegistryExample,
-		Udev:                datatypes.Wrapsl(datatypes.UdevExample...),
+		Udev:                UdevExample,
 		MachineControlPlane: datatypes.MachineControlPlaneExample,
 		APIServer:           datatypes.APIServerExample,
 		Proxy:               datatypes.ProxyConfigExample,
-		ExtraManifests:      datatypes.Wrapsl(datatypes.ExtraManifestExample...),
+		ExtraManifests:      ExtraManifestExample,
 		InlineManifests: []datatypes.InlineManifest{
 			datatypes.InlineManifestExample,
 		},
@@ -281,28 +296,28 @@ var (
 )
 
 type talosControlNodeResourceData struct {
-	Name                     types.String                   `tfsdk:"name"`
-	Install                  *datatypes.InstallConfig       `tfsdk:"install"`
-	CertSANS                 []types.String                 `tfsdk:"cert_sans"`
-	ControlPlane             *datatypes.ControlPlaneConfig  `tfsdk:"control_plane"`
-	Kubelet                  *datatypes.KubeletConfig       `tfsdk:"kubelet"`
-	Pod                      []types.String                 `tfsdk:"pods"`
-	Network                  *datatypes.NetworkConfig       `tfsdk:"network"`
-	Files                    []datatypes.File               `tfsdk:"files"`
-	Env                      map[string]types.String        `tfsdk:"env"`
-	Sysctls                  map[string]types.String        `tfsdk:"sysctls"`
-	Sysfs                    map[string]types.String        `tfsdk:"sysfs"`
-	Registry                 *datatypes.Registry            `tfsdk:"registry"`
-	Disks                    []datatypes.MachineDiskData    `tfsdk:"disks"`
-	Encryption               *datatypes.EncryptionData      `tfsdk:"encryption"`
-	Udev                     []types.String                 `tfsdk:"udev"`
-	MachineControlPlane      *datatypes.MachineControlPlane `tfsdk:"control_plane_config"`
-	APIServer                *datatypes.APIServerConfig     `tfsdk:"apiserver"`
-	Proxy                    *datatypes.ProxyConfig         `tfsdk:"proxy"`
-	ExtraManifests           []types.String                 `tfsdk:"extra_manifests"`
-	InlineManifests          []datatypes.InlineManifest     `tfsdk:"inline_manifests"`
-	AllowSchedulingOnMasters types.Bool                     `tfsdk:"allow_scheduling_on_masters"`
-	Bootstrap                types.Bool                     `tfsdk:"bootstrap"`
+	Name                     types.String                     `tfsdk:"name"`
+	Install                  *datatypes.InstallConfig         `tfsdk:"install"`
+	CertSANS                 []datatypes.MachineCertSAN       `tfsdk:"cert_sans"`
+	ControlPlane             *datatypes.ControlPlaneConfig    `tfsdk:"control_plane"`
+	Kubelet                  *datatypes.KubeletConfig         `tfsdk:"kubelet"`
+	Pod                      []datatypes.MachinePod           `tfsdk:"pods"`
+	Network                  *datatypes.NetworkConfig         `tfsdk:"network"`
+	Files                    []datatypes.File                 `tfsdk:"files"`
+	Env                      datatypes.MachineEnv             `tfsdk:"env"`
+	Sysctls                  datatypes.MachineSysctls         `tfsdk:"sysctls"`
+	Sysfs                    datatypes.MachineSysfs           `tfsdk:"sysfs"`
+	Registry                 *datatypes.Registry              `tfsdk:"registry"`
+	Disks                    []datatypes.MachineDiskData      `tfsdk:"disks"`
+	Encryption               *datatypes.EncryptionData        `tfsdk:"encryption"`
+	Udev                     []datatypes.MachineUdev          `tfsdk:"udev"`
+	MachineControlPlane      *datatypes.MachineControlPlane   `tfsdk:"control_plane_config"`
+	APIServer                *datatypes.APIServerConfig       `tfsdk:"apiserver"`
+	Proxy                    *datatypes.ProxyConfig           `tfsdk:"proxy"`
+	ExtraManifests           []datatypes.ClusterExtraManifest `tfsdk:"extra_manifests"`
+	InlineManifests          []datatypes.InlineManifest       `tfsdk:"inline_manifests"`
+	AllowSchedulingOnMasters types.Bool                       `tfsdk:"allow_scheduling_on_masters"`
+	Bootstrap                types.Bool                       `tfsdk:"bootstrap"`
 
 	ProvisionIP types.String `tfsdk:"provision_ip"`
 	ConfigIP    types.String `tfsdk:"configure_ip"`
@@ -360,144 +375,41 @@ func (plan *talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err err
 			plan.InlineManifests = append(plan.InlineManifests, tfInlineManifest)
 		}
 	*/
+
 	return
 }
 
 func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v1alpha1.Config, err error) {
 	out = &v1alpha1.Config{}
 	in.DeepCopyInto(out)
-	cd := out.ClusterConfig
-	if plan.ControlPlane != nil {
-		// Refrain from setting this for now because it's set in the cluster config resource
-		if !plan.ControlPlane.Endpoint.Null {
-			url, err := url.Parse(plan.ControlPlane.Endpoint.Value)
-			if err != nil {
-				return &v1alpha1.Config{}, err
-			}
-			cd.ControlPlane.Endpoint = &v1alpha1.Endpoint{
-				URL: url,
-			}
-		}
-		if !plan.ControlPlane.LocalAPIServerPort.Null {
-			cd.ControlPlane.LocalAPIServerPort = int(plan.ControlPlane.LocalAPIServerPort.Value)
-		}
+
+	clusterFuncs := []datatypes.ConfigDataFunc{}
+	funcs := []datatypes.PlanToDataFunc{
+		plan.Kubelet,
+		plan.Proxy,
+		plan.Registry,
+		plan.MachineControlPlane,
+		plan.Encryption,
+		plan.Install,
+		plan.Network,
+		plan.APIServer,
+		plan.ControlPlane,
+		plan.Sysfs,
+		plan.Sysctls,
+		plan.Env,
+	}
+	//funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.Files))
+	funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.CertSANS))
+	funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.Udev))
+	funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.ExtraManifests))
+	funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.InlineManifests))
+	funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.Pod))
+
+	clusterFuncs = datatypes.AppendDataFunc(clusterFuncs, funcs...)
+	if err := datatypes.ApplyDataFunc(out, clusterFuncs); err != nil {
+		return nil, err
 	}
 
-	if plan.APIServer != nil {
-		apiserver, err := plan.APIServer.Data()
-		if err != nil {
-			return &v1alpha1.Config{}, err
-		}
-		cd.APIServerConfig = apiserver.(*v1alpha1.APIServerConfig)
-
-	}
-	md := out.MachineConfig
-	for _, san := range plan.CertSANS {
-		md.MachineCertSANs = append(md.MachineCertSANs, san.Value)
-	}
-
-	// Kubelet
-	if plan.Kubelet != nil {
-		kubelet, err := plan.Kubelet.Data()
-		if err != nil {
-			return &v1alpha1.Config{}, err
-		}
-		md.MachineKubelet = kubelet.(*v1alpha1.KubeletConfig)
-	}
-	if plan.Network != nil {
-		net, err := plan.Network.Data()
-		if err != nil {
-			return &v1alpha1.Config{}, err
-		}
-		md.MachineNetwork = net.(*v1alpha1.NetworkConfig)
-	}
-
-	if plan.Install != nil {
-		install, err := plan.Install.Data()
-		if err != nil {
-			return &v1alpha1.Config{}, err
-		}
-		md.MachineInstall = install.(*v1alpha1.InstallConfig)
-	}
-	if plan.Encryption != nil {
-		encryption, err := plan.Encryption.Data()
-		if err != nil {
-			return &v1alpha1.Config{}, err
-		}
-		md.MachineSystemDiskEncryption = encryption.(*v1alpha1.SystemDiskEncryptionConfig)
-	}
-
-	if plan.MachineControlPlane != nil {
-		mcp, err := plan.MachineControlPlane.Data()
-		if err != nil {
-			return &v1alpha1.Config{}, err
-		}
-		md.MachineControlPlane = mcp.(*v1alpha1.MachineControlPlaneConfig)
-	}
-
-	for _, pod := range plan.Pod {
-		var talosPod v1alpha1.Unstructured
-
-		if err = yaml.Unmarshal([]byte(pod.Value), &talosPod); err != nil {
-			return
-		}
-
-		md.MachinePods = append(md.MachinePods, talosPod)
-	}
-
-	md.MachineEnv = map[string]string{}
-	for name, value := range plan.Env {
-		md.MachineEnv[name] = value.Value
-	}
-
-	for _, planFile := range plan.Files {
-		file, err := planFile.Data()
-		if err != nil {
-			return &v1alpha1.Config{}, err
-		}
-		md.MachineFiles = append(md.MachineFiles, file.(*v1alpha1.MachineFile))
-	}
-
-	md.MachineSysctls = map[string]string{}
-	for name, value := range plan.Sysctls {
-		md.MachineSysctls[name] = value.Value
-	}
-
-	md.MachineSysfs = map[string]string{}
-	for path, value := range plan.Sysfs {
-		md.MachineSysfs[path] = value.Value
-	}
-
-	if plan.Proxy != nil {
-		proxy, err := plan.Proxy.Data()
-		if err != nil {
-			return &v1alpha1.Config{}, err
-		}
-		cd.ProxyConfig = proxy.(*v1alpha1.ProxyConfig)
-	}
-	if plan.Registry != nil {
-		registries, err := plan.Registry.Data()
-		if err != nil {
-			return &v1alpha1.Config{}, err
-		}
-		md.MachineRegistries = *registries.(*v1alpha1.RegistriesConfig)
-	}
-	md.MachineUdev = &v1alpha1.UdevConfig{}
-	for _, rule := range plan.Udev {
-		md.MachineUdev.UdevRules = append(md.MachineUdev.UdevRules, rule.Value)
-	}
-
-	for _, manifestURL := range plan.ExtraManifests {
-		cd.ExtraManifests = append(cd.ExtraManifests, manifestURL.Value)
-	}
-
-	for _, planManifest := range plan.InlineManifests {
-		manifest, err := planManifest.Data()
-		if err != nil {
-			return &v1alpha1.Config{}, err
-		}
-		cd.ClusterInlineManifests = append(cd.ClusterInlineManifests, manifest.(v1alpha1.ClusterInlineManifest))
-	}
 	return
 }
 

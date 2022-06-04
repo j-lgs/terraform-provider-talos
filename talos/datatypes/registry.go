@@ -107,3 +107,16 @@ func (config RegistryConfig) Data() (interface{}, error) {
 
 	return conf, nil
 }
+
+func (registry Registry) DataFunc() [](func(*v1alpha1.Config) error) {
+	return [](func(*v1alpha1.Config) error){
+		func(cfg *v1alpha1.Config) error {
+			reg, err := registry.Data()
+			if err != nil {
+				return err
+			}
+			cfg.MachineConfig.MachineRegistries = *reg.(*v1alpha1.RegistriesConfig)
+			return nil
+		},
+	}
+}

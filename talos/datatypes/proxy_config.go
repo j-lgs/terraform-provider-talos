@@ -5,7 +5,7 @@ import (
 )
 
 // Data copies data from terraform state types to talos types.
-func (planProxy ProxyConfig) Data() (interface{}, error) {
+func (planProxy ProxyConfig) Data() (any, error) {
 	proxy := &v1alpha1.ProxyConfig{}
 	if !planProxy.Image.Null {
 		proxy.ContainerImage = planProxy.Image.Value
@@ -22,4 +22,19 @@ func (planProxy ProxyConfig) Data() (interface{}, error) {
 	}
 
 	return proxy, nil
+}
+
+func (planProxy ProxyConfig) DataFunc() [](func(*v1alpha1.Config) error) {
+	funs := [](func(*v1alpha1.Config) error){
+		func(cfg *v1alpha1.Config) error {
+			proxy, err := planProxy.Data()
+			if err != nil {
+				return err
+			}
+			cfg.ClusterConfig.ProxyConfig = proxy.(*v1alpha1.ProxyConfig)
+
+			return nil
+		},
+	}
+	return funs
 }

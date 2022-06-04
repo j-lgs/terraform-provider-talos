@@ -21,3 +21,16 @@ func (planMachineControlPlane MachineControlPlane) Data() (interface{}, error) {
 
 	return controlConf, nil
 }
+
+func (machineControlPlane MachineControlPlane) DataFunc() [](func(*v1alpha1.Config) error) {
+	return [](func(*v1alpha1.Config) error){
+		func(cfg *v1alpha1.Config) error {
+			mcp, err := machineControlPlane.Data()
+			if err != nil {
+				return err
+			}
+			cfg.MachineConfig.MachineControlPlane = mcp.(*v1alpha1.MachineControlPlaneConfig)
+			return nil
+		},
+	}
+}

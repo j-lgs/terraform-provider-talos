@@ -28,6 +28,19 @@ func (encryptionData EncryptionData) Data() (any, error) {
 	return encryption, nil
 }
 
+func (encryptionData EncryptionData) DataFunc() [](func(*v1alpha1.Config) error) {
+	return [](func(*v1alpha1.Config) error){
+		func(cfg *v1alpha1.Config) error {
+			enc, err := encryptionData.Data()
+			if err != nil {
+				return err
+			}
+			cfg.MachineConfig.MachineSystemDiskEncryption = enc.(*v1alpha1.SystemDiskEncryptionConfig)
+			return nil
+		},
+	}
+}
+
 func (encryptionData EncryptionData) GenOpts() (out []generate.GenOption, err error) {
 	systemEncryption, err := encryptionData.Data()
 	if err != nil {
