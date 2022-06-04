@@ -84,7 +84,7 @@ var (
 		ExtraHosts: map[string][]types.String{
 			extraHostExampleKey: Wrapsl(extraHostExampleValues...),
 		},
-		Kubespan: Wrapb(extraHostKubespan),
+		Kubespan: &NetworkKubeSpanExample,
 	}
 
 	WireguardDeviceExample = &NetworkDevice{
@@ -299,6 +299,11 @@ var (
 		LocalAPIServerPort: Wrapi(localApiserverExample),
 	}
 
+	NetworkKubeSpanExample = NetworkKubeSpan{
+		Enabled:             Wrapb(true),
+		AllowPeerDownBypass: Wrapb(true),
+	}
+
 	APIServerExample = &APIServerConfig{
 		Image: s((&v1alpha1.APIServerConfig{}).Image()),
 		ExtraArgs: map[string]types.String{
@@ -399,7 +404,7 @@ type NetworkConfig struct {
 	Devices     []NetworkDevice           `tfsdk:"devices"`
 	Nameservers []types.String            `tfsdk:"nameservers"`
 	ExtraHosts  map[string][]types.String `tfsdk:"extra_hosts"`
-	Kubespan    types.Bool                `tfsdk:"kubespan"`
+	Kubespan    *NetworkKubeSpan          `tfsdk:"kubespan"`
 }
 
 // NetworkDevice describes a Talos Device configuration.
@@ -570,6 +575,13 @@ type ProxyConfig struct {
 type ControlPlaneConfig struct {
 	Endpoint           types.String `tfsdk:"endpoint"`
 	LocalAPIServerPort types.Int64  `tfsdk:"local_api_server_port"`
+}
+
+// NetworkKubeSpan describes KubeSpan configuration
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#networkkubespan for more information.
+type NetworkKubeSpan struct {
+	Enabled             types.Bool `tfsdk:"enabled"`
+	AllowPeerDownBypass types.Bool `tfsdk:"allow_peer_down_bypass"`
 }
 
 // APIServerConfig configures the Kubernetes control plane's apiserver.

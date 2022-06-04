@@ -33,5 +33,13 @@ func (planNetwork NetworkConfig) Data() (any, error) {
 		}
 	}
 
+	if planNetwork.Kubespan != nil {
+		kubespan, err := planNetwork.Kubespan.Data()
+		if err != nil {
+			return &v1alpha1.Config{}, err
+		}
+		network.NetworkKubeSpan = kubespan.(v1alpha1.NetworkKubeSpan)
+	}
+
 	return network, nil
 }

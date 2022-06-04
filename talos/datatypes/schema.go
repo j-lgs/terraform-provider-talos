@@ -154,6 +154,23 @@ var CNISchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// NetworkKubeSpanSchema describes KubeSpan configuration.
+var NetworkKubeSpanSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "describes talos KubeSpan configuration.",
+	Attributes: map[string]tfsdk.Attribute{
+		"enabled": {
+			Required:    true,
+			Description: "Enable the KubeSpan feature.",
+			Type:        types.BoolType,
+		},
+		"allow_down_peer_bypass": {
+			Optional:    true,
+			Type:        types.BoolType,
+			Description: "Skip sending traffic via KubeSpan if the peer connection state is not up.",
+		},
+	},
+}
+
 // RegistrySchema represents the image pull options.
 var RegistrySchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the image pull options.",
@@ -265,9 +282,9 @@ var NetworkConfigSchema = tfsdk.Schema{
 			Description: "Allows for extra entries to be added to the `/etc/hosts` file.",
 		},
 		"kubespan": {
-			Type:        types.BoolType,
 			Optional:    true,
-			Description: "Configures the KubeSpan wireguard network feature.",
+			Description: NetworkKubeSpanSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(NetworkKubeSpanSchema.Attributes),
 		},
 	},
 }

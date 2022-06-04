@@ -379,11 +379,7 @@ MC4CAQAwBQYDK2VwBCIEIJCuZGq2GPWZnvtJvmwC+HIu6e95GecdBxC9qR4nGw4t
 				HostAliases: extraHostExampleValues,
 			},
 		},
-		NetworkKubeSpan: v1alpha1.NetworkKubeSpan{
-			KubeSpanEnabled: extraHostKubespan,
-			// TODO implement in main schemas and data
-			KubeSpanAllowDownPeerBypass: false,
-		},
+		NetworkKubeSpan: TalosNetworkKubeSpanExample,
 	}
 
 	wireguardExample = &v1alpha1.Device{
@@ -590,6 +586,11 @@ MC4CAQAwBQYDK2VwBCIEIJCuZGq2GPWZnvtJvmwC+HIu6e95GecdBxC9qR4nGw4t
 		AdmissionControlConfig: []*v1alpha1.AdmissionPluginConfig{
 			admissionPluginExample,
 		},
+	}
+
+	TalosNetworkKubeSpanExample = v1alpha1.NetworkKubeSpan{
+		KubeSpanEnabled:             true,
+		KubeSpanAllowDownPeerBypass: true,
 	}
 
 	volumeMountConfigExample = v1alpha1.VolumeMountConfig{
