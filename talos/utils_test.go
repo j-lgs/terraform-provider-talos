@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"inet.af/netaddr"
 	"log"
 	"net"
 	"net/http"
@@ -16,6 +15,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"inet.af/netaddr"
 
 	"io"
 
