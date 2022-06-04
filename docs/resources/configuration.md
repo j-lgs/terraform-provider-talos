@@ -229,7 +229,7 @@ Optional:
 - `devices` (Attributes List) Describes a Talos network device configuration. The map's key is the interface name. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices))
 - `extra_hosts` (Map of List of String) Allows for extra entries to be added to the `/etc/hosts` file.
 - `hostname` (String) Used to statically set the hostname for the machine.
-- `kubespan` (Boolean) Configures the KubeSpan wireguard network feature.
+- `kubespan` (Attributes) describes talos KubeSpan configuration. (see [below for nested schema](#nestedatt--network--with_networkconfig--kubespan))
 - `nameservers` (List of String) Used to statically set the nameservers for the machine.
 
 <a id="nestedatt--network--with_networkconfig--devices"></a>
@@ -384,6 +384,15 @@ Optional:
 - `public_key` (String) Specifies the public key of this peer.
 
 
+
+
+<a id="nestedatt--network--with_networkconfig--kubespan"></a>
+### Nested Schema for `network.with_networkconfig.kubespan`
+
+Optional:
+
+- `allow_down_peer_bypass` (Boolean) Skip sending traffic via KubeSpan if the peer connection state is not up.
+- `enabled` (Boolean) Enable the KubeSpan feature.
 
 
 

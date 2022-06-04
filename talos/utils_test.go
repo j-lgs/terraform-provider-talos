@@ -132,7 +132,7 @@ func testControlConfig(nodes ...*testNode) string {
     ]
   }
 
-  networkconfig = {
+  network = {
     hostname = "node-{{.Index}}"
     devices = [{
       name = "eth0"

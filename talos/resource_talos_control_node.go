@@ -85,12 +85,11 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				// TODO validation
 				Description: "Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.",
 			},
-			"networkconfig": {
+			"network": {
 				Required:    true,
 				Description: datatypes.NetworkConfigSchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(datatypes.NetworkConfigSchema.Attributes),
 			},
-			// kubespan not implemented
 			"disks": {
 				Optional:    true,
 				Description: datatypes.MachineDiskSchema.MarkdownDescription,
@@ -290,7 +289,7 @@ type talosControlNodeResourceData struct {
 	ControlPlane             *datatypes.ControlPlaneConfig  `tfsdk:"control_plane"`
 	Kubelet                  *datatypes.KubeletConfig       `tfsdk:"kubelet"`
 	Pod                      []types.String                 `tfsdk:"pods"`
-	Network                  *datatypes.NetworkConfig       `tfsdk:"networkconfig"`
+	Network                  *datatypes.NetworkConfig       `tfsdk:"network"`
 	Files                    []datatypes.File               `tfsdk:"files"`
 	Env                      map[string]types.String        `tfsdk:"env"`
 	Sysctls                  map[string]types.String        `tfsdk:"sysctls"`
