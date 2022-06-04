@@ -159,14 +159,12 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				Description: datatypes.APIServerConfigSchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(datatypes.APIServerConfigSchema.Attributes),
 			},
-
 			// controller manager not implemented
 			"proxy": {
 				Optional:    true,
 				Description: datatypes.ProxyConfigSchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(datatypes.ProxyConfigSchema.Attributes),
 			},
-
 			// scheduler not implemented
 			// discovery not implemented
 			// etcd not implemented
