@@ -909,7 +909,71 @@ var ProxyConfigSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// TimeConfigSchema represents the options for configuring time on a machine.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#timeconfig for more information.
+var TimeConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Represents the options for configuring time on a machine.",
+	Attributes:  map[string]tfsdk.Attribute{},
+}
+
+// LoggingConfigSchema configures Talos logging.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#loggingconfig for more information.
+var LoggingConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Configures Talos logging.",
+	Attributes:  map[string]tfsdk.Attribute{},
+}
+
+// KernelConfigSchema configures Talos Linux kernel.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#kernelconfig for more information.
+var KernelConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Configures Talos Linux kernel.",
+	Attributes:  map[string]tfsdk.Attribute{},
+}
+
+// ControllerManagerConfigSchema represents the kube controller manager configuration options.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#controllermanagerconfig for more information.
+var ControllerManagerConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Represents the kube controller manager configuration options.",
+	Attributes:  map[string]tfsdk.Attribute{},
+}
+
+// SchedulerConfigSchema represents the kube scheduler configuration options.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#schedulerconfig for more information.
+var SchedulerConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Represents the kube scheduler configuration options.",
+	Attributes:  map[string]tfsdk.Attribute{},
+}
+
+// ClusterDiscoveryConfigSchema configures cluster membership discovery.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#clusterdiscoveryconfig for more information.
+var ClusterDiscoveryConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Configures cluster membership discovery.",
+	Attributes:  map[string]tfsdk.Attribute{},
+}
+
+// EtcdConfigSchema represents the etcd configuration options.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#etcdconfig for more information.
+var EtcdConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Represents the etcd configuration options.",
+	Attributes:  map[string]tfsdk.Attribute{},
+}
+
+// CoreDNSConfigSchema represents the CoreDNS config values.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#coredns for more information.
+var CoreDNSConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Represents the CoreDNS config values.",
+	Attributes:  map[string]tfsdk.Attribute{},
+}
+
+// AdminKubeconfigConfigSchema contains admin kubeconfig settings.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#adminkubeconfigconfig for more information.
+var AdminKubeconfigConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Contains admin kubeconfig settings.",
+	Attributes:  map[string]tfsdk.Attribute{},
+}
+
 // ControlPlaneConfigSchema provides options for configuring the Kubernetes control plane.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#controlplaneconfig for more information.
 var ControlPlaneConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the control plane configuration options.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -928,6 +992,8 @@ var ControlPlaneConfigSchema tfsdk.Schema = tfsdk.Schema{
 	},
 }
 
+// InstallSchema represents installation options for Talos nodes.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#installconfig for more information.
 var InstallSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents installation options for Talos nodes.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -959,6 +1025,7 @@ var InstallSchema tfsdk.Schema = tfsdk.Schema{
 }
 
 // FileSchema describes a machine file and it's contents to be written onto the node's filesystem.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#installconfig for more information.
 var FileSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Describes a machine's files and it's contents and how it will be written to the node's filesystem.",
 	Attributes: map[string]tfsdk.Attribute{
@@ -1013,6 +1080,7 @@ var FileSchema tfsdk.Schema = tfsdk.Schema{
 }
 
 // InlineManifestSchema describes inline bootstrap manifests for the user.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#clusterinlinemanifest for more information.
 var InlineManifestSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Describes inline bootstrap manifests for the user. These will get automatically deployed as part of the bootstrap.",
 	Attributes: map[string]tfsdk.Attribute{

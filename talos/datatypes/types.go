@@ -1,6 +1,8 @@
 package datatypes
 
 import (
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/constants"
@@ -285,6 +287,22 @@ var (
 		Slot:   Wrapi(0),
 	}
 
+	TimeConfigExample = &TimeConfig{
+		Disabled:    Wrapb(false),
+		Servers:     Wrapsl([]string{"time.cloudflare.com"}...),
+		BootTimeout: Wrapi(int(2 * time.Minute)),
+	}
+
+	LoggingConfigExample = &LoggingConfig{
+		Destinations: map[string]types.String{
+			"tcp://1.2.3.4:12345": Wraps("json_lines"),
+		},
+	}
+
+	KernelConfigExample = &KernelConfig{
+		Modules: Wrapsl("btrfs"),
+	}
+
 	ProxyConfigExample = &ProxyConfig{
 		Image:    Wraps((&v1alpha1.ProxyConfig{}).Image()),
 		Mode:     Wraps(proxyModeExample),
@@ -302,6 +320,58 @@ var (
 	NetworkKubeSpanExample = NetworkKubeSpan{
 		Enabled:             Wrapb(true),
 		AllowPeerDownBypass: Wrapb(true),
+	}
+
+	ControllerManagerExample = &ControllerManagerConfig{
+		Image: s((&v1alpha1.ControllerManagerConfig{}).Image()),
+		ExtraArgs: map[string]types.String{
+			"feature-gates": Wraps("ServerSideApply=true"),
+		},
+		ExtraVolumes: []VolumeMount{*VolumeMountExample},
+		Env: map[string]types.String{
+			"key": Wraps("value"),
+		},
+	}
+
+	ClusterDiscoveryConfigExample = &ClusterDiscoveryConfig{
+		Enabled:    Wrapb(true),
+		Registries: DiscoveryRegistriesConfigExample,
+	}
+
+	DiscoveryRegistriesConfigExample = &DiscoveryRegistriesConfig{
+		KubernetesDisabled: Wrapb(true),
+		ServiceDisabled:    Wrapb(false),
+		ServiceEndpoint:    Wraps("https://discovery.talos.dev/"),
+	}
+
+	EtcdConfigExample = &EtcdConfig{
+		Image: s((&v1alpha1.EtcdConfig{}).Image()),
+		CaCrt: Wraps(""),
+		CaKey: Wraps(""),
+		ExtraArgs: map[string]types.String{
+			"feature-gates": Wraps("ServerSideApply=true"),
+		},
+		Subnet: Wraps("10.0.0.0/8"),
+	}
+
+	SchedulerExample = &SchedulerConfig{
+		Image: s((&v1alpha1.SchedulerConfig{}).Image()),
+		ExtraArgs: map[string]types.String{
+			"feature-gates": Wraps("AllBeta=true"),
+		},
+		ExtraVolumes: []VolumeMount{*VolumeMountExample},
+		Env: map[string]types.String{
+			"key": Wraps("value"),
+		},
+	}
+
+	CoreDNSExample = &CoreDNS{
+		Image:    s((&v1alpha1.CoreDNS{}).Image()),
+		Disabled: Wrapb(false),
+	}
+
+	AdminKubeconfigConfigExample = &AdminKubeconfigConfig{
+		CertLifetime: Wrapi(int(1 * time.Hour)),
 	}
 
 	APIServerExample = &APIServerConfig{
@@ -563,11 +633,26 @@ type KeyConfig struct {
 // ProxyConfig configures the Kubernetes control plane's kube-proxy.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#proxyconfig for more information.
 type ProxyConfig struct {
-	Image types.String `tfsdk:"image"`
-
+	Image     types.String            `tfsdk:"image"`
 	Mode      types.String            `tfsdk:"mode"`
 	Disabled  types.Bool              `tfsdk:"is_disabled"`
 	ExtraArgs map[string]types.String `tfsdk:"extra_args"`
+}
+
+// ControllerManagerConfig represents the kube controller manager configuration options.
+type ControllerManagerConfig struct {
+	Image        types.String            `tfsdk:"image"`
+	ExtraArgs    map[string]types.String `tfsdk:"extra_args"`
+	ExtraVolumes []VolumeMount           `tfsdk:"extra_volumes"`
+	Env          map[string]types.String `tfsdk:"env"`
+}
+
+// SchedulerConfig represents the kube scheduler configuration options.
+type SchedulerConfig struct {
+	Image        types.String            `tfsdk:"image"`
+	ExtraArgs    map[string]types.String `tfsdk:"extra_args"`
+	ExtraVolumes []VolumeMount           `tfsdk:"extra_volumes"`
+	Env          map[string]types.String `tfsdk:"env"`
 }
 
 // ControlPlaneConfig provides options for configuring the Kubernetes control plane.
@@ -575,6 +660,39 @@ type ProxyConfig struct {
 type ControlPlaneConfig struct {
 	Endpoint           types.String `tfsdk:"endpoint"`
 	LocalAPIServerPort types.Int64  `tfsdk:"local_api_server_port"`
+}
+
+// EtcdConfig represents the etcd configuration options.
+type EtcdConfig struct {
+	Image     types.String            `tfsdk:"image"`
+	ExtraArgs map[string]types.String `tfsdk:"extra_args"`
+	CaCrt     types.String            `tfsdk:"ca_crt"`
+	CaKey     types.String            `tfsdk:"ca_key"`
+	Subnet    types.String            `tfsdk:"subent"`
+}
+
+// ClusterDiscoveryConfig struct configures cluster membership discovery.
+type ClusterDiscoveryConfig struct {
+	Enabled    types.Bool                 `tfsdk:"enabled"`
+	Registries *DiscoveryRegistriesConfig `tfsdk:"registries"`
+}
+
+// DiscoveryRegistriesConfig struct configures cluster membership discovery.
+type DiscoveryRegistriesConfig struct {
+	KubernetesDisabled types.Bool   `tfsdk:"kubernetes_disabled"`
+	ServiceDisabled    types.Bool   `tfsdk:"service_disabled"`
+	ServiceEndpoint    types.String `tfsdk:"service_endpoint"`
+}
+
+// CoreDNS represents the CoreDNS config values.
+type CoreDNS struct {
+	Image    types.String `tfsdk:"image"`
+	Disabled types.Bool   `tfsdk:"disabled"`
+}
+
+// AdminKubeconfigConfig contains admin kubeconfig settings.
+type AdminKubeconfigConfig struct {
+	CertLifetime types.Int64 `tfsdk:"cert_lifetime"`
 }
 
 // NetworkKubeSpan describes KubeSpan configuration
@@ -608,6 +726,23 @@ type File struct {
 	Permissions types.Int64  `tfsdk:"permissions"`
 	Path        types.String `tfsdk:"path"`
 	Op          types.String `tfsdk:"op"`
+}
+
+// TimeConfig represents the options for configuring time on a machine.
+type TimeConfig struct {
+	Disabled    types.Bool     `tfsdk:"disabled"`
+	Servers     []types.String `tfsdk:"servers"`
+	BootTimeout types.Int64    `tfsdk:"boot_timeout"`
+}
+
+// LoggingConfig configures Talos logging and its destinations.
+type LoggingConfig struct {
+	Destinations map[string]types.String `tfsdk:"destinations"`
+}
+
+// KernelConfig configures the Talos Linux kernel.
+type KernelConfig struct {
+	Modules []types.String `tfsdk:"modules"`
 }
 
 // InlineManifest describes inline bootstrap manifests for the user.

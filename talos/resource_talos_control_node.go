@@ -105,7 +105,11 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				Optional:    true,
 				Description: "Allows for the addition of environment variables. All environment variables are set on PID 1 in addition to every service.",
 			},
-			// time not implemented
+			"time": {
+				Description: datatypes.TimeConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.TimeConfigSchema.Attributes),
+				Optional:    true,
+			},
 			"sysctls": {
 				Type: types.MapType{
 					ElemType: types.StringType,
@@ -138,9 +142,16 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				Description: "Configures the udev system.",
 				Optional:    true,
 			},
-
-			// logging not implemented
-			// kernel not implemented
+			"logging": {
+				Description: datatypes.LoggingConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.LoggingConfigSchema.Attributes),
+				Optional:    true,
+			},
+			"kernel": {
+				Description: datatypes.KernelConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.KernelConfigSchema.Attributes),
+				Optional:    true,
+			},
 			// ----- MachineConfig End
 			// ----- ClusterConfig Start
 
@@ -157,17 +168,43 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				Description: datatypes.APIServerConfigSchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(datatypes.APIServerConfigSchema.Attributes),
 			},
-			// controller manager not implemented
+			"controller_manager": {
+				Description: datatypes.ControllerManagerConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.ControllerManagerConfigSchema.Attributes),
+				Optional:    true,
+			},
 			"proxy": {
 				Optional:    true,
 				Description: datatypes.ProxyConfigSchema.Description,
 				Attributes:  tfsdk.SingleNestedAttributes(datatypes.ProxyConfigSchema.Attributes),
 			},
-			// scheduler not implemented
-			// discovery not implemented
-			// etcd not implemented
-			// coredns not implemented
-			// external_cloud_provider not implemented
+			"scheduler": {
+				Description: datatypes.SchedulerConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.SchedulerConfigSchema.Attributes),
+				Optional:    true,
+			},
+			"discovery": {
+				Description: datatypes.ClusterDiscoveryConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.ClusterDiscoveryConfigSchema.Attributes),
+				Optional:    true,
+			},
+			"etcd": {
+				Description: datatypes.EtcdConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.EtcdConfigSchema.Attributes),
+				Optional:    true,
+			},
+			"coredns": {
+				Description: datatypes.CoreDNSConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.CoreDNSConfigSchema.Attributes),
+				Optional:    true,
+			},
+			"external_cloud_provider": {
+				Type: types.ListType{
+					ElemType: types.StringType,
+				},
+				Description: ".",
+				Optional:    true,
+			},
 			"extra_manifests": {
 				Type: types.ListType{
 					ElemType: types.StringType,
@@ -175,15 +212,17 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				Description: "A list of urls that point to additional manifests. These will get automatically deployed as part of the bootstrap.",
 				Optional:    true,
 			},
-
 			// TODO Add verification function confirming it's a correct manifest that can be downloaded.
-			// inline_manifests not implemented
 			"inline_manifests": {
 				Optional:    true,
 				Description: datatypes.InlineManifestSchema.Description,
 				Attributes:  tfsdk.ListNestedAttributes(datatypes.InlineManifestSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			},
-
+			"admin_kube_config": {
+				Description: datatypes.AdminKubeconfigConfigSchema.Description,
+				Attributes:  tfsdk.SingleNestedAttributes(datatypes.AdminKubeconfigConfigSchema.Attributes),
+				Optional:    true,
+			},
 			// admin_kubeconfig not implemented
 			"allow_scheduling_on_masters": {
 				Type:        types.BoolType,
@@ -281,43 +320,61 @@ var (
 		Disks: []datatypes.MachineDiskData{
 			*datatypes.MachineDiskExample,
 		},
+		Time:                datatypes.TimeConfigExample,
+		Logging:             datatypes.LoggingConfigExample,
+		Kernel:              datatypes.KernelConfigExample,
 		Encryption:          datatypes.EncryptionDataExample,
 		Registry:            datatypes.RegistryExample,
 		Udev:                UdevExample,
 		MachineControlPlane: datatypes.MachineControlPlaneExample,
 		APIServer:           datatypes.APIServerExample,
+		ControllerManager:   datatypes.ControllerManagerExample,
 		Proxy:               datatypes.ProxyConfigExample,
+		Scheduler:           datatypes.SchedulerExample,
+		Discovery:           datatypes.ClusterDiscoveryConfigExample,
+		Etcd:                datatypes.EtcdConfigExample,
+		CoreDNS:             datatypes.CoreDNSExample,
 		ExtraManifests:      ExtraManifestExample,
 		InlineManifests: []datatypes.InlineManifest{
 			datatypes.InlineManifestExample,
 		},
+		AdminKubeConfig:          datatypes.AdminKubeconfigConfigExample,
 		AllowSchedulingOnMasters: datatypes.Wrapb(datatypes.AllowSchedulingOnMastersExample),
 	}
 )
 
 type talosControlNodeResourceData struct {
-	Name                     types.String                     `tfsdk:"name"`
-	Install                  *datatypes.InstallConfig         `tfsdk:"install"`
-	CertSANS                 []datatypes.MachineCertSAN       `tfsdk:"cert_sans"`
-	ControlPlane             *datatypes.ControlPlaneConfig    `tfsdk:"control_plane"`
-	Kubelet                  *datatypes.KubeletConfig         `tfsdk:"kubelet"`
-	Pod                      []datatypes.MachinePod           `tfsdk:"pods"`
-	Network                  *datatypes.NetworkConfig         `tfsdk:"network"`
-	Files                    []datatypes.File                 `tfsdk:"files"`
-	Env                      datatypes.MachineEnv             `tfsdk:"env"`
-	Sysctls                  datatypes.MachineSysctls         `tfsdk:"sysctls"`
-	Sysfs                    datatypes.MachineSysfs           `tfsdk:"sysfs"`
-	Registry                 *datatypes.Registry              `tfsdk:"registry"`
-	Disks                    []datatypes.MachineDiskData      `tfsdk:"disks"`
-	Encryption               *datatypes.EncryptionData        `tfsdk:"encryption"`
-	Udev                     []datatypes.MachineUdev          `tfsdk:"udev"`
-	MachineControlPlane      *datatypes.MachineControlPlane   `tfsdk:"control_plane_config"`
-	APIServer                *datatypes.APIServerConfig       `tfsdk:"apiserver"`
-	Proxy                    *datatypes.ProxyConfig           `tfsdk:"proxy"`
-	ExtraManifests           []datatypes.ClusterExtraManifest `tfsdk:"extra_manifests"`
-	InlineManifests          []datatypes.InlineManifest       `tfsdk:"inline_manifests"`
-	AllowSchedulingOnMasters types.Bool                       `tfsdk:"allow_scheduling_on_masters"`
-	Bootstrap                types.Bool                       `tfsdk:"bootstrap"`
+	Name                     types.String                       `tfsdk:"name"`
+	Install                  *datatypes.InstallConfig           `tfsdk:"install"`
+	CertSANS                 []datatypes.MachineCertSAN         `tfsdk:"cert_sans"`
+	ControlPlane             *datatypes.ControlPlaneConfig      `tfsdk:"control_plane"`
+	Kubelet                  *datatypes.KubeletConfig           `tfsdk:"kubelet"`
+	Pod                      []datatypes.MachinePod             `tfsdk:"pods"`
+	Network                  *datatypes.NetworkConfig           `tfsdk:"network"`
+	Files                    []datatypes.File                   `tfsdk:"files"`
+	Env                      datatypes.MachineEnv               `tfsdk:"env"`
+	Time                     *datatypes.TimeConfig              `tfsdk:"time"`
+	Logging                  *datatypes.LoggingConfig           `tfsdk:"logging"`
+	Kernel                   *datatypes.KernelConfig            `tfsdk:"kernel"`
+	Sysctls                  datatypes.MachineSysctls           `tfsdk:"sysctls"`
+	Sysfs                    datatypes.MachineSysfs             `tfsdk:"sysfs"`
+	Registry                 *datatypes.Registry                `tfsdk:"registry"`
+	Disks                    []datatypes.MachineDiskData        `tfsdk:"disks"`
+	Encryption               *datatypes.EncryptionData          `tfsdk:"encryption"`
+	Udev                     []datatypes.MachineUdev            `tfsdk:"udev"`
+	MachineControlPlane      *datatypes.MachineControlPlane     `tfsdk:"control_plane_config"`
+	APIServer                *datatypes.APIServerConfig         `tfsdk:"apiserver"`
+	ControllerManager        *datatypes.ControllerManagerConfig `tfsdk:"controller_manager"`
+	Proxy                    *datatypes.ProxyConfig             `tfsdk:"proxy"`
+	Scheduler                *datatypes.SchedulerConfig         `tfsdk:"scheduler"`
+	Discovery                *datatypes.ClusterDiscoveryConfig  `tfsdk:"discovery"`
+	Etcd                     *datatypes.EtcdConfig              `tfsdk:"etcd"`
+	CoreDNS                  *datatypes.CoreDNS                 `tfsdk:"coredns"`
+	ExtraManifests           []datatypes.ClusterExtraManifest   `tfsdk:"extra_manifests"`
+	InlineManifests          []datatypes.InlineManifest         `tfsdk:"inline_manifests"`
+	AdminKubeConfig          *datatypes.AdminKubeconfigConfig   `tfsdk:"admin_kube_config"`
+	AllowSchedulingOnMasters types.Bool                         `tfsdk:"allow_scheduling_on_masters"`
+	Bootstrap                types.Bool                         `tfsdk:"bootstrap"`
 
 	ProvisionIP types.String `tfsdk:"provision_ip"`
 	ConfigIP    types.String `tfsdk:"configure_ip"`
