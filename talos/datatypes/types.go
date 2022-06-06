@@ -106,12 +106,12 @@ var (
 	}
 
 	VIPDeviceExample = &NetworkDevice{
-		Name: Wraps("eth6"),
+		Name: Wraps("eth7"),
 		VIP:  VIPExample,
 	}
 
 	VLANDeviceExample = &NetworkDevice{
-		Name: Wraps("eth7"),
+		Name: Wraps("eth6"),
 		VLANs: []VLAN{
 			*VLANExample,
 		},
@@ -158,6 +158,7 @@ var (
 		Primary:         Wraps(abPrimaryExample),
 		PrimaryReselect: Wraps(abPrimaryReselectExample),
 		ArpValidate:     Wraps(abArpValidateExample),
+		//TlbDynamicLb:    Wrapi(abLacpTLBExample),
 	}
 
 	LACPBondDataExample = &BondData{
@@ -180,10 +181,10 @@ var (
 		MinLinks:   Wrapi(abLacpMinLinksExample),
 		LpInterval: Wrapi(abLacpLPIntervalExample),
 		//PacketsPerSlave: Wrapi(abLacpBondPacketsPerExample),
-		NumPeerNotif: Wrapi(abLacpNumPeerExample),
-		//TlbDynamicLb:    Wrapi(abLacpTLBExample),
+		NumPeerNotif:    Wrapi(abLacpNumPeerExample),
 		AllSlavesActive: Wrapi(abLacpAllSlavesExample),
-		UseCarrier:      Wrapb(*abLacpUseCarrierExample),
+		// TODO Does not set properly
+		//UseCarrier:      Wrapb(*abLacpUseCarrierExample),
 		AdActorSysPrio:  Wrapi(abLacpAdActorExample),
 		AdUserPortKey:   Wrapi(abLacpUserPortExample),
 		PeerNotifyDelay: Wrapi(abLacpPeerNotifDelayExample),
@@ -276,13 +277,15 @@ var (
 	}
 
 	KeyConfigStaticExample = KeyConfig{
+		NodeID:    types.Bool{Null: true},
 		KeyStatic: Wraps(keydataExample),
 		Slot:      Wrapi(0),
 	}
 
 	KeyConfigNodeIDExample = KeyConfig{
-		NodeID: Wrapb(true),
-		Slot:   Wrapi(0),
+		NodeID:    Wrapb(true),
+		KeyStatic: types.String{Null: true},
+		Slot:      Wrapi(0),
 	}
 
 	TimeConfigExample = &TimeConfig{
@@ -352,19 +355,19 @@ var (
 	}
 
 	SchedulerExample = &SchedulerConfig{
-		Image:        s((&v1alpha1.SchedulerConfig{}).Image()),
+		Image:        Wraps((&v1alpha1.SchedulerConfig{}).Image()),
 		ExtraArgs:    schedulerArgsTFExample,
 		ExtraVolumes: []VolumeMount{*VolumeMountExample},
 		Env:          schedulerEnvTFExample,
 	}
 
 	CoreDNSExample = &CoreDNS{
-		Image:    s((&v1alpha1.CoreDNS{}).Image()),
+		Image:    Wraps((&v1alpha1.CoreDNS{}).Image()),
 		Disabled: Wrapb(coreDNSDisabledExample),
 	}
 
 	AdminKubeconfigConfigExample = &AdminKubeconfigConfig{
-		CertLifetime: Wraps("1y"),
+		CertLifetime: Wraps("8760h"),
 	}
 
 	APIServerExample = &APIServerConfig{

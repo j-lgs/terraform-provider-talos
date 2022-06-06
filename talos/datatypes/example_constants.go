@@ -33,7 +33,7 @@ var (
 		},
 	}
 	kubeletExtraConfigObjectExample = map[string]interface{}{
-		"serverTLSBootstrap": "true",
+		"serverTLSBootstrap": true,
 	}
 	kubeletExtraConfigExampleString = "serverTLSBootstrap: true"
 	kubeletRegisterWithFQDNExample  = false
@@ -61,7 +61,7 @@ metadata:
   name: nginx
 spec:
   containers:
-    name: nginx
+  - name: nginx
     image: nginx
 `)
 
@@ -84,15 +84,13 @@ var (
 )
 
 var (
-	vlanAddressesExample = []string{}
-	vlanCIDRExample      = ""
+	vlanAddressesExample = []string{"10.0.6.5"}
 	vlanDHCPExample      = false
 	vlanIDExample        = 1
 	vlanMTUExample       = 1500
 
-	vipCIDRExample     = "10.6.0.5"
-	vipTokenExample    = "token"
-	vipSharedIPExample = ""
+	vipCIDRExample  = "10.6.0.5"
+	vipTokenExample = "token"
 )
 
 var (
@@ -192,7 +190,7 @@ var (
 	coreDNSDisabledExample = false
 
 	controllerManagerExtraArgsExample = map[string]string{
-		"key": "value",
+		"feature-gates": "ServerSideApply=true",
 	}
 
 	controllerManagerExtraArgsTFExample = map[string]types.String{
@@ -217,7 +215,7 @@ var (
 		"X-ExtraInfo": "info",
 	}
 	AllowSchedulingOnMastersExample = true
-	externalManifestsExample        = []string{
+	ExternalManifestsExample        = []string{
 		"https://raw.githubusercontent.com/kubernetes/cloud-provider-aws/v1.20.0-alpha.0/manifests/rbac.yaml",
 		"https://raw.githubusercontent.com/kubernetes/cloud-provider-aws/v1.20.0-alpha.0/manifests/aws-cloud-controller-manager-daemonset.yaml",
 	}

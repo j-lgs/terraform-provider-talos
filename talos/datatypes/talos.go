@@ -28,7 +28,7 @@ var (
 		VersionContract:           config.TalosVersionCurrent,
 		ControlPlaneEndpoint:      EndpointExample.String(),
 		AdditionalSubjectAltNames: apiServerSANsExample,
-		AdditionalMachineCertSANs: MachineCertSANsExample,
+		AdditionalMachineCertSANs: []string{},
 		ClusterID:                 clusterIDExample,
 		ClusterName:               ClusterNameExample,
 		ClusterSecret:             clusterSecretExample,
@@ -465,27 +465,29 @@ MC4CAQAwBQYDK2VwBCIEIJCuZGq2GPWZnvtJvmwC+HIu6e95GecdBxC9qR4nGw4t
 		BondPrimary:         abPrimaryExample,
 		BondPrimaryReselect: abPrimaryReselectExample,
 		BondARPValidate:     abArpValidateExample,
+		BondUseCarrier:      &testFalse,
 	}
 
 	lacpExample = &v1alpha1.Bond{
-		BondInterfaces:      abLacpInterfacesExample,
-		BondMode:            abLacpModeExample,
-		BondHashPolicy:      abLacpXmitExample,
-		BondLACPRate:        abLacpRateExample,
-		BondARPAllTargets:   abLacpArpAllExample,
-		BondFailOverMac:     abLacpFailoverMacExample,
-		BondADSelect:        abLacpADSelectExample,
-		BondMIIMon:          uint32(abLacpMiimonExample),
-		BondUpDelay:         uint32(abLacpUpDelayExample),
-		BondDownDelay:       uint32(abLacpDownDelayExample),
-		BondARPInterval:     uint32(abLacpArpIntervalExample),
-		BondResendIGMP:      uint32(abLacpResendIgmpExample),
-		BondMinLinks:        uint32(abLacpMinLinksExample),
-		BondLPInterval:      uint32(abLacpLPIntervalExample),
-		BondPacketsPerSlave: uint32(abLacpBondPacketsPerExample),
-		BondNumPeerNotif:    uint8(abLacpNumPeerExample),
-		BondTLBDynamicLB:    uint8(abLacpTLBExample),
+		BondInterfaces:    abLacpInterfacesExample,
+		BondMode:          abLacpModeExample,
+		BondHashPolicy:    abLacpXmitExample,
+		BondLACPRate:      abLacpRateExample,
+		BondARPAllTargets: abLacpArpAllExample,
+		BondFailOverMac:   abLacpFailoverMacExample,
+		BondADSelect:      abLacpADSelectExample,
+		BondMIIMon:        uint32(abLacpMiimonExample),
+		BondUpDelay:       uint32(abLacpUpDelayExample),
+		BondDownDelay:     uint32(abLacpDownDelayExample),
+		//BondARPInterval:     uint32(abLacpArpIntervalExample),
+		BondResendIGMP: uint32(abLacpResendIgmpExample),
+		BondMinLinks:   uint32(abLacpMinLinksExample),
+		BondLPInterval: uint32(abLacpLPIntervalExample),
+		//BondPacketsPerSlave: uint32(abLacpBondPacketsPerExample),
+		BondNumPeerNotif: uint8(abLacpNumPeerExample),
+		//BondTLBDynamicLB:    uint8(abLacpTLBExample),
 		BondAllSlavesActive: uint8(abLacpAllSlavesExample),
+		// TODO Does not set properly
 		BondUseCarrier:      abLacpUseCarrierExample,
 		BondADActorSysPrio:  uint16(abLacpAdActorExample),
 		BondADUserPortKey:   uint16(abLacpUserPortExample),
@@ -494,7 +496,6 @@ MC4CAQAwBQYDK2VwBCIEIJCuZGq2GPWZnvtJvmwC+HIu6e95GecdBxC9qR4nGw4t
 
 	vlanConfigExample = &v1alpha1.Vlan{
 		VlanAddresses: vlanAddressesExample,
-		VlanCIDR:      vlanCIDRExample,
 		VlanRoutes:    routesExample,
 		VlanDHCP:      vlanDHCPExample,
 		VlanID:        uint16(vlanIDExample),
@@ -503,7 +504,7 @@ MC4CAQAwBQYDK2VwBCIEIJCuZGq2GPWZnvtJvmwC+HIu6e95GecdBxC9qR4nGw4t
 	}
 
 	vipConfigExample = &v1alpha1.DeviceVIPConfig{
-		SharedIP: vipSharedIPExample,
+		SharedIP: vipCIDRExample,
 		EquinixMetalConfig: &v1alpha1.VIPEquinixMetalConfig{
 			EquinixMetalAPIToken: vipTokenExample,
 		},
@@ -517,8 +518,8 @@ MC4CAQAwBQYDK2VwBCIEIJCuZGq2GPWZnvtJvmwC+HIu6e95GecdBxC9qR4nGw4t
 			RouteNetwork: routeNetworkExample,
 			RouteGateway: routeGatewayExample,
 		}, {
-			RouteNetwork: routeNetworkExample,
-			RouteGateway: routeGatewayExample,
+			RouteNetwork: altRouteNetworkExample,
+			RouteGateway: altGatewayExample,
 			RouteSource:  routeSourceExample,
 			RouteMetric:  uint32(routeMetricExample),
 		},
@@ -608,7 +609,7 @@ MC4CAQAwBQYDK2VwBCIEIJCuZGq2GPWZnvtJvmwC+HIu6e95GecdBxC9qR4nGw4t
 
 	externalCloudProviderExample = &v1alpha1.ExternalCloudProviderConfig{
 		ExternalEnabled:   true,
-		ExternalManifests: externalManifestsExample,
+		ExternalManifests: ExternalManifestsExample,
 	}
 
 	controlPlaneConfigExample = &v1alpha1.ControlPlaneConfig{
