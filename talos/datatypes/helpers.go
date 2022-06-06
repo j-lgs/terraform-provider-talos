@@ -48,8 +48,6 @@ func AppendDataFunc(in []ConfigDataFunc, readers ...PlanToDataFunc) (out []Confi
 }
 
 func ApplyDataFunc(cfg *v1alpha1.Config, funcs []ConfigDataFunc) error {
-	fmt.Printf("length %d\n", len(funcs))
-
 	for _, f := range funcs {
 		if err := f(cfg); err != nil {
 			return err

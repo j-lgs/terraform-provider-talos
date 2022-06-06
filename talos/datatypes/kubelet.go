@@ -1,7 +1,6 @@
 package datatypes
 
 import (
-	"fmt"
 	"reflect"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -12,8 +11,6 @@ import (
 func (kubelet KubeletConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 	funs := [](func(*v1alpha1.Config) error){
 		func(cfg *v1alpha1.Config) error {
-			fmt.Println("thing")
-
 			talosKubelet := &v1alpha1.KubeletConfig{}
 			if !kubelet.Image.Null {
 				talosKubelet.KubeletImage = kubelet.Image.Value
