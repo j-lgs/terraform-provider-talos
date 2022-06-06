@@ -15,17 +15,18 @@
           overlays = [ devshell.overlay ];
         };
 
-        gopls = pkgs.gopls;
-        go = pkgs.go;
-        make = pkgs.coreutils;
-        qemu_full = pkgs.qemu_full;
-
       in {
         devShells = {
           default = pkgs.devshell.mkShell {
             name = "terraform-provider-talos";
 
-            packages = [ pkgs.go_1_18 gopls make qemu_full pkgs.inotify-tools ];
+            packages = with pkgs; [
+              go_1_18
+              gopls
+              qemu_full
+              inotify-tools
+              gcc
+            ];
             commands = [
               {
                 name = "acctest";
@@ -34,10 +35,14 @@
                 command ="tools/pretest.sh";
               }
               {
-                name ="test";
+                name ="tests";
                 category = "testing";
                 help = "Run unit tests.";
-                command="go vet ./... && go run honnef.co/go/tools/cmd/staticcheck ./talos && go test -v -race -vet=off ./...";
+                command=''
+                  go vet ./...
+                  go run honnef.co/go/tools/cmd/staticcheck ./talos
+                  go test -v -race -vet=off ./...
+'';
               }
               {
                 name = "generate";
