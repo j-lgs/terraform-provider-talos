@@ -194,7 +194,7 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				Optional:    true,
 			},
 			"coredns": {
-				Description: datatypes.CoreDNSConfigSchema.Description,
+				Description: datatypes.CoreDNSConfigSchema.MarkdownDescription,
 				Attributes:  tfsdk.SingleNestedAttributes(datatypes.CoreDNSConfigSchema.Attributes),
 				Optional:    true,
 			},

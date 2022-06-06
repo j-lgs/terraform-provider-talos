@@ -351,23 +351,34 @@ TOC
 
 ### Optional
 
+- `admin_kube_config` (Attributes) Contains admin kubeconfig settings. (see [below for nested schema](#nestedatt--admin_kube_config))
 - `allow_scheduling_on_masters` (Boolean) Allows running workload on master nodes.
 - `apiserver` (Attributes) Represents the kube apiserver configuration options. (see [below for nested schema](#nestedatt--apiserver))
 - `cert_sans` (List of String) Extra certificate subject alternative names for the machine’s certificate.
 - `control_plane` (Attributes) Represents the control plane configuration options. (see [below for nested schema](#nestedatt--control_plane))
 - `control_plane_config` (Attributes) Configures options pertaining to the Kubernetes control plane that's installed onto the machine (see [below for nested schema](#nestedatt--control_plane_config))
+- `controller_manager` (Attributes) Represents the kube controller manager configuration options. (see [below for nested schema](#nestedatt--controller_manager))
+- `coredns` (Attributes) Represents the CoreDNS config values.
+Refer to [CoreDNS in the TalosOS Documentation](https://www.talos.dev/v1.0/reference/configuration/#coredns) for more information. (see [below for nested schema](#nestedatt--coredns))
+- `discovery` (Attributes) Configures cluster membership discovery. (see [below for nested schema](#nestedatt--discovery))
 - `disks` (Attributes List) Represents partitioning for disks on the machine. (see [below for nested schema](#nestedatt--disks))
 - `encryption` (Attributes) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption))
 - `env` (Map of String) Allows for the addition of environment variables. All environment variables are set on PID 1 in addition to every service.
+- `etcd` (Attributes) Represents the etcd configuration options. (see [below for nested schema](#nestedatt--etcd))
+- `external_cloud_provider` (List of String) .
 - `extra_manifests` (List of String) A list of urls that point to additional manifests. These will get automatically deployed as part of the bootstrap.
 - `files` (Attributes List) Describes a machine's files and it's contents and how it will be written to the node's filesystem. (see [below for nested schema](#nestedatt--files))
 - `inline_manifests` (Attributes List) Describes inline bootstrap manifests for the user. These will get automatically deployed as part of the bootstrap. (see [below for nested schema](#nestedatt--inline_manifests))
+- `kernel` (Attributes) Configures Talos Linux kernel. (see [below for nested schema](#nestedatt--kernel))
 - `kubelet` (Attributes) Represents the kubelet's config values. (see [below for nested schema](#nestedatt--kubelet))
+- `logging` (Attributes) Configures Talos logging. (see [below for nested schema](#nestedatt--logging))
 - `pods` (List of String) Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.
 - `proxy` (Attributes) Represents the kube proxy configuration options. (see [below for nested schema](#nestedatt--proxy))
 - `registry` (Attributes) Represents the image pull options. (see [below for nested schema](#nestedatt--registry))
+- `scheduler` (Attributes) Represents the kube scheduler configuration options. (see [below for nested schema](#nestedatt--scheduler))
 - `sysctls` (Map of String) Used to configure the machine’s sysctls.
 - `sysfs` (Map of String) Used to configure the machine’s sysctls.
+- `time` (Attributes) Represents the options for configuring time on a machine. (see [below for nested schema](#nestedatt--time))
 - `udev` (List of String) Configures the udev system.
 
 ### Read-Only
@@ -562,6 +573,15 @@ Required:
 
 
 
+<a id="nestedatt--admin_kube_config"></a>
+### Nested Schema for `admin_kube_config`
+
+Optional:
+
+- `subnet` (String) Admin kubeconfig certificate lifetime (default is 1 year).
+Field format accepts any Go time.Duration format (‘1h’ for one hour, ‘10m’ for ten minutes).
+
+
 <a id="nestedatt--apiserver"></a>
 ### Nested Schema for `apiserver`
 
@@ -611,6 +631,46 @@ Optional:
 
 - `controller_manager_disabled` (Boolean) Disable kube-controller-manager on the node.
 - `scheduler_disabled` (Boolean) Disable kube-scheduler on the node.
+
+
+<a id="nestedatt--controller_manager"></a>
+### Nested Schema for `controller_manager`
+
+Optional:
+
+- `env` (Map of String) The env field allows for the addition of environment variables for the control plane component.
+- `extra_args` (Map of String) Extra arguments to supply to the controller manager.
+- `extra_volumes` (Attributes List) (see [below for nested schema](#nestedatt--controller_manager--extra_volumes))
+- `image` (String) The container image used in the controller manager manifest.
+
+<a id="nestedatt--controller_manager--extra_volumes"></a>
+### Nested Schema for `controller_manager.extra_volumes`
+
+Optional:
+
+- `host_path` (String) Path on the host.
+- `mount_path` (String) Path in the container.
+- `readonly` (Boolean) Mount the volume read only.
+
+
+
+<a id="nestedatt--coredns"></a>
+### Nested Schema for `coredns`
+
+Optional:
+
+- `disabled` (Boolean) Disable coredns deployment on cluster bootstrap.
+- `image` (String) The `image` field is an override to the default coredns image.
+
+
+<a id="nestedatt--discovery"></a>
+### Nested Schema for `discovery`
+
+Optional:
+
+- `kubernetes_disabled` (Boolean) Disable Kubernetes discovery registry.
+- `service_disabled` (Boolean) Disable external service discovery registry.
+- `service_endpoint` (String) External service endpoint.
 
 
 <a id="nestedatt--disks"></a>
@@ -687,6 +747,18 @@ Optional:
 
 
 
+<a id="nestedatt--etcd"></a>
+### Nested Schema for `etcd`
+
+Optional:
+
+- `ca_crt` (String) PEM encoded etcd root certificate authority crt.
+- `ca_key` (String) PEM encoded etcd root certificate authority key.
+- `extra_args` (Map of String) Extra arguments to supply to etcd.
+- `image` (String) The container image used to create the etcd service.
+- `subnet` (String) The subnet from which the advertise URL should be.
+
+
 <a id="nestedatt--files"></a>
 ### Nested Schema for `files`
 
@@ -705,6 +777,14 @@ Optional:
 
 - `content` (String) The manifest's content. Must be a valid kubernetes YAML.
 - `name` (String) The manifest's name.
+
+
+<a id="nestedatt--kernel"></a>
+### Nested Schema for `kernel`
+
+Optional:
+
+- `modules` (List of String) Configures Linux kernel modules to load.
 
 
 <a id="nestedatt--kubelet"></a>
@@ -729,6 +809,23 @@ Optional:
 - `options` (List of String) Mount options of the filesystem to be used.
 - `source` (String) A device name, but can also be a file or directory name for bind mounts or a dummy. Path values for bind mounts are either absolute or relative to the bundle. A mount is a bind mount if it has either bind or rbind in the options.
 - `type` (String) The type of the filesystem to be mounted.
+
+
+
+<a id="nestedatt--logging"></a>
+### Nested Schema for `logging`
+
+Optional:
+
+- `destinations` (Attributes List) Configures Talos logging destination. (see [below for nested schema](#nestedatt--logging--destinations))
+
+<a id="nestedatt--logging--destinations"></a>
+### Nested Schema for `logging.destinations`
+
+Optional:
+
+- `endpoint` (String) Where to send logs. Supported protocols are “tcp” and “udp”.
+- `format` (String) Logs format.
 
 
 
@@ -766,5 +863,39 @@ Optional:
 - `insecure_skip_verify` (Boolean) Skip TLS server certificate verification (not recommended)..
 - `password` (String, Sensitive) Password for optional registry authentication.
 - `username` (String) Username for optional registry authentication.
+
+
+
+<a id="nestedatt--scheduler"></a>
+### Nested Schema for `scheduler`
+
+Optional:
+
+- `env` (Map of String) The env field allows for the addition of environment variables for the control plane component.
+- `extra_args` (Map of String) Extra arguments to supply to the scheduler.
+- `extra_volumes` (Attributes List) (see [below for nested schema](#nestedatt--scheduler--extra_volumes))
+- `image` (String) The container image used in the scheduler manifest.
+
+<a id="nestedatt--scheduler--extra_volumes"></a>
+### Nested Schema for `scheduler.extra_volumes`
+
+Optional:
+
+- `host_path` (String) Path on the host.
+- `mount_path` (String) Path in the container.
+- `readonly` (Boolean) Mount the volume read only.
+
+
+
+<a id="nestedatt--time"></a>
+### Nested Schema for `time`
+
+Optional:
+
+- `boot_timeout` (String) Specifies the timeout when the node time is considered to be in sync unlocking the boot sequence.
+NTP sync will be still running in the background.
+Defaults to “infinity” (waiting forever for time sync)
+- `disabled` (String) Indicates if the time service is disabled for the machine. Defaults to false.
+- `servers` (List of String) Specifies time (NTP) servers to use for setting the system time. Defaults to pool.ntp.org
 
 

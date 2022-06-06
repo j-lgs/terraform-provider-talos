@@ -824,7 +824,6 @@ var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
 			Optional:    true,
 			Description: "Extra arguments to supply to the API server.",
 		},
-
 		"extra_volumes": {
 			Optional:    true,
 			Description: VolumeMountSchema.Description,
@@ -913,63 +912,230 @@ var ProxyConfigSchema tfsdk.Schema = tfsdk.Schema{
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#timeconfig for more information.
 var TimeConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the options for configuring time on a machine.",
-	Attributes:  map[string]tfsdk.Attribute{},
+	Attributes: map[string]tfsdk.Attribute{
+		"disabled": {
+			Required:    true,
+			Type:        types.StringType,
+			Description: "Indicates if the time service is disabled for the machine. Defaults to false.",
+		},
+		"servers": {
+			Optional: true,
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Description: "Specifies time (NTP) servers to use for setting the system time. Defaults to pool.ntp.org",
+		},
+		"boot_timeout": {
+			Optional: true,
+			Type:     types.StringType,
+			Description: `Specifies the timeout when the node time is considered to be in sync unlocking the boot sequence.
+NTP sync will be still running in the background.
+Defaults to “infinity” (waiting forever for time sync)`,
+		},
+	},
 }
 
 // LoggingConfigSchema configures Talos logging.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#loggingconfig for more information.
 var LoggingConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Configures Talos logging.",
-	Attributes:  map[string]tfsdk.Attribute{},
+	Attributes: map[string]tfsdk.Attribute{
+		"destinations": {
+			Required:    true,
+			Description: LoggingDestinationSchema.Description,
+			Attributes:  tfsdk.ListNestedAttributes(LoggingDestinationSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+		},
+	},
+}
+
+// LoggingDestinationSchema configures Talos logging destination.
+// Refer to https://www.talos.dev/v1.0/reference/configuration/#loggingdestination for more information.
+var LoggingDestinationSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Configures Talos logging destination.",
+	Attributes: map[string]tfsdk.Attribute{
+		"endpoint": {
+			Required:    true,
+			Description: "Where to send logs. Supported protocols are “tcp” and “udp”.",
+			Type:        types.StringType,
+		},
+		"format": {
+			Required:    true,
+			Description: "Logs format.",
+			Type:        types.StringType,
+		},
+	},
 }
 
 // KernelConfigSchema configures Talos Linux kernel.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#kernelconfig for more information.
 var KernelConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Configures Talos Linux kernel.",
-	Attributes:  map[string]tfsdk.Attribute{},
+	Attributes: map[string]tfsdk.Attribute{
+		"modules": {
+			Required: true,
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Description: "Configures Linux kernel modules to load.",
+		},
+	},
 }
 
 // ControllerManagerConfigSchema represents the kube controller manager configuration options.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#controllermanagerconfig for more information.
 var ControllerManagerConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the kube controller manager configuration options.",
-	Attributes:  map[string]tfsdk.Attribute{},
+	Attributes: map[string]tfsdk.Attribute{
+		"image": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "The container image used in the controller manager manifest.",
+		},
+		"extra_args": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "Extra arguments to supply to the controller manager.",
+		},
+		"extra_volumes": {
+			Optional:    true,
+			Description: VolumeMountSchema.Description,
+			Attributes:  tfsdk.ListNestedAttributes(VolumeMountSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+		},
+		"env": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "The env field allows for the addition of environment variables for the control plane component.",
+		},
+	},
 }
 
 // SchedulerConfigSchema represents the kube scheduler configuration options.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#schedulerconfig for more information.
 var SchedulerConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the kube scheduler configuration options.",
-	Attributes:  map[string]tfsdk.Attribute{},
+	Attributes: map[string]tfsdk.Attribute{
+		"image": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "The container image used in the scheduler manifest.",
+		},
+		"extra_args": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "Extra arguments to supply to the scheduler.",
+		},
+		"extra_volumes": {
+			Optional:    true,
+			Description: VolumeMountSchema.Description,
+			Attributes:  tfsdk.ListNestedAttributes(VolumeMountSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+		},
+		"env": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "The env field allows for the addition of environment variables for the control plane component.",
+		},
+	},
 }
 
 // ClusterDiscoveryConfigSchema configures cluster membership discovery.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#clusterdiscoveryconfig for more information.
 var ClusterDiscoveryConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Configures cluster membership discovery.",
-	Attributes:  map[string]tfsdk.Attribute{},
+	Attributes: map[string]tfsdk.Attribute{
+		"kubernetes_disabled": {
+			Type:                types.BoolType,
+			Required:            true,
+			MarkdownDescription: "Disable Kubernetes discovery registry.",
+		},
+		"service_disabled": {
+			Type:                types.BoolType,
+			Required:            true,
+			MarkdownDescription: "Disable external service discovery registry.",
+		},
+		// TODO make the kubernetes and service options mutually exclusive or pull them into their
+		// own schema to be in line with the underlying datastructure.
+		"service_endpoint": {
+			Type:                types.StringType,
+			Optional:            true,
+			MarkdownDescription: "External service endpoint.",
+		},
+	},
 }
 
 // EtcdConfigSchema represents the etcd configuration options.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#etcdconfig for more information.
 var EtcdConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the etcd configuration options.",
-	Attributes:  map[string]tfsdk.Attribute{},
+	Attributes: map[string]tfsdk.Attribute{
+		"image": {
+			Type:        types.StringType,
+			Optional:    true,
+			Description: "The container image used to create the etcd service.",
+		},
+		"ca_crt": {
+			Type:                types.StringType,
+			Optional:            true,
+			MarkdownDescription: "PEM encoded etcd root certificate authority crt.",
+		},
+		"ca_key": {
+			Type:                types.StringType,
+			Optional:            true,
+			MarkdownDescription: "PEM encoded etcd root certificate authority key.",
+		},
+		"extra_args": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "Extra arguments to supply to etcd.",
+		},
+		"subnet": {
+			Type:                types.StringType,
+			Optional:            true,
+			MarkdownDescription: "The subnet from which the advertise URL should be.",
+		},
+	},
 }
 
 // CoreDNSConfigSchema represents the CoreDNS config values.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#coredns for more information.
 var CoreDNSConfigSchema tfsdk.Schema = tfsdk.Schema{
-	Description: "Represents the CoreDNS config values.",
-	Attributes:  map[string]tfsdk.Attribute{},
+	MarkdownDescription: `Represents the CoreDNS config values.
+Refer to [CoreDNS in the TalosOS Documentation](https://www.talos.dev/v1.0/reference/configuration/#coredns) for more information.`,
+	Attributes: map[string]tfsdk.Attribute{
+		"disabled": {
+			Type:        types.BoolType,
+			Required:    true,
+			Description: "Disable coredns deployment on cluster bootstrap.",
+		},
+		"image": {
+			Type:                types.StringType,
+			Optional:            true,
+			MarkdownDescription: "The `image` field is an override to the default coredns image.",
+		},
+	},
 }
 
 // AdminKubeconfigConfigSchema contains admin kubeconfig settings.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#adminkubeconfigconfig for more information.
 var AdminKubeconfigConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Contains admin kubeconfig settings.",
-	Attributes:  map[string]tfsdk.Attribute{},
+	Attributes: map[string]tfsdk.Attribute{
+		"subnet": {
+			Type:     types.StringType,
+			Required: true,
+			MarkdownDescription: `Admin kubeconfig certificate lifetime (default is 1 year).
+Field format accepts any Go time.Duration format (‘1h’ for one hour, ‘10m’ for ten minutes).`,
+		},
+	},
 }
 
 // ControlPlaneConfigSchema provides options for configuring the Kubernetes control plane.
