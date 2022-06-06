@@ -454,6 +454,15 @@ func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v
 		plan.Sysfs,
 		plan.Sysctls,
 		plan.Env,
+		plan.Time,
+		plan.Logging,
+		plan.Kernel,
+		plan.ControllerManager,
+		plan.Scheduler,
+		plan.Discovery,
+		plan.Etcd,
+		plan.CoreDNS,
+		plan.AdminKubeConfig,
 	}
 	//funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.Files))
 	funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.CertSANS))

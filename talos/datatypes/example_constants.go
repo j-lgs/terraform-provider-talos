@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -167,21 +168,43 @@ var (
 	}
 
 	schedulerArgsExample = map[string]string{
-		"k": "v",
+		"feature-gates": "AllBeta=true",
+	}
+	schedulerArgsTFExample = map[string]types.String{
+		"feature-gates": Wraps("AllBeta=true"),
 	}
 	schedulerEnvExample = map[string]string{
-		"k": "v",
+		"key": "value",
+	}
+	schedulerEnvTFExample = map[string]types.String{
+		"key": Wraps("value"),
 	}
 
-	etcdArgsExample = map[string]string{
-		"k": "v",
+	etcdArgsTFExample = map[string]types.String{
+		"key": Wraps("value"),
 	}
-	etcdSubnetExample = ""
+	etcdArgsExample = map[string]string{
+		"key": "value",
+	}
+
+	etcdSubnetExample = "10.0.0.0/8"
 
 	coreDNSDisabledExample = false
 
 	controllerManagerExtraArgsExample = map[string]string{
-		"k": "v",
+		"key": "value",
+	}
+
+	controllerManagerExtraArgsTFExample = map[string]types.String{
+		"feature-gates": Wraps("ServerSideApply=true"),
+	}
+
+	controllerManagerEnvTFExample = map[string]types.String{
+		"key": Wraps("value"),
+	}
+
+	controllerManagerEnvExample = map[string]string{
+		"key": "value",
 	}
 
 	discoveryExample                          = true
@@ -203,10 +226,6 @@ var (
 	EndpointExample       = url.URL{
 		Host:   "1.2.3.4",
 		Scheme: "https",
-	}
-
-	controllerManagerEnvExample = map[string]string{
-		"key": "value",
 	}
 
 	apiServerArgsExample = map[string]string{
@@ -248,8 +267,8 @@ exemptions:
 			"warn-version":    "latest",
 		},
 		"exemptions": map[string]interface{}{
-			"usernames":      []interface{}{},
-			"runtimeClasses": []interface{}{},
+			"usernames":      map[string]interface{}{},
+			"runtimeClasses": map[string]interface{}{},
 			"namespaces":     []interface{}{"kube-system"},
 		},
 	}
@@ -292,15 +311,16 @@ metadata:
 	extensionImageExample = ""
 
 	loggingEndpointExample = &url.URL{
-		Scheme: "https",
-		Host:   "6.7.8.9",
+		Scheme: "tcp",
+		Host:   "1.2.3.4:12345",
 	}
 	loggingFormatExample    = "json_lines"
-	kernelModuleNameExample = "nvidia"
+	kernelModuleNameExample = "btrfs"
 
-	timedisabledExample = false
-	timeserversExample  = []string{"time.test"}
-	timeoutExample      = 1
+	timedisabledExample  = false
+	timeserversExample   = []string{"time.cloudflare.com"}
+	timeoutExample       = 2
+	timeoutExampleString = "2m"
 
 	sysctlsExample = map[string]string{
 		"kernel.domainname":   "talos.dev",

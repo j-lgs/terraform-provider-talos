@@ -1129,7 +1129,7 @@ Refer to [CoreDNS in the TalosOS Documentation](https://www.talos.dev/v1.0/refer
 var AdminKubeconfigConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Contains admin kubeconfig settings.",
 	Attributes: map[string]tfsdk.Attribute{
-		"subnet": {
+		"cert_lifetime": {
 			Type:     types.StringType,
 			Required: true,
 			MarkdownDescription: `Admin kubeconfig certificate lifetime (default is 1 year).

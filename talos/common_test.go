@@ -22,7 +22,7 @@ var (
 	testBundle = datatypes.SecretsBundleExample
 
 	//expectedNode *v1alpha1.Config              = datatypes.MachineConfigExample
-	nodeData     *talosControlNodeResourceData = talosControlNodeResourceDataExample
+	nodeData *talosControlNodeResourceData = talosControlNodeResourceDataExample
 )
 
 type runtimeMode struct {
@@ -124,7 +124,7 @@ func TestConfigDataAll(t *testing.T) {
 
 // TestReadControlConfig checks whether we can successfully read a talos Config struct into a Terraform state struct.
 func TestReadControlConfig(t *testing.T) {
-	var state *talosControlNodeResourceData = &talosControlNodeResourceData{}
+	var state = &talosControlNodeResourceData{}
 
 	state.ReadInto(datatypes.MachineConfigExample)
 	if !reflect.DeepEqual(talosControlNodeResourceDataExample, state) {
