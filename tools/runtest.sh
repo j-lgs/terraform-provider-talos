@@ -21,8 +21,18 @@ talos_version="1.0.5"
 registry_version="2.8.1"
 talos_arch="amd64"
 
-# Setup networking
-mount --bind test/etc/resolv.conf /etc/resolv.conf
+if type lsb_release >/dev/null 2>&1 ; then
+   DISTRO=$(lsb_release -i -s)
+elif [ -e /etc/os-release ] ; then
+   DISTRO=$(awk -F= '$1 == "ID" {print $2}' /etc/os-release)
+fi
+
+DISTRO=$(printf '%s\n' "$DISTRO" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+
+case "$DISTRO" in
+    nixos*) PATH="/run/current-system/sw/bin:$PATH" mount --bind test/etc/resolv.conf /etc/resolv.conf ;;
+    *)      mount --bind test/etc/resolv.conf /etc/resolv.conf ;;
+esac
 
 tapup() {
     ip tuntap add dev "$1" mode tap
