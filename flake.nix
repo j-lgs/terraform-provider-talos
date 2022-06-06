@@ -26,6 +26,7 @@
               qemu_full
               inotify-tools
               gcc
+              terraform
             ];
             commands = [
               {
