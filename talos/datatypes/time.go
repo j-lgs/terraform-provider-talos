@@ -7,10 +7,13 @@ import (
 func (planTimeConfig TimeConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 	return [](func(*v1alpha1.Config) error){
 		func(cfg *v1alpha1.Config) error {
-			timeConfig := &v1alpha1.TimeConfig{
-				TimeDisabled: planTimeConfig.Disabled.Value,
+			timeConfig := cfg.MachineConfig.MachineTime
+
+			if timeConfig == nil {
+				timeConfig = &v1alpha1.TimeConfig{}
 			}
 
+			setBool(planTimeConfig.Disabled, &timeConfig.TimeDisabled)
 			setStringList(planTimeConfig.Servers, &timeConfig.TimeServers)
 
 			if err := setStringDuration(planTimeConfig.BootTimeout, &timeConfig.TimeBootTimeout); err != nil {

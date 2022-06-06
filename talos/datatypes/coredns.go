@@ -7,17 +7,18 @@ import (
 func (planCoreDNS CoreDNS) DataFunc() [](func(*v1alpha1.Config) error) {
 	return [](func(*v1alpha1.Config) error){
 		func(cfg *v1alpha1.Config) error {
-			coreDNS := cfg.ClusterConfig.CoreDNSConfig
-
-			if coreDNS == nil {
-				coreDNS = &v1alpha1.CoreDNS{}
+			if cfg.ClusterConfig.CoreDNSConfig == nil {
+				cfg.ClusterConfig.CoreDNSConfig = &v1alpha1.CoreDNS{}
 			}
 
 			if planCoreDNS.Image.Null {
-				coreDNS.CoreDNSImage = (&v1alpha1.CoreDNS{}).Image()
+				cfg.ClusterConfig.CoreDNSConfig.CoreDNSImage =
+					(&v1alpha1.CoreDNS{}).Image()
 			}
+			setString(planCoreDNS.Image, &cfg.ClusterConfig.CoreDNSConfig.CoreDNSImage)
 
-			setBool(planCoreDNS.Disabled, &coreDNS.CoreDNSDisabled)
+			setBool(planCoreDNS.Disabled,
+				&cfg.ClusterConfig.CoreDNSConfig.CoreDNSDisabled)
 
 			return nil
 		},

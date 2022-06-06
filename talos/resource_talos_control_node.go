@@ -202,7 +202,14 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 				Type: types.ListType{
 					ElemType: types.StringType,
 				},
-				Description: ".",
+				Description: "Contains external cloud provider configuration.",
+				Optional:    true,
+			},
+			"extra_manifest_headers": {
+				Type: types.MapType{
+					ElemType: types.StringType,
+				},
+				Description: "A map of key value pairs that will be added while fetching the extraManifests. ",
 				Optional:    true,
 			},
 			"extra_manifests": {
@@ -277,22 +284,23 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 }
 
 var (
-	CertSANsExample = []datatypes.MachineCertSAN{
-		{Value: datatypes.Wraps(datatypes.MachineCertSANsExample[0])},
+	CertSANsExample = datatypes.Wrapsl(datatypes.MachineCertSANsExample[0])
+
+	PodsExample = datatypes.Wrapsl(datatypes.MachinePodsStringExample)
+
+	UdevExample = datatypes.Wrapsl(datatypes.UdevExample[0])
+
+	ExtraManifestExample = datatypes.ClusterExtraManifests{
+		datatypes.Wraps(datatypes.ExtraManifestExample[0]),
+		datatypes.Wraps(datatypes.ExtraManifestExample[1]),
 	}
 
-	PodsExample = []datatypes.MachinePod{
-		{Value: datatypes.Wraps(datatypes.MachinePodsStringExample)},
+	ExtraManifestHeaderExample = map[string]types.String{
+		"Token":       datatypes.Wraps("1234567"),
+		"X-ExtraInfo": datatypes.Wraps("info"),
 	}
 
-	UdevExample = []datatypes.MachineUdev{
-		{Value: datatypes.Wraps(datatypes.UdevExample[0])},
-	}
-
-	ExtraManifestExample = []datatypes.ClusterExtraManifest{
-		{Value: datatypes.Wraps(datatypes.ExtraManifestExample[0])},
-		{Value: datatypes.Wraps(datatypes.ExtraManifestExample[1])},
-	}
+	ExternalCloudProviderExample = datatypes.Wrapsl(datatypes.ExternalManifestsExample...)
 
 	talosControlNodeResourceDataExample = &talosControlNodeResourceData{
 		Name:         datatypes.Wraps("test-node"),
@@ -320,21 +328,23 @@ var (
 		Disks: []datatypes.MachineDiskData{
 			*datatypes.MachineDiskExample,
 		},
-		Time:                datatypes.TimeConfigExample,
-		Logging:             datatypes.LoggingConfigExample,
-		Kernel:              datatypes.KernelConfigExample,
-		Encryption:          datatypes.EncryptionDataExample,
-		Registry:            datatypes.RegistryExample,
-		Udev:                UdevExample,
-		MachineControlPlane: datatypes.MachineControlPlaneExample,
-		APIServer:           datatypes.APIServerExample,
-		ControllerManager:   datatypes.ControllerManagerExample,
-		Proxy:               datatypes.ProxyConfigExample,
-		Scheduler:           datatypes.SchedulerExample,
-		Discovery:           datatypes.ClusterDiscoveryConfigExample,
-		Etcd:                datatypes.EtcdConfigExample,
-		CoreDNS:             datatypes.CoreDNSExample,
-		ExtraManifests:      ExtraManifestExample,
+		Time:                  datatypes.TimeConfigExample,
+		Logging:               datatypes.LoggingConfigExample,
+		Kernel:                datatypes.KernelConfigExample,
+		Encryption:            datatypes.EncryptionDataExample,
+		Registry:              datatypes.RegistryExample,
+		Udev:                  UdevExample,
+		MachineControlPlane:   datatypes.MachineControlPlaneExample,
+		APIServer:             datatypes.APIServerExample,
+		ControllerManager:     datatypes.ControllerManagerExample,
+		Proxy:                 datatypes.ProxyConfigExample,
+		Scheduler:             datatypes.SchedulerExample,
+		Discovery:             datatypes.ClusterDiscoveryConfigExample,
+		Etcd:                  datatypes.EtcdConfigExample,
+		CoreDNS:               datatypes.CoreDNSExample,
+		ExtraManifestHeaders:  ExtraManifestHeaderExample,
+		ExtraManifests:        ExtraManifestExample,
+		ExternalCloudProvider: ExternalCloudProviderExample,
 		InlineManifests: []datatypes.InlineManifest{
 			datatypes.InlineManifestExample,
 		},
@@ -346,10 +356,10 @@ var (
 type talosControlNodeResourceData struct {
 	Name                     types.String                       `tfsdk:"name"`
 	Install                  *datatypes.InstallConfig           `tfsdk:"install"`
-	CertSANS                 []datatypes.MachineCertSAN         `tfsdk:"cert_sans"`
+	CertSANS                 datatypes.MachineCertSANs          `tfsdk:"cert_sans"`
 	ControlPlane             *datatypes.ControlPlaneConfig      `tfsdk:"control_plane"`
 	Kubelet                  *datatypes.KubeletConfig           `tfsdk:"kubelet"`
-	Pod                      []datatypes.MachinePod             `tfsdk:"pods"`
+	Pod                      datatypes.MachinePods              `tfsdk:"pods"`
 	Network                  *datatypes.NetworkConfig           `tfsdk:"network"`
 	Files                    []datatypes.File                   `tfsdk:"files"`
 	Env                      datatypes.MachineEnv               `tfsdk:"env"`
@@ -361,7 +371,7 @@ type talosControlNodeResourceData struct {
 	Registry                 *datatypes.Registry                `tfsdk:"registry"`
 	Disks                    []datatypes.MachineDiskData        `tfsdk:"disks"`
 	Encryption               *datatypes.EncryptionData          `tfsdk:"encryption"`
-	Udev                     []datatypes.MachineUdev            `tfsdk:"udev"`
+	Udev                     datatypes.MachineUdevRules         `tfsdk:"udev"`
 	MachineControlPlane      *datatypes.MachineControlPlane     `tfsdk:"control_plane_config"`
 	APIServer                *datatypes.APIServerConfig         `tfsdk:"apiserver"`
 	ControllerManager        *datatypes.ControllerManagerConfig `tfsdk:"controller_manager"`
@@ -370,7 +380,9 @@ type talosControlNodeResourceData struct {
 	Discovery                *datatypes.ClusterDiscoveryConfig  `tfsdk:"discovery"`
 	Etcd                     *datatypes.EtcdConfig              `tfsdk:"etcd"`
 	CoreDNS                  *datatypes.CoreDNS                 `tfsdk:"coredns"`
-	ExtraManifests           []datatypes.ClusterExtraManifest   `tfsdk:"extra_manifests"`
+	ExtraManifestHeaders     datatypes.ExtraManifestHeaders     `tfsdk:"extra_manifest_headers"`
+	ExternalCloudProvider    datatypes.ExternalCloudProvider    `tfsdk:"external_cloud_provider"`
+	ExtraManifests           datatypes.ClusterExtraManifests    `tfsdk:"extra_manifests"`
 	InlineManifests          []datatypes.InlineManifest         `tfsdk:"inline_manifests"`
 	AdminKubeConfig          *datatypes.AdminKubeconfigConfig   `tfsdk:"admin_kube_config"`
 	AllowSchedulingOnMasters types.Bool                         `tfsdk:"allow_scheduling_on_masters"`
@@ -463,13 +475,19 @@ func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v
 		plan.Etcd,
 		plan.CoreDNS,
 		plan.AdminKubeConfig,
+		plan.ExtraManifestHeaders,
+		plan.CertSANS,
+		plan.Udev,
+		plan.ExtraManifests,
+		plan.Pod,
+		plan.ExternalCloudProvider,
 	}
-	//funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.Files))
-	funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.CertSANS))
-	funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.Udev))
-	funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.ExtraManifests))
-	funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.InlineManifests))
-	funcs = datatypes.AppendDataFuncs(funcs, datatypes.ToSliceOfAny(plan.Pod))
+	for _, file := range plan.Files {
+		funcs = append(funcs, any(file).(datatypes.PlanToDataFunc))
+	}
+	for _, manifest := range plan.InlineManifests {
+		funcs = append(funcs, any(manifest).(datatypes.InlineManifest))
+	}
 
 	clusterFuncs = datatypes.AppendDataFunc(clusterFuncs, funcs...)
 	if err := datatypes.ApplyDataFunc(out, clusterFuncs); err != nil {

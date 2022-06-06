@@ -199,8 +199,10 @@ Optional:
 
 - `bootloader` (Boolean)
 - `disk` (String)
+- `extensions` (List of String)
 - `image` (String)
 - `kernel_args` (List of String)
+- `legacy_bios` (Boolean)
 - `wipe` (Boolean)
 
 

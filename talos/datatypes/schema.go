@@ -1181,6 +1181,16 @@ var InstallSchema tfsdk.Schema = tfsdk.Schema{
 			Type:     types.BoolType,
 			Optional: true,
 		},
+		"legacy_bios": {
+			Type:     types.BoolType,
+			Optional: true,
+		},
+		"extensions": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Optional: true,
+		},
 		"kernel_args": {
 			Type: types.ListType{
 				ElemType: types.StringType,

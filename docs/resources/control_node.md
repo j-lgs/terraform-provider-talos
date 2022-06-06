@@ -365,7 +365,8 @@ Refer to [CoreDNS in the TalosOS Documentation](https://www.talos.dev/v1.0/refer
 - `encryption` (Attributes) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption))
 - `env` (Map of String) Allows for the addition of environment variables. All environment variables are set on PID 1 in addition to every service.
 - `etcd` (Attributes) Represents the etcd configuration options. (see [below for nested schema](#nestedatt--etcd))
-- `external_cloud_provider` (List of String) .
+- `external_cloud_provider` (List of String) Contains external cloud provider configuration.
+- `extra_manifest_headers` (Map of String) A map of key value pairs that will be added while fetching the extraManifests.
 - `extra_manifests` (List of String) A list of urls that point to additional manifests. These will get automatically deployed as part of the bootstrap.
 - `files` (Attributes List) Describes a machine's files and it's contents and how it will be written to the node's filesystem. (see [below for nested schema](#nestedatt--files))
 - `inline_manifests` (Attributes List) Describes inline bootstrap manifests for the user. These will get automatically deployed as part of the bootstrap. (see [below for nested schema](#nestedatt--inline_manifests))
@@ -393,8 +394,10 @@ Required:
 
 - `bootloader` (Boolean)
 - `disk` (String)
+- `extensions` (List of String)
 - `image` (String)
 - `kernel_args` (List of String)
+- `legacy_bios` (Boolean)
 - `wipe` (Boolean)
 
 
@@ -578,7 +581,7 @@ Required:
 
 Optional:
 
-- `subnet` (String) Admin kubeconfig certificate lifetime (default is 1 year).
+- `cert_lifetime` (String) Admin kubeconfig certificate lifetime (default is 1 year).
 Field format accepts any Go time.Duration format (‘1h’ for one hour, ‘10m’ for ten minutes).
 
 

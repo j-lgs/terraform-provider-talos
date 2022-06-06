@@ -8,6 +8,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/talos-systems/crypto/x509"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
+
+	"gopkg.in/yaml.v3"
 )
 
 func s(str string) types.String {
@@ -68,6 +70,7 @@ func setString(val types.String, dest *string) {
 	if val.Null {
 		return
 	}
+
 	*dest = val.Value
 }
 
@@ -102,38 +105,86 @@ func setCertKey(crt types.String, key types.String, dest *x509.PEMEncodedCertifi
 	}
 }
 
+// TODO return errors whenever a null pointer is passed
 func setStringList(list []types.String, dest *[]string) {
-	if dest == nil && len(list) <= 0 {
+	if dest == nil {
+		return // fmt.Errorf("null destination provided")
+	}
+
+	if len(list) <= 0 {
 		return
 	}
 
-	*dest = []string{}
+	if len(*dest) == 0 {
+		*dest = []string{}
+	}
+
 	for _, s := range list {
 		*dest = append(*dest, s.Value)
 	}
 }
 
 func setStringMap(valmap map[string]types.String, dest *map[string]string) {
-	if dest == nil && len(valmap) <= 0 {
+	if dest == nil {
+		return // fmt.Errorf("null destination provided")
+	}
+
+	if len(valmap) <= 0 {
 		return
 	}
 
-	*dest = map[string]string{}
+	if len(*dest) == 0 {
+		*dest = map[string]string{}
+	}
+
 	for k, v := range valmap {
 		(*dest)[k] = v.Value
 	}
 }
 
 func setVolumeMounts(mounts []VolumeMount, dest *[]v1alpha1.VolumeMountConfig) error {
-	if len(mounts) > 0 && len(*dest) == 0 {
+	if dest == nil {
+		return fmt.Errorf("null destination provided")
+	}
+
+	if len(mounts) <= 0 {
+		return nil
+	}
+
+	if len(*dest) == 0 {
 		*dest = []v1alpha1.VolumeMountConfig{}
 	}
+
 	for _, mount := range mounts {
 		m, err := mount.Data()
 		if err != nil {
 			return err
 		}
 		*dest = append((*dest), m.(v1alpha1.VolumeMountConfig))
+	}
+
+	return nil
+}
+
+func setObjectList(yamls []types.String, dest *[]v1alpha1.Unstructured) error {
+	if dest == nil {
+		return fmt.Errorf("null destination provided")
+	}
+
+	if len(yamls) <= 0 {
+		return nil
+	}
+
+	if len(*dest) == 0 {
+		*dest = []v1alpha1.Unstructured{}
+	}
+
+	for _, yamlObject := range yamls {
+		var object v1alpha1.Unstructured
+		if err := yaml.Unmarshal([]byte(yamlObject.Value), &object); err != nil {
+			return err
+		}
+		*dest = append(*dest, object)
 	}
 
 	return nil

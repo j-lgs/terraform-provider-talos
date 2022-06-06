@@ -60,6 +60,8 @@ var (
 		Disk:       Wraps(installDiskExample),
 		KernelArgs: Wrapsl(installKernelArgsExample...),
 		Image:      Wraps(installImageExample),
+		Extensions: Wrapsl(extensionImageExample),
+		LegacyBios: Wrapb(installBiosExample),
 		Bootloader: Wrapb(installBootloaderExample),
 		Wipe:       Wrapb(installWipeExample),
 	}
@@ -408,6 +410,8 @@ type InstallConfig struct {
 	KernelArgs []types.String `tfsdk:"kernel_args"`
 	Image      types.String   `tfsdk:"image"`
 	Bootloader types.Bool     `tfsdk:"bootloader"`
+	LegacyBios types.Bool     `tfsdk:"legacy_bios"`
+	Extensions []types.String `tfsdk:"extensions"`
 	Wipe       types.Bool     `tfsdk:"wipe"`
 }
 

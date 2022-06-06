@@ -13,3 +13,18 @@ func (planFile File) Data() (interface{}, error) {
 		FileOp:          planFile.Op.Value,
 	}, nil
 }
+
+func (planFile File) DataFunc() [](func(*v1alpha1.Config) error) {
+	return [](func(*v1alpha1.Config) error){
+		func(cfg *v1alpha1.Config) error {
+			file := &v1alpha1.MachineFile{
+				FileContent:     planFile.Content.Value,
+				FilePermissions: v1alpha1.FileMode(planFile.Permissions.Value),
+				FilePath:        planFile.Path.Value,
+				FileOp:          planFile.Op.Value,
+			}
+			cfg.MachineConfig.MachineFiles = append(cfg.MachineConfig.MachineFiles, file)
+			return nil
+		},
+	}
+}

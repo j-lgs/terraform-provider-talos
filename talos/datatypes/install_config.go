@@ -10,20 +10,23 @@ func (install InstallConfig) Data() (any, error) {
 	installConfig := &v1alpha1.InstallConfig{}
 
 	installConfig.InstallDisk = generate.DefaultGenOptions().InstallDisk
-	if !install.Disk.Null {
-		installConfig.InstallDisk = install.Disk.Value
-	}
+	setString(install.Disk, &installConfig.InstallDisk)
 
 	installConfig.InstallImage = generate.DefaultGenOptions().InstallImage
-	if !install.Image.Null {
-		installConfig.InstallImage = install.Image.Value
+	setString(install.Image, &installConfig.InstallImage)
+
+	setBool(install.Wipe, &installConfig.InstallWipe)
+	setBool(install.LegacyBios, &installConfig.InstallLegacyBIOSSupport)
+
+	for _, extension := range install.Extensions {
+		installConfig.InstallExtensions = append(installConfig.InstallExtensions, v1alpha1.InstallExtensionConfig{
+			ExtensionImage: extension.Value,
+		})
 	}
 
-	for _, karg := range install.KernelArgs {
-		installConfig.InstallExtraKernelArgs = append(installConfig.InstallExtraKernelArgs, karg.Value)
-	}
+	setStringList(install.KernelArgs, &installConfig.InstallExtraKernelArgs)
 
-	installConfig.InstallBootloader = true
+	setBool(install.Bootloader, &installConfig.InstallBootloader)
 
 	return installConfig, nil
 }

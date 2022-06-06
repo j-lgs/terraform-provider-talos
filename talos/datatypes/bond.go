@@ -77,7 +77,9 @@ func (planBond BondData) Data() (interface{}, error) {
 		bond.BondAllSlavesActive = uint8(b.AllSlavesActive.Value)
 	}
 	if !b.UseCarrier.Null {
-		bond.BondUseCarrier = &b.UseCarrier.Value
+		// TODO: Fix, doesn't set properly.
+		carrier := b.UseCarrier.Value
+		bond.BondUseCarrier = &carrier
 	}
 	if !b.AdActorSysPrio.Null {
 		bond.BondADActorSysPrio = uint16(b.AdActorSysPrio.Value)

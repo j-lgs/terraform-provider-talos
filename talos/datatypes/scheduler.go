@@ -9,6 +9,10 @@ func (planScheduler SchedulerConfig) DataFunc() [](func(*v1alpha1.Config) error)
 		func(cfg *v1alpha1.Config) error {
 			scheduler := cfg.ClusterConfig.SchedulerConfig
 
+			if scheduler == nil {
+				scheduler = &v1alpha1.SchedulerConfig{}
+			}
+
 			if planScheduler.Image.Null {
 				scheduler.ContainerImage = (&v1alpha1.SchedulerConfig{}).Image()
 			}

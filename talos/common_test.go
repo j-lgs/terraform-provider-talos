@@ -83,15 +83,16 @@ func TestConfigDataAll(t *testing.T) {
 		ClusterConfig: any(cfg.Cluster()).(*v1alpha1.ClusterConfig),
 	}
 
+	// We cannot compare lists of functions in this way, so it is currently disabled for now.
+	if config.MachineConfig.MachineInstall.InstallDiskSelector != nil {
+		config.MachineConfig.MachineInstall.InstallDiskSelector = nil
+	}
+	if datatypes.MachineConfigExample.MachineConfig.MachineInstall.InstallDiskSelector != nil {
+		datatypes.MachineConfigExample.MachineConfig.MachineInstall.InstallDiskSelector = nil
+	}
+
 	if !reflect.DeepEqual(datatypes.MachineConfigExample, config) {
 		// json marshalindent does not support printing matchers. Ignore it in printout.
-
-		if config.MachineConfig.MachineInstall.InstallDiskSelector != nil {
-			config.MachineConfig.MachineInstall.InstallDiskSelector = nil
-		}
-		if datatypes.MachineConfigExample.MachineConfig.MachineInstall.InstallDiskSelector != nil {
-			datatypes.MachineConfigExample.MachineConfig.MachineInstall.InstallDiskSelector = nil
-		}
 
 		configJSON, err := json.MarshalIndent(config, "", "  ")
 		if err != nil {
@@ -105,7 +106,7 @@ func TestConfigDataAll(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("expected and actual v1alpha1.Config structs did not match\nchangelog %s", patch)
+		t.Logf("expected and actual v1alpha1.Config structs did not match\nchangelog\n%s", patch)
 
 		//if config.MachineConfig.MachineInstall.InstallDiskSelector == nil {
 		//	t.FailNow()
