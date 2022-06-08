@@ -50,15 +50,15 @@ func TestAccResourceTalosControlSingleMaster(t *testing.T) {
 					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "base_config"),
 
 					resource.TestCheckResourceAttr("talos_control_node.control_0",
-						"networkconfig.devices.0.name", "eth0"),
+						"network.devices.0.name", "eth0"),
 					resource.TestCheckResourceAttr("talos_control_node.control_0",
-						"networkconfig.devices.0.addresses.0", testControlIPs[0]+"/24"),
+						"network.devices.0.addresses.0", testControlIPs[0]+"/24"),
 					resource.TestCheckResourceAttr("talos_control_node.control_0",
-						"networkconfig.devices.0.routes.0.network", "0.0.0.0/0"),
+						"network.devices.0.routes.0.network", "0.0.0.0/0"),
 					resource.TestCheckResourceAttr("talos_control_node.control_0",
-						"networkconfig.devices.0.routes.0.gateway", gateway),
+						"network.devices.0.routes.0.gateway", gateway),
 					resource.TestCheckResourceAttr("talos_control_node.control_0",
-						"networkconfig.nameservers.0", nameserver),
+						"network.nameservers.0", nameserver),
 
 					testAccTalosConnectivity(testConnArg{
 						resourcepath: testControlNodePath(0),
