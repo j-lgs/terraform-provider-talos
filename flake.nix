@@ -14,8 +14,24 @@
           inherit system;
           overlays = [ devshell.overlay ];
         };
+        tpt = pkgs.buildGo118Module {
+          inherit system;
+          pname = "terraform-provider-talos";
+          version = "0.0.11";
 
+          src = ./.;
+
+          vendorSha256 = "sha256-/ttIyNegFRzWt8PvhNCgiw5tFOqUmHrJ02av8rofINY=";
+
+          doCheck = false;
+
+          meta = with pkgs.lib;
+            {
+
+            };
+        };
       in {
+        defaultPackage = tpt;
         devShells = {
           default = pkgs.devshell.mkShell {
             name = "terraform-provider-talos";
@@ -23,9 +39,11 @@
             packages = with pkgs; [
               go_1_18
               gopls
+              gcc
+
               qemu_full
               inotify-tools
-              gcc
+
               terraform
             ];
             commands = [
@@ -33,23 +51,29 @@
                 name = "acctest";
                 category = "testing";
                 help = "Run acceptance tests.";
-                command ="tools/pretest.sh";
+                command = "tools/pretest.sh";
               }
               {
-                name ="tests";
+                name = "build";
+                category = "build";
+                help = "Build the program for the current system";
+                command = "nix build .#defaultPackage.${system}";
+              }
+              {
+                name = "tests";
                 category = "testing";
                 help = "Run unit tests.";
-                command=''
+                command = ''
                   go vet ./...
                   go run honnef.co/go/tools/cmd/staticcheck ./talos
                   go test -v -race -vet=off ./...
-'';
+                '';
               }
               {
                 name = "generate";
                 category = "code";
                 help = "Regenerate documentation.";
-                command ="go generate ./...";
+                command = "go generate ./...";
               }
             ];
           };
