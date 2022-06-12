@@ -17,21 +17,15 @@ resource "talos_control_node" "single_example" {
   # The node's name.
   name = "single-example"
 
-  # Installation options, does not directly configure the node.
-  # MAC address for the node. Will be used to apply the initial configuration.
-  macaddr = "42:42:42:42:42:42"
-
-  # Expected network range to find the node's interface identified by `macaddr`.
-  dhcp_network_cidr = "192.168.122.0/25"
-
   # Whether this node will be used to bootstrap Etcd. At most a single node per cluster
   # should have this set to true.
   bootstrap = true
 
   # Node IP address used by the provider to access and send requests to the Talos API.
-  # TODO: implement feature mentioned below.
-  # If it isn't set the provider will lookup the address of the interface identified by `macaddr`.
-  config_ip = "192.168.122.100"
+  configure_ip = "192.168.122.100"
+
+  # The IP address used by the provider to perform initial node provisioning.
+  provision_ip = "192.168.122.15"
 
   # The base config from the node's talos_configuration.
   # Contains shared information and secrets.
@@ -40,61 +34,59 @@ resource "talos_control_node" "single_example" {
   # Talos options. These will roughly map to options in official Talos documentation.
   # This configuration is targetting version 1.0.5.
   # https://www.talos.dev/v1.0/reference/configuration
+  config = {
+    # Machine configuration
+    # Install time configuration.
+    install = {
+  	disk  = "/dev/vdb"
+  	image = "ghcr.io/siderolabs/installer:latest"
+  	kernel_args = [
+  	  "console=ttyS1",
+  	  "panic=10"
+  	]
+    }
 
+    # Extra certificate subject alternative names for the machine’s certificate.
+    cert_cans = [
+  	"10.0.1.5"
+    ]
 
+    # Cluster configuration
+    # Configure the node's Kubernetes control plane.
+    control_plane = {
+  	endpoint = "https://1.2.3.4"
+  	local_api_server_port = 443
+    }
 
-  # Machine configuration
-  # Install time configuration.
-  install = {
-	disk  = "/dev/vdb"
-	image = "ghcr.io/siderolabs/installer:latest"
-	kernel_args = [
-	  "console=ttyS1",
-	  "panic=10"
-	]
-  }
-
-  # Extra certificate subject alternative names for the machine’s certificate.
-  cert_cans = [
-	"10.0.1.5"
-  ]
-
-  # Cluster configuration
-  # Configure the node's Kubernetes control plane.
-  control_plane = {
-	endpoint = "https://1.2.3.4"
-	local_api_server_port = 443
-  }
-
-  # Configure the node's Kubelet.
-  kubelet = {
-	cluster_dns = [
-	  "10.5.0.1"
-	]
-	extra_args = {
-	  "feature-gates": "serverSideApply=true"
-	}
-	extra_mount = [
-	  {
-		Source      = "/var/lib/example"
-		Destination = "/var/lib/example"
-		Type        = "bind",
-		options     = ["bind", "rshared", "rw"]
-	  }
-	]
-	extra_config = <<TOC
+    # Configure the node's Kubelet.
+    kubelet = {
+  	cluster_dns = [
+  	  "10.5.0.1"
+  	]
+  	extra_args = {
+  	  "feature-gates": "serverSideApply=true"
+  	}
+  	extra_mount = [
+  	  {
+  		Source      = "/var/lib/example"
+  		Destination = "/var/lib/example"
+  		Type        = "bind",
+  		options     = ["bind", "rshared", "rw"]
+  	  }
+  	]
+  	extra_config = <<TOC
 serverTLSBootstrap: true
 TOC
-	register_with_fqdn = false
-	node_ip_valid_subnets = [
-	  "10.0.0.0/8",
-	  "!10.0.0.3/32",
-	  "fdc7::/16"
-	]
-  }
+  	register_with_fqdn = false
+  	node_ip_valid_subnets = [
+  	  "10.0.0.0/8",
+  	  "!10.0.0.3/32",
+  	  "fdc7::/16"
+  	]
+    }
 
-  # Static pod definitions that are ran directly on the Kubelet
-  pods = [<<TOC
+    # Static pod definitions that are ran directly on the Kubelet
+    pods = [<<TOC
 apiVersion: v1
 kind: pod
 metadata:
@@ -104,89 +96,89 @@ spec:
     name: nginx
     image: nginx
 TOC
-  ]
+    ]
 
-  # Network configuration. An example including all options can be found in the "guides" section.
-  network = {
-	# Machine hostname
-	hostname = "single-example"
-	devices = [
-	  {
-		# Device interface.
-		name = "eth0"
-		addresses = [
-		  # Device's address in CIDR form.
-		  "192.168.122.100/24"
-		]
-		routes = [
-		  {
-			network = "0.0.0.0/0"
-			# Device's gateway address.
-			gateway = "192.168.122.1"
-		  }
-		]
-	  }
-	]
-	nameservers = [
-	  "192.168.122.1"
-	]
-  }
+    # Network configuration. An example including all options can be found in the "guides" section.
+    network = {
+  	# Machine hostname
+  	hostname = "single-example"
+  	devices = [
+  	  {
+  		# Device interface.
+  		name = "eth0"
+  		addresses = [
+  		  # Device's address in CIDR form.
+  		  "192.168.122.100/24"
+  		]
+  		routes = [
+  		  {
+  			network = "0.0.0.0/0"
+  			# Device's gateway address.
+  			gateway = "192.168.122.1"
+  		  }
+  		]
+  	  }
+  	]
+  	nameservers = [
+  	  "192.168.122.1"
+  	]
+    }
 
-  # Configure node disk partitions and mounts.
-  disks = [
-	{
-	  device_name = "/dev/sdb1"
-	  partitions = [
-		{
-		  size        = "100GiB"
-		  mount_point = "/var/mnt/extra"
-		}
-	  ]
-	}
-  ]
+    # Configure node disk partitions and mounts.
+    disks = [
+  	{
+  	  device_name = "/dev/sdb1"
+  	  partitions = [
+  		{
+  		  size        = "100GiB"
+  		  mount_point = "/var/mnt/extra"
+  		}
+  	  ]
+  	}
+    ]
 
-  # Write files to the node's root file system. Node that everything outside of /var/ will cause an
-  # error when writing to it.
-  files = [
-	{
-	  content     = "..."
-	  # Interger form of file permissions eg: integer 438 is octal 666
-	  permissions = 438
-	  path        = "/tmp/file.txt"
-	  op          = "append"
-	}
-  ]
+    # Write files to the node's root file system. Node that everything outside of /var/ will cause an
+    # error when writing to it.
+    files = [
+  	{
+  	  content     = "..."
+  	  # Interger form of file permissions eg: integer 438 is octal 666
+  	  permissions = 438
+  	  path        = "/tmp/file.txt"
+  	  op          = "append"
+  	}
+    ]
 
-  # Set node environment variables. All environment variables are set on PID 1 in addition to every service.
-  env = {
-	"GRPC_GO_LOG_VERBOSITY_LEVEL": "99",
-	"GRPC_GO_LOG_SEVERITY_LEVEL":  "info",
-	"https_proxy":                 "http://DOMAIN\\USERNAME:PASSWORD@SERVER:PORT/",
-  }
+    # Set node environment variables. All environment variables are set on PID 1 in addition to every service.
+    env = {
+  	"GRPC_GO_LOG_VERBOSITY_LEVEL": "99",
+  	"GRPC_GO_LOG_SEVERITY_LEVEL":  "info",
+  	"https_proxy":                 "http://DOMAIN\\USERNAME:PASSWORD@SERVER:PORT/",
+    }
 
-  # Set node sysctls.
-  sysctls = {
-	"kernel.domainname":   "talos.dev",
-	"net.ipv4.ip_forward": "0",
-  }
+    # Set node sysctls.
+    sysctls = {
+  	"kernel.domainname":   "talos.dev",
+  	"net.ipv4.ip_forward": "0",
+    }
 
-  # Set node sysfs.
-  sysfs = {
-	"devices.system.cpu.cpu0.cpufreq.scaling_governor": "performance",
-  }
+    # Set node sysfs.
+    sysfs = {
+  	"devices.system.cpu.cpu0.cpufreq.scaling_governor": "performance",
+    }
 
-  # Enable or configure container registry mirrors.
-  registry = {
-	mirrors = {
-	  "ghcr.io": [
-         "https://registry.local",
-         "https://docker.io/v2/"
-	  ]
-	}
-	configs = {
-	  "registry.local": {
-		# Options for mutual TLS and adding another trusted CA.
-		client_identity_crt = <<TOC
+    # Enable or configure container registry mirrors.
+    registry = {
+  	mirrors = {
+  	  "ghcr.io": [
+           "https://registry.local",
+           "https://docker.io/v2/"
+  	  ]
+  	}
+  	configs = {
+  	  "registry.local": {
+  		# Options for mutual TLS and adding another trusted CA.
+  		client_identity_crt = <<TOC
 -----BEGIN CERTIFICATE-----
 ...
 -----END CERTIFICATE-----
@@ -201,138 +193,135 @@ TOC
 ...
 -----END CERTIFICATE-----
 TOC
-		insecure_skip_verify = false
-	  },
-	  "ghcr.io": {
-		# Registry authentication options. Roughly corresponds with what would be found in a .docker/config.json file.
-		username = "username"
-		password = "password"
-		auth     = "authtoken"
-		identity_token = "idtoken"
-	  }
-	}
-  }
+  		insecure_skip_verify = false
+  	  },
+  	  "ghcr.io": {
+  		# Registry authentication options. Roughly corresponds with what would be found in a .docker/config.json file.
+  		username = "username"
+  		password = "password"
+  		auth     = "authtoken"
+  		identity_token = "idtoken"
+  	  }
+  	}
+    }
 
-  # Configure node system disk encryption.
-  encryption = {
-	state = {
-	  crypt_provider = "luks2"
-	  keys = [
-		{
-		  key_static = "password"
-		  slot = 0
-		}
-	  ]
-	  cipher = "aes-xts-plain64"
-	  keysize = 4096
-	  blocksize = 4096
-	  perf_options = [
-		"same_cpu_crypt"
-	  ]
-	}
-	ephemeral = {
-	  crypt_provider = "luks2"
-	  keys = [
-		{
-		  node_id = true
-		  slot = 0
-		}
-	  ]
-	}
-  }
+    # Configure node system disk encryption.
+    encryption = {
+  	state = {
+  	  crypt_provider = "luks2"
+  	  keys = [
+  		{
+  		  key_static = "password"
+  		  slot = 0
+  		}
+  	  ]
+  	  cipher = "aes-xts-plain64"
+  	  keysize = 4096
+  	  blocksize = 4096
+  	  perf_options = [
+  		"same_cpu_crypt"
+  	  ]
+  	}
+  	ephemeral = {
+  	  crypt_provider = "luks2"
+  	  keys = [
+  		{
+  		  node_id = true
+  		  slot = 0
+  		}
+  	  ]
+  	}
+    }
 
-  # Configure node udev rules.
-  udev = [
-	"SUBSYSTEM==\"drm\", KERNEL==\"renderD*\", GROUP=\"44\", MODE=\"0660\""
-  ]
+    # Configure node udev rules.
+    udev = [
+  	"SUBSYSTEM==\"drm\", KERNEL==\"renderD*\", GROUP=\"44\", MODE=\"0660\""
+    ]
 
 
 
-  # Cluster wide configuration.
-  # Kubernetes controlplane configuration.
-  control_plane_config = {
-	controller_manager_disabled = false
-	scheduler_disabled = false
-  }
+    # Cluster wide configuration.
+    # Kubernetes controlplane configuration.
+    control_plane_config = {
+  	controller_manager_disabled = false
+  	scheduler_disabled = false
+    }
 
-  # Configure kube-apiserver.
-  apiserver = {
-	extra_args = {
-	  "feature-gates": "ServerSideApply=true",
-	  "http2-max-streams-per-connection": "32"
-	}
-	extra_volumes = [
-	  {
-		host_path  = "/var/lib/example"
-		mount_path = "/var/lib/example"
-		readonly   = false
-	  }
-	]
-	env = {
-	  "key": "value"
-	}
-	cert_sans = [
-	  "1.2.3.4",
-	  "4.5.6.7"
-	]
-	disable_pod_security_policy = false
-	admission_control = [
-	  {
-		name = "PodSecurity"
-		configuration = <<TOC
+    # Configure kube-apiserver.
+    apiserver = {
+  	extra_args = {
+  	  "feature-gates": "ServerSideApply=true",
+  	  "http2-max-streams-per-connection": "32"
+  	}
+  	extra_volumes = [
+  	  {
+  		host_path  = "/var/lib/example"
+  		mount_path = "/var/lib/example"
+  		readonly   = false
+  	  }
+  	]
+  	env = {
+  	  "key": "value"
+  	}
+  	cert_sans = [
+  	  "1.2.3.4",
+  	  "4.5.6.7"
+  	]
+  	disable_pod_security_policy = false
+  	admission_control = [
+  	  {
+  		name = "PodSecurity"
+  		configuration = <<TOC
 apiVersion: pod-security.admission.config.k8s.io/v1alpha1
 kind:       PodSecurityConfiguration
-defaults:
-  enforce:         baseline
-  enforce-version: latest
-  audit:           restricted
-  audit-version:   latest
-  warn:            restricted
-  warn-version:    latest
-exemptions:
-  usernames: {}
-  runtimeClasses: {}
-  namespaces:
-  - kube-system
+  defaults:
+    enforce:         baseline
+    enforce-version: latest
+    audit:           restricted
+    audit-version:   latest
+    warn:            restricted
+    warn-version:    latest
+  exemptions:
+    usernames: {}
+    runtimeClasses: {}
+    namespaces:
+    - kube-system
 TOC
-	  }
-	]
-  }
+  	  }
+  	]
+    }
 
-  # Configure kube-proxy.
-  proxy = {
-	mode = "ipvs"
-	disabled = false
-	extra_args = {
-	  "proxy-mode": "iptables"
-	}
-  }
+    # Configure kube-proxy.
+    proxy = {
+  	mode = "ipvs"
+        disabled = false
+        extra_args = {
+          "proxy-mode": "iptables"
+        }
+    }
 
-  # Extra manifests that will be downloaded and applied as a part of the boostrap process.
-  extra_manifests = [
-	"https://www.example.com/manifest1.yaml",
-	"https://www.example.com/manifest2.yaml"
-  ]
+    # Extra manifests that will be downloaded and applied as a part of the boostrap process.
+    extra_manifests = [
+        "https://www.example.com/manifest1.yaml",
+        "https://www.example.com/manifest2.yaml"
+    ]
 
-  # Manifests that will be applied as a part of the boostrap process.
-  inline_manifests = [
-	{
-	  name = "namespace-ci"
-	  content = <<TOC
+    # Manifests that will be applied as a part of the boostrap process.
+    inline_manifests = [
+        {
+          name = "namespace-ci"
+          content = <<TOC
 apiVersion: v1
 kind: Namespace
 metadata:
-	name: ci
+    name: ci
 TOC
-	}
-  ]
+        }
+    ]
 
-  # Whether pods should be scheduled to master(control plane) nodes.
-  allow_scheduling_on_masters = false
-  #
-
-  # Bootstrap Etcd as part of the creation process.
-
+    # Whether pods should be scheduled to master(control plane) nodes.
+    allow_scheduling_on_masters = false
+  }
 }
 ```
 
@@ -343,52 +332,262 @@ TOC
 
 - `base_config` (String, Sensitive)
 - `bootstrap` (Boolean)
+- `config` (Attributes) (see [below for nested schema](#nestedatt--config))
 - `configure_ip` (String)
-- `install` (Attributes) Represents installation options for Talos nodes. (see [below for nested schema](#nestedatt--install))
 - `name` (String)
-- `network` (Attributes) (see [below for nested schema](#nestedatt--network))
 - `provision_ip` (String) IP address of the machine to be provisioned.
-
-### Optional
-
-- `admin_kube_config` (Attributes) Contains admin kubeconfig settings. (see [below for nested schema](#nestedatt--admin_kube_config))
-- `allow_scheduling_on_masters` (Boolean) Allows running workload on master nodes.
-- `apiserver` (Attributes) Represents the kube apiserver configuration options. (see [below for nested schema](#nestedatt--apiserver))
-- `cert_sans` (List of String) Extra certificate subject alternative names for the machine’s certificate.
-- `control_plane` (Attributes) Represents the control plane configuration options. (see [below for nested schema](#nestedatt--control_plane))
-- `control_plane_config` (Attributes) Configures options pertaining to the Kubernetes control plane that's installed onto the machine (see [below for nested schema](#nestedatt--control_plane_config))
-- `controller_manager` (Attributes) Represents the kube controller manager configuration options. (see [below for nested schema](#nestedatt--controller_manager))
-- `coredns` (Attributes) Represents the CoreDNS config values.
-Refer to [CoreDNS in the TalosOS Documentation](https://www.talos.dev/v1.0/reference/configuration/#coredns) for more information. (see [below for nested schema](#nestedatt--coredns))
-- `discovery` (Attributes) Configures cluster membership discovery. (see [below for nested schema](#nestedatt--discovery))
-- `disks` (Attributes List) Represents partitioning for disks on the machine. (see [below for nested schema](#nestedatt--disks))
-- `encryption` (Attributes) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption))
-- `env` (Map of String) Allows for the addition of environment variables. All environment variables are set on PID 1 in addition to every service.
-- `etcd` (Attributes) Represents the etcd configuration options. (see [below for nested schema](#nestedatt--etcd))
-- `external_cloud_provider` (List of String) Contains external cloud provider configuration.
-- `extra_manifest_headers` (Map of String) A map of key value pairs that will be added while fetching the extraManifests.
-- `extra_manifests` (List of String) A list of urls that point to additional manifests. These will get automatically deployed as part of the bootstrap.
-- `files` (Attributes List) Describes a machine's files and it's contents and how it will be written to the node's filesystem. (see [below for nested schema](#nestedatt--files))
-- `inline_manifests` (Attributes List) Describes inline bootstrap manifests for the user. These will get automatically deployed as part of the bootstrap. (see [below for nested schema](#nestedatt--inline_manifests))
-- `kernel` (Attributes) Configures Talos Linux kernel. (see [below for nested schema](#nestedatt--kernel))
-- `kubelet` (Attributes) Represents the kubelet's config values. (see [below for nested schema](#nestedatt--kubelet))
-- `logging` (Attributes) Configures Talos logging. (see [below for nested schema](#nestedatt--logging))
-- `pods` (List of String) Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.
-- `proxy` (Attributes) Represents the kube proxy configuration options. (see [below for nested schema](#nestedatt--proxy))
-- `registry` (Attributes) Represents the image pull options. (see [below for nested schema](#nestedatt--registry))
-- `scheduler` (Attributes) Represents the kube scheduler configuration options. (see [below for nested schema](#nestedatt--scheduler))
-- `sysctls` (Map of String) Used to configure the machine’s sysctls.
-- `sysfs` (Map of String) Used to configure the machine’s sysctls.
-- `time` (Attributes) Represents the options for configuring time on a machine. (see [below for nested schema](#nestedatt--time))
-- `udev` (List of String) Configures the udev system.
 
 ### Read-Only
 
 - `id` (String) Identifier hash, derived from the node's name.
 - `patch` (String, Sensitive)
 
-<a id="nestedatt--install"></a>
-### Nested Schema for `install`
+<a id="nestedatt--config"></a>
+### Nested Schema for `config`
+
+Required:
+
+- `admin_kube_config` (Attributes) Contains admin kubeconfig settings. (see [below for nested schema](#nestedatt--config--admin_kube_config))
+- `allow_scheduling_on_masters` (Boolean) Allows running workload on master nodes.
+- `apiserver` (Attributes) Represents the kube apiserver configuration options. (see [below for nested schema](#nestedatt--config--apiserver))
+- `cert_sans` (List of String) Extra certificate subject alternative names for the machine’s certificate.
+- `control_plane` (Attributes) Represents the control plane configuration options. (see [below for nested schema](#nestedatt--config--control_plane))
+- `control_plane_config` (Attributes) Configures options pertaining to the Kubernetes control plane that's installed onto the machine (see [below for nested schema](#nestedatt--config--control_plane_config))
+- `controller_manager` (Attributes) Represents the kube controller manager configuration options. (see [below for nested schema](#nestedatt--config--controller_manager))
+- `coredns` (Attributes) Represents the CoreDNS config values.
+Refer to [CoreDNS in the TalosOS Documentation](https://www.talos.dev/v1.0/reference/configuration/#coredns) for more information. (see [below for nested schema](#nestedatt--config--coredns))
+- `discovery` (Attributes) Configures cluster membership discovery. (see [below for nested schema](#nestedatt--config--discovery))
+- `disks` (Attributes List) Represents partitioning for disks on the machine. (see [below for nested schema](#nestedatt--config--disks))
+- `encryption` (Attributes) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--config--encryption))
+- `env` (Map of String) Allows for the addition of environment variables. All environment variables are set on PID 1 in addition to every service.
+- `etcd` (Attributes) Represents the etcd configuration options. (see [below for nested schema](#nestedatt--config--etcd))
+- `external_cloud_provider` (List of String) Contains external cloud provider configuration.
+- `extra_manifest_headers` (Map of String) A map of key value pairs that will be added while fetching the extraManifests.
+- `extra_manifests` (List of String) A list of urls that point to additional manifests. These will get automatically deployed as part of the bootstrap.
+- `files` (Attributes List) Describes a machine's files and it's contents and how it will be written to the node's filesystem. (see [below for nested schema](#nestedatt--config--files))
+- `inline_manifests` (Attributes List) Describes inline bootstrap manifests for the user. These will get automatically deployed as part of the bootstrap. (see [below for nested schema](#nestedatt--config--inline_manifests))
+- `install` (Attributes) Represents installation options for Talos nodes. (see [below for nested schema](#nestedatt--config--install))
+- `kernel` (Attributes) Configures Talos Linux kernel. (see [below for nested schema](#nestedatt--config--kernel))
+- `kubelet` (Attributes) Represents the kubelet's config values. (see [below for nested schema](#nestedatt--config--kubelet))
+- `logging` (Attributes) Configures Talos logging. (see [below for nested schema](#nestedatt--config--logging))
+- `network` (Attributes) (see [below for nested schema](#nestedatt--config--network))
+- `pods` (List of String) Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.
+- `proxy` (Attributes) Represents the kube proxy configuration options. (see [below for nested schema](#nestedatt--config--proxy))
+- `registry` (Attributes) Represents the image pull options. (see [below for nested schema](#nestedatt--config--registry))
+- `scheduler` (Attributes) Represents the kube scheduler configuration options. (see [below for nested schema](#nestedatt--config--scheduler))
+- `sysctls` (Map of String) Used to configure the machine’s sysctls.
+- `sysfs` (Map of String) Used to configure the machine’s sysctls.
+- `time` (Attributes) Represents the options for configuring time on a machine. (see [below for nested schema](#nestedatt--config--time))
+- `udev` (List of String) Configures the udev system.
+
+<a id="nestedatt--config--admin_kube_config"></a>
+### Nested Schema for `config.admin_kube_config`
+
+Required:
+
+- `cert_lifetime` (String) Admin kubeconfig certificate lifetime (default is 1 year).
+Field format accepts any Go time.Duration format (‘1h’ for one hour, ‘10m’ for ten minutes).
+
+
+<a id="nestedatt--config--apiserver"></a>
+### Nested Schema for `config.apiserver`
+
+Required:
+
+- `admission_control` (Attributes List) Configures pod admssion rules on the kubelet64Type, denying execution to pods that don't fit them. (see [below for nested schema](#nestedatt--config--apiserver--admission_control))
+- `cert_sans` (List of String) Extra certificate subject alternative names for the API server’s certificate.
+- `disable_pod_security_policy` (Boolean) Disable PodSecurityPolicy in the API server and default manifests.
+- `env` (Map of String) The env field allows for the addition of environment variables for the control plane component.
+- `extra_args` (Map of String) Extra arguments to supply to the API server.
+- `extra_volumes` (Attributes List) (see [below for nested schema](#nestedatt--config--apiserver--extra_volumes))
+- `image` (String) The container image used in the API server manifest.
+
+<a id="nestedatt--config--apiserver--admission_control"></a>
+### Nested Schema for `config.apiserver.admission_control`
+
+Required:
+
+- `configuration` (String) Configuration is an embedded configuration object to be used as the plugin’s configuration.
+- `name` (String) Name is the name of the admission controller. It must match the registered admission plugin name.
+
+
+<a id="nestedatt--config--apiserver--extra_volumes"></a>
+### Nested Schema for `config.apiserver.extra_volumes`
+
+Required:
+
+- `host_path` (String) Path on the host.
+- `mount_path` (String) Path in the container.
+- `readonly` (Boolean) Mount the volume read only.
+
+
+
+<a id="nestedatt--config--control_plane"></a>
+### Nested Schema for `config.control_plane`
+
+Required:
+
+- `endpoint` (String) Endpoint is the canonical controlplane endpoint, which can be an IP address or a DNS hostname.
+- `local_api_server_port` (Number) The port that the API server listens on internally. This may be different than the port portion listed in the endpoint field.
+
+
+<a id="nestedatt--config--control_plane_config"></a>
+### Nested Schema for `config.control_plane_config`
+
+Required:
+
+- `controller_manager_disabled` (Boolean) Disable kube-controller-manager on the node.
+- `scheduler_disabled` (Boolean) Disable kube-scheduler on the node.
+
+
+<a id="nestedatt--config--controller_manager"></a>
+### Nested Schema for `config.controller_manager`
+
+Required:
+
+- `env` (Map of String) The env field allows for the addition of environment variables for the control plane component.
+- `extra_args` (Map of String) Extra arguments to supply to the controller manager.
+- `extra_volumes` (Attributes List) (see [below for nested schema](#nestedatt--config--controller_manager--extra_volumes))
+- `image` (String) The container image used in the controller manager manifest.
+
+<a id="nestedatt--config--controller_manager--extra_volumes"></a>
+### Nested Schema for `config.controller_manager.extra_volumes`
+
+Required:
+
+- `host_path` (String) Path on the host.
+- `mount_path` (String) Path in the container.
+- `readonly` (Boolean) Mount the volume read only.
+
+
+
+<a id="nestedatt--config--coredns"></a>
+### Nested Schema for `config.coredns`
+
+Required:
+
+- `disabled` (Boolean) Disable coredns deployment on cluster bootstrap.
+- `image` (String) The `image` field is an override to the default coredns image.
+
+
+<a id="nestedatt--config--discovery"></a>
+### Nested Schema for `config.discovery`
+
+Required:
+
+- `kubernetes_disabled` (Boolean) Disable Kubernetes discovery registry.
+- `service_disabled` (Boolean) Disable external service discovery registry.
+- `service_endpoint` (String) External service endpoint.
+
+
+<a id="nestedatt--config--disks"></a>
+### Nested Schema for `config.disks`
+
+Required:
+
+- `device_name` (String) Block device name.
+- `partitions` (Attributes List) Represents the options for a disk partition. (see [below for nested schema](#nestedatt--config--disks--partitions))
+
+<a id="nestedatt--config--disks--partitions"></a>
+### Nested Schema for `config.disks.partitions`
+
+Required:
+
+- `mount_point` (String) Where the partition will be mounted.
+- `size` (String) The size of partition: either bytes or human readable representation.
+If `size:`is omitted, the partition is sized to occupy the full disk.
+
+
+
+<a id="nestedatt--config--encryption"></a>
+### Nested Schema for `config.encryption`
+
+Required:
+
+- `ephemeral` (Attributes) Represents partition encryption settings. (see [below for nested schema](#nestedatt--config--encryption--ephemeral))
+- `state` (Attributes) Represents partition encryption settings. (see [below for nested schema](#nestedatt--config--encryption--state))
+
+<a id="nestedatt--config--encryption--ephemeral"></a>
+### Nested Schema for `config.encryption.ephemeral`
+
+Required:
+
+- `blocksize` (Number) Defines the encryption block size.
+- `cipher` (String) Cipher kind to use for the encryption. Depends on the encryption provider.
+- `crypt_provider` (String) Encryption provider to use for the encryption.
+- `keys` (Attributes List) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--config--encryption--ephemeral--keys))
+- `keysize` (Number) Defines the encryption key size.
+- `perf_options` (List of String) Additional --perf parameters for LUKS2 encryption.
+
+<a id="nestedatt--config--encryption--ephemeral--keys"></a>
+### Nested Schema for `config.encryption.ephemeral.perf_options`
+
+Required:
+
+- `key_static` (String) Represents a throw away key type.
+- `node_id` (Boolean) Represents a deterministically generated key from the node UUID and PartitionLabel. Setting this value to true will enable it.
+- `slot` (Number) Defines the encryption block size.
+
+
+
+<a id="nestedatt--config--encryption--state"></a>
+### Nested Schema for `config.encryption.state`
+
+Required:
+
+- `blocksize` (Number) Defines the encryption block size.
+- `cipher` (String) Cipher kind to use for the encryption. Depends on the encryption provider.
+- `crypt_provider` (String) Encryption provider to use for the encryption.
+- `keys` (Attributes List) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--config--encryption--state--keys))
+- `keysize` (Number) Defines the encryption key size.
+- `perf_options` (List of String) Additional --perf parameters for LUKS2 encryption.
+
+<a id="nestedatt--config--encryption--state--keys"></a>
+### Nested Schema for `config.encryption.state.perf_options`
+
+Required:
+
+- `key_static` (String) Represents a throw away key type.
+- `node_id` (Boolean) Represents a deterministically generated key from the node UUID and PartitionLabel. Setting this value to true will enable it.
+- `slot` (Number) Defines the encryption block size.
+
+
+
+
+<a id="nestedatt--config--etcd"></a>
+### Nested Schema for `config.etcd`
+
+Required:
+
+- `ca_crt` (String) PEM encoded etcd root certificate authority crt.
+- `ca_key` (String) PEM encoded etcd root certificate authority key.
+- `extra_args` (Map of String) Extra arguments to supply to etcd.
+- `image` (String) The container image used to create the etcd service.
+- `subnet` (String) The subnet from which the advertise URL should be.
+
+
+<a id="nestedatt--config--files"></a>
+### Nested Schema for `config.files`
+
+Required:
+
+- `content` (String) The file's content. Not required to be base64 encoded.
+- `op` (String) Mode for the file. Can be one of create, append and overwrite.
+- `path` (String) Full path for the file to be created at.
+- `permissions` (Number) Unix permission for the file
+
+
+<a id="nestedatt--config--inline_manifests"></a>
+### Nested Schema for `config.inline_manifests`
+
+Required:
+
+- `content` (String) The manifest's content. Must be a valid kubernetes YAML.
+- `name` (String) The manifest's name.
+
+
+<a id="nestedatt--config--install"></a>
+### Nested Schema for `config.install`
 
 Required:
 
@@ -401,37 +600,87 @@ Required:
 - `wipe` (Boolean)
 
 
-<a id="nestedatt--network"></a>
-### Nested Schema for `network`
+<a id="nestedatt--config--kernel"></a>
+### Nested Schema for `config.kernel`
 
 Required:
 
-- `devices` (Attributes List) Describes a Talos network device configuration. The map's key is the interface name. (see [below for nested schema](#nestedatt--network--devices))
+- `modules` (List of String) Configures Linux kernel modules to load.
+
+
+<a id="nestedatt--config--kubelet"></a>
+### Nested Schema for `config.kubelet`
+
+Required:
+
+- `cluster_dns` (List of String) An optional reference to an alternative kubelet clusterDNS ip list.
+- `extra_args` (Map of String) Used to provide additional flags to the kubelet.
+- `extra_config` (String) The extraConfig field is used to provide kubelet configuration overrides. Must be valid YAML
+- `extra_mount` (Attributes List) Wraps the OCI Mount specification. (see [below for nested schema](#nestedatt--config--kubelet--extra_mount))
+- `image` (String) An optional reference to an alternative kubelet image.
+- `node_ip_valid_subnets` (List of String) The validSubnets field configures the networks to pick kubelet node IP from.
+- `register_with_fqdn` (Boolean) Used to force kubelet to use the node FQDN for registration. This is required in clouds like AWS.
+
+<a id="nestedatt--config--kubelet--extra_mount"></a>
+### Nested Schema for `config.kubelet.extra_mount`
+
+Required:
+
+- `destination` (String) Destination of mount point: path inside container. This value MUST be an absolute path.
+- `options` (List of String) Mount options of the filesystem to be used.
+- `source` (String) A device name, but can also be a file or directory name for bind mounts or a dummy. Path values for bind mounts are either absolute or relative to the bundle. A mount is a bind mount if it has either bind or rbind in the options.
+- `type` (String) The type of the filesystem to be mounted.
+
+
+
+<a id="nestedatt--config--logging"></a>
+### Nested Schema for `config.logging`
+
+Required:
+
+- `destinations` (Attributes List) Configures Talos logging destination. (see [below for nested schema](#nestedatt--config--logging--destinations))
+
+<a id="nestedatt--config--logging--destinations"></a>
+### Nested Schema for `config.logging.destinations`
+
+Required:
+
+- `endpoint` (String) Where to send logs. Supported protocols are “tcp” and “udp”.
+- `format` (String) Logs format.
+
+
+
+<a id="nestedatt--config--network"></a>
+### Nested Schema for `config.network`
+
+Required:
+
+- `devices` (Attributes List) Describes a Talos network device configuration. The map's key is the interface name. (see [below for nested schema](#nestedatt--config--network--devices))
 - `extra_hosts` (Map of List of String) Allows for extra entries to be added to the `/etc/hosts` file.
 - `hostname` (String) Used to statically set the hostname for the machine.
-- `kubespan` (Attributes) describes talos KubeSpan configuration. (see [below for nested schema](#nestedatt--network--kubespan))
+- `kubespan` (Attributes) describes talos KubeSpan configuration. (see [below for nested schema](#nestedatt--config--network--kubespan))
 - `nameservers` (List of String) Used to statically set the nameservers for the machine.
 
-<a id="nestedatt--network--devices"></a>
-### Nested Schema for `network.devices`
+<a id="nestedatt--config--network--devices"></a>
+### Nested Schema for `config.network.devices`
 
 Required:
 
 - `addresses` (List of String) A list of IP addresses for the interface.
-- `bond` (Attributes) Contains the various options for configuring a bonded interface. (see [below for nested schema](#nestedatt--network--devices--bond))
+- `bond` (Attributes) Contains the various options for configuring a bonded interface. (see [below for nested schema](#nestedatt--config--network--devices--bond))
 - `dhcp` (Boolean) Indicates if DHCP should be used to configure the interface.
-- `dhcp_options` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--network--devices--dhcp_options))
+- `dhcp_options` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--config--network--devices--dhcp_options))
 - `dummy` (Boolean) Indicates if the interface is a dummy interface..
 - `ignore` (Boolean) Indicates if the interface should be ignored (skips configuration).
 - `mtu` (Number) The interface’s MTU. If used in combination with DHCP, this will override any MTU settings returned from DHCP server.
 - `name` (String) Network device's Linux interface name.
-- `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--network--devices--routes))
-- `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--network--devices--vip))
-- `vlans` (Attributes List) Represents vlan settings for a device. (see [below for nested schema](#nestedatt--network--devices--vlans))
-- `wireguard` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--network--devices--wireguard))
+- `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--config--network--devices--routes))
+- `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--config--network--devices--vip))
+- `vlans` (Attributes List) Represents vlan settings for a device. (see [below for nested schema](#nestedatt--config--network--devices--vlans))
+- `wireguard` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--config--network--devices--wireguard))
 
-<a id="nestedatt--network--devices--bond"></a>
-### Nested Schema for `network.devices.bond`
+<a id="nestedatt--config--network--devices--bond"></a>
+### Nested Schema for `config.network.devices.wireguard`
 
 Required:
 
@@ -464,19 +713,19 @@ Required:
 - `xmit_hash_policy` (String) A bond option. Please see the official kernel documentation.
 
 
-<a id="nestedatt--network--devices--dhcp_options"></a>
-### Nested Schema for `network.devices.dhcp_options`
+<a id="nestedatt--config--network--devices--dhcp_options"></a>
+### Nested Schema for `config.network.devices.wireguard`
 
 Required:
 
 - `firewall_mark` (Number) Firewall mark for wireguard packets.
 - `listen_port` (Number) Listening port for if this node should be a wireguard server.
-- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--devices--dhcp_options--peer))
+- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--config--network--devices--wireguard--peer))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
 - `public_key` (String) Automatically derived from the private_key field.
 
-<a id="nestedatt--network--devices--dhcp_options--peer"></a>
-### Nested Schema for `network.devices.dhcp_options.public_key`
+<a id="nestedatt--config--network--devices--wireguard--peer"></a>
+### Nested Schema for `config.network.devices.wireguard.peer`
 
 Required:
 
@@ -487,8 +736,8 @@ Required:
 
 
 
-<a id="nestedatt--network--devices--routes"></a>
-### Nested Schema for `network.devices.routes`
+<a id="nestedatt--config--network--devices--routes"></a>
+### Nested Schema for `config.network.devices.wireguard`
 
 Required:
 
@@ -498,8 +747,8 @@ Required:
 - `source` (String) The route’s source address.
 
 
-<a id="nestedatt--network--devices--vip"></a>
-### Nested Schema for `network.devices.vip`
+<a id="nestedatt--config--network--devices--vip"></a>
+### Nested Schema for `config.network.devices.wireguard`
 
 Required:
 
@@ -508,20 +757,20 @@ Required:
 - `ip` (String) Specifies the IP address to be used.
 
 
-<a id="nestedatt--network--devices--vlans"></a>
-### Nested Schema for `network.devices.vlans`
+<a id="nestedatt--config--network--devices--vlans"></a>
+### Nested Schema for `config.network.devices.wireguard`
 
 Required:
 
 - `addresses` (List of String) A list of IP addresses for the interface.
 - `dhcp` (Boolean) Indicates if DHCP should be used.
 - `mtu` (Number) The VLAN’s MTU. Must be a 32 bit unsigned integer.
-- `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--network--devices--vlans--routes))
-- `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--network--devices--vlans--vip))
+- `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--config--network--devices--wireguard--routes))
+- `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--config--network--devices--wireguard--vip))
 - `vlan_id` (Number) The VLAN’s ID. Must be a 16 bit unsigned integer.
 
-<a id="nestedatt--network--devices--vlans--routes"></a>
-### Nested Schema for `network.devices.vlans.vlan_id`
+<a id="nestedatt--config--network--devices--wireguard--routes"></a>
+### Nested Schema for `config.network.devices.wireguard.routes`
 
 Required:
 
@@ -531,8 +780,8 @@ Required:
 - `source` (String) The route’s source address.
 
 
-<a id="nestedatt--network--devices--vlans--vip"></a>
-### Nested Schema for `network.devices.vlans.vlan_id`
+<a id="nestedatt--config--network--devices--wireguard--vip"></a>
+### Nested Schema for `config.network.devices.wireguard.vip`
 
 Required:
 
@@ -542,19 +791,19 @@ Required:
 
 
 
-<a id="nestedatt--network--devices--wireguard"></a>
-### Nested Schema for `network.devices.wireguard`
+<a id="nestedatt--config--network--devices--wireguard"></a>
+### Nested Schema for `config.network.devices.wireguard`
 
 Required:
 
 - `firewall_mark` (Number) Firewall mark for wireguard packets.
 - `listen_port` (Number) Listening port for if this node should be a wireguard server.
-- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--devices--wireguard--peer))
+- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--config--network--devices--wireguard--peer))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
 - `public_key` (String) Automatically derived from the private_key field.
 
-<a id="nestedatt--network--devices--wireguard--peer"></a>
-### Nested Schema for `network.devices.wireguard.public_key`
+<a id="nestedatt--config--network--devices--wireguard--peer"></a>
+### Nested Schema for `config.network.devices.wireguard.peer`
 
 Required:
 
@@ -566,8 +815,8 @@ Required:
 
 
 
-<a id="nestedatt--network--kubespan"></a>
-### Nested Schema for `network.kubespan`
+<a id="nestedatt--config--network--kubespan"></a>
+### Nested Schema for `config.network.kubespan`
 
 Required:
 
@@ -576,266 +825,10 @@ Required:
 
 
 
-<a id="nestedatt--admin_kube_config"></a>
-### Nested Schema for `admin_kube_config`
+<a id="nestedatt--config--proxy"></a>
+### Nested Schema for `config.proxy`
 
-Optional:
-
-- `cert_lifetime` (String) Admin kubeconfig certificate lifetime (default is 1 year).
-Field format accepts any Go time.Duration format (‘1h’ for one hour, ‘10m’ for ten minutes).
-
-
-<a id="nestedatt--apiserver"></a>
-### Nested Schema for `apiserver`
-
-Optional:
-
-- `admission_control` (Attributes List) Configures pod admssion rules on the kubelet64Type, denying execution to pods that don't fit them. (see [below for nested schema](#nestedatt--apiserver--admission_control))
-- `cert_sans` (List of String) Extra certificate subject alternative names for the API server’s certificate.
-- `disable_pod_security_policy` (Boolean) Disable PodSecurityPolicy in the API server and default manifests.
-- `env` (Map of String) The env field allows for the addition of environment variables for the control plane component.
-- `extra_args` (Map of String) Extra arguments to supply to the API server.
-- `extra_volumes` (Attributes List) (see [below for nested schema](#nestedatt--apiserver--extra_volumes))
-- `image` (String) The container image used in the API server manifest.
-
-<a id="nestedatt--apiserver--admission_control"></a>
-### Nested Schema for `apiserver.admission_control`
-
-Optional:
-
-- `configuration` (String) Configuration is an embedded configuration object to be used as the plugin’s configuration.
-- `name` (String) Name is the name of the admission controller. It must match the registered admission plugin name.
-
-
-<a id="nestedatt--apiserver--extra_volumes"></a>
-### Nested Schema for `apiserver.extra_volumes`
-
-Optional:
-
-- `host_path` (String) Path on the host.
-- `mount_path` (String) Path in the container.
-- `readonly` (Boolean) Mount the volume read only.
-
-
-
-<a id="nestedatt--control_plane"></a>
-### Nested Schema for `control_plane`
-
-Optional:
-
-- `endpoint` (String) Endpoint is the canonical controlplane endpoint, which can be an IP address or a DNS hostname.
-- `local_api_server_port` (Number) The port that the API server listens on internally. This may be different than the port portion listed in the endpoint field.
-
-
-<a id="nestedatt--control_plane_config"></a>
-### Nested Schema for `control_plane_config`
-
-Optional:
-
-- `controller_manager_disabled` (Boolean) Disable kube-controller-manager on the node.
-- `scheduler_disabled` (Boolean) Disable kube-scheduler on the node.
-
-
-<a id="nestedatt--controller_manager"></a>
-### Nested Schema for `controller_manager`
-
-Optional:
-
-- `env` (Map of String) The env field allows for the addition of environment variables for the control plane component.
-- `extra_args` (Map of String) Extra arguments to supply to the controller manager.
-- `extra_volumes` (Attributes List) (see [below for nested schema](#nestedatt--controller_manager--extra_volumes))
-- `image` (String) The container image used in the controller manager manifest.
-
-<a id="nestedatt--controller_manager--extra_volumes"></a>
-### Nested Schema for `controller_manager.extra_volumes`
-
-Optional:
-
-- `host_path` (String) Path on the host.
-- `mount_path` (String) Path in the container.
-- `readonly` (Boolean) Mount the volume read only.
-
-
-
-<a id="nestedatt--coredns"></a>
-### Nested Schema for `coredns`
-
-Optional:
-
-- `disabled` (Boolean) Disable coredns deployment on cluster bootstrap.
-- `image` (String) The `image` field is an override to the default coredns image.
-
-
-<a id="nestedatt--discovery"></a>
-### Nested Schema for `discovery`
-
-Optional:
-
-- `kubernetes_disabled` (Boolean) Disable Kubernetes discovery registry.
-- `service_disabled` (Boolean) Disable external service discovery registry.
-- `service_endpoint` (String) External service endpoint.
-
-
-<a id="nestedatt--disks"></a>
-### Nested Schema for `disks`
-
-Optional:
-
-- `device_name` (String) Block device name.
-- `partitions` (Attributes List) Represents the options for a disk partition. (see [below for nested schema](#nestedatt--disks--partitions))
-
-<a id="nestedatt--disks--partitions"></a>
-### Nested Schema for `disks.partitions`
-
-Optional:
-
-- `mount_point` (String) Where the partition will be mounted.
-- `size` (String) The size of partition: either bytes or human readable representation.
-If `size:`is omitted, the partition is sized to occupy the full disk.
-
-
-
-<a id="nestedatt--encryption"></a>
-### Nested Schema for `encryption`
-
-Optional:
-
-- `ephemeral` (Attributes) Represents partition encryption settings. (see [below for nested schema](#nestedatt--encryption--ephemeral))
-- `state` (Attributes) Represents partition encryption settings. (see [below for nested schema](#nestedatt--encryption--state))
-
-<a id="nestedatt--encryption--ephemeral"></a>
-### Nested Schema for `encryption.ephemeral`
-
-Optional:
-
-- `blocksize` (Number) Defines the encryption block size.
-- `cipher` (String) Cipher kind to use for the encryption. Depends on the encryption provider.
-- `crypt_provider` (String) Encryption provider to use for the encryption.
-- `keys` (Attributes List) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption--ephemeral--keys))
-- `keysize` (Number) Defines the encryption key size.
-- `perf_options` (List of String) Additional --perf parameters for LUKS2 encryption.
-
-<a id="nestedatt--encryption--ephemeral--keys"></a>
-### Nested Schema for `encryption.ephemeral.keys`
-
-Optional:
-
-- `key_static` (String) Represents a throw away key type.
-- `node_id` (Boolean) Represents a deterministically generated key from the node UUID and PartitionLabel. Setting this value to true will enable it.
-- `slot` (Number) Defines the encryption block size.
-
-
-
-<a id="nestedatt--encryption--state"></a>
-### Nested Schema for `encryption.state`
-
-Optional:
-
-- `blocksize` (Number) Defines the encryption block size.
-- `cipher` (String) Cipher kind to use for the encryption. Depends on the encryption provider.
-- `crypt_provider` (String) Encryption provider to use for the encryption.
-- `keys` (Attributes List) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption--state--keys))
-- `keysize` (Number) Defines the encryption key size.
-- `perf_options` (List of String) Additional --perf parameters for LUKS2 encryption.
-
-<a id="nestedatt--encryption--state--keys"></a>
-### Nested Schema for `encryption.state.keys`
-
-Optional:
-
-- `key_static` (String) Represents a throw away key type.
-- `node_id` (Boolean) Represents a deterministically generated key from the node UUID and PartitionLabel. Setting this value to true will enable it.
-- `slot` (Number) Defines the encryption block size.
-
-
-
-
-<a id="nestedatt--etcd"></a>
-### Nested Schema for `etcd`
-
-Optional:
-
-- `ca_crt` (String) PEM encoded etcd root certificate authority crt.
-- `ca_key` (String) PEM encoded etcd root certificate authority key.
-- `extra_args` (Map of String) Extra arguments to supply to etcd.
-- `image` (String) The container image used to create the etcd service.
-- `subnet` (String) The subnet from which the advertise URL should be.
-
-
-<a id="nestedatt--files"></a>
-### Nested Schema for `files`
-
-Optional:
-
-- `content` (String) The file's content. Not required to be base64 encoded.
-- `op` (String) Mode for the file. Can be one of create, append and overwrite.
-- `path` (String) Full path for the file to be created at.
-- `permissions` (Number) Unix permission for the file
-
-
-<a id="nestedatt--inline_manifests"></a>
-### Nested Schema for `inline_manifests`
-
-Optional:
-
-- `content` (String) The manifest's content. Must be a valid kubernetes YAML.
-- `name` (String) The manifest's name.
-
-
-<a id="nestedatt--kernel"></a>
-### Nested Schema for `kernel`
-
-Optional:
-
-- `modules` (List of String) Configures Linux kernel modules to load.
-
-
-<a id="nestedatt--kubelet"></a>
-### Nested Schema for `kubelet`
-
-Optional:
-
-- `cluster_dns` (List of String) An optional reference to an alternative kubelet clusterDNS ip list.
-- `extra_args` (Map of String) Used to provide additional flags to the kubelet.
-- `extra_config` (String) The extraConfig field is used to provide kubelet configuration overrides. Must be valid YAML
-- `extra_mount` (Attributes List) Wraps the OCI Mount specification. (see [below for nested schema](#nestedatt--kubelet--extra_mount))
-- `image` (String) An optional reference to an alternative kubelet image.
-- `node_ip_valid_subnets` (List of String) The validSubnets field configures the networks to pick kubelet node IP from.
-- `register_with_fqdn` (Boolean) Used to force kubelet to use the node FQDN for registration. This is required in clouds like AWS.
-
-<a id="nestedatt--kubelet--extra_mount"></a>
-### Nested Schema for `kubelet.extra_mount`
-
-Optional:
-
-- `destination` (String) Destination of mount point: path inside container. This value MUST be an absolute path.
-- `options` (List of String) Mount options of the filesystem to be used.
-- `source` (String) A device name, but can also be a file or directory name for bind mounts or a dummy. Path values for bind mounts are either absolute or relative to the bundle. A mount is a bind mount if it has either bind or rbind in the options.
-- `type` (String) The type of the filesystem to be mounted.
-
-
-
-<a id="nestedatt--logging"></a>
-### Nested Schema for `logging`
-
-Optional:
-
-- `destinations` (Attributes List) Configures Talos logging destination. (see [below for nested schema](#nestedatt--logging--destinations))
-
-<a id="nestedatt--logging--destinations"></a>
-### Nested Schema for `logging.destinations`
-
-Optional:
-
-- `endpoint` (String) Where to send logs. Supported protocols are “tcp” and “udp”.
-- `format` (String) Logs format.
-
-
-
-<a id="nestedatt--proxy"></a>
-### Nested Schema for `proxy`
-
-Optional:
+Required:
 
 - `extra_args` (Map of String) Extra arguments to supply to kube-proxy.
 - `image` (String) The container image used in the kube-proxy manifest.
@@ -843,20 +836,20 @@ Optional:
 - `mode` (String) The container image used in the kube-proxy manifest.
 
 
-<a id="nestedatt--registry"></a>
-### Nested Schema for `registry`
+<a id="nestedatt--config--registry"></a>
+### Nested Schema for `config.registry`
 
-Optional:
+Required:
 
 - `configs` (Attributes Map) Specifies TLS & auth configuration for HTTPS image registries. The meaning of each auth_field is the same with the corresponding field in .docker/config.json.
 
-Key description: The first segment of an image identifier, with ‘docker.io’ being default one. To catch any registry names not specified explicitly, use ‘*’. (see [below for nested schema](#nestedatt--registry--configs))
+Key description: The first segment of an image identifier, with ‘docker.io’ being default one. To catch any registry names not specified explicitly, use ‘*’. (see [below for nested schema](#nestedatt--config--registry--configs))
 - `mirrors` (Map of List of String) Specifies mirror configuration for each registry.
 
-<a id="nestedatt--registry--configs"></a>
-### Nested Schema for `registry.configs`
+<a id="nestedatt--config--registry--configs"></a>
+### Nested Schema for `config.registry.configs`
 
-Optional:
+Required:
 
 - `auth` (String, Sensitive) Auth for optional registry authentication.
 - `ca` (String) CA registry certificate to add the list of trusted certificates. Non base64 encoded.
@@ -869,20 +862,20 @@ Optional:
 
 
 
-<a id="nestedatt--scheduler"></a>
-### Nested Schema for `scheduler`
+<a id="nestedatt--config--scheduler"></a>
+### Nested Schema for `config.scheduler`
 
-Optional:
+Required:
 
 - `env` (Map of String) The env field allows for the addition of environment variables for the control plane component.
 - `extra_args` (Map of String) Extra arguments to supply to the scheduler.
-- `extra_volumes` (Attributes List) (see [below for nested schema](#nestedatt--scheduler--extra_volumes))
+- `extra_volumes` (Attributes List) (see [below for nested schema](#nestedatt--config--scheduler--extra_volumes))
 - `image` (String) The container image used in the scheduler manifest.
 
-<a id="nestedatt--scheduler--extra_volumes"></a>
-### Nested Schema for `scheduler.extra_volumes`
+<a id="nestedatt--config--scheduler--extra_volumes"></a>
+### Nested Schema for `config.scheduler.extra_volumes`
 
-Optional:
+Required:
 
 - `host_path` (String) Path on the host.
 - `mount_path` (String) Path in the container.
@@ -890,10 +883,10 @@ Optional:
 
 
 
-<a id="nestedatt--time"></a>
-### Nested Schema for `time`
+<a id="nestedatt--config--time"></a>
+### Nested Schema for `config.time`
 
-Optional:
+Required:
 
 - `boot_timeout` (String) Specifies the timeout when the node time is considered to be in sync unlocking the boot sequence.
 NTP sync will be still running in the background.
