@@ -21,3 +21,22 @@ func (planAdminKubeconfig AdminKubeconfigConfig) DataFunc() [](func(*v1alpha1.Co
 		},
 	}
 }
+
+type TalosAdminKubeconfigConfig struct {
+	*v1alpha1.AdminKubeconfigConfig
+}
+
+func (talosKubeconfig TalosAdminKubeconfigConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.AdminKubeConfig == nil {
+				planConfig.AdminKubeConfig = &AdminKubeconfigConfig{}
+			}
+
+			planConfig.AdminKubeConfig.CertLifetime = readStringDuration(talosKubeconfig.CertLifetime())
+
+			return nil
+		},
+	}
+	return funs
+}

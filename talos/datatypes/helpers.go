@@ -57,6 +57,28 @@ func ApplyDataFunc(cfg *v1alpha1.Config, funcs []ConfigDataFunc) error {
 	return nil
 }
 
+func AppendReadFunc(in []ConfigReadFunc, readers ...ConfigToPlanFunc) (out []ConfigReadFunc) {
+	out = in
+
+	for _, data := range readers {
+		if !reflect.ValueOf(data).IsZero() {
+			out = append(out, data.ReadFunc()...)
+		}
+	}
+
+	return
+}
+
+func ApplyReadFunc(talosConfig *TalosConfig, funcs []ConfigReadFunc) (TalosConfig, error) {
+	for _, f := range funcs {
+		if err := f(talosConfig); err != nil {
+			return TalosConfig{}, err
+		}
+	}
+
+	return *talosConfig, nil
+}
+
 func setBool(val types.Bool, dest *bool) {
 	if val.Null {
 		return
@@ -93,6 +115,10 @@ func setStringDuration(str types.String, dest *time.Duration) error {
 	*dest = dur
 
 	return nil
+}
+
+func readStringDuration(lifetime time.Duration) types.String {
+	return types.String{Value: lifetime.String()}
 }
 
 func setEndpoint(str types.String, dest *v1alpha1.Endpoint) error {

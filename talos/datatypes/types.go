@@ -369,7 +369,7 @@ var (
 	}
 
 	AdminKubeconfigConfigExample = &AdminKubeconfigConfig{
-		CertLifetime: Wraps("8760h"),
+		CertLifetime: Wraps("8760h0m0s"),
 	}
 
 	APIServerExample = &APIServerConfig{

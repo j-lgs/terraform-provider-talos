@@ -19,9 +19,7 @@ type PlanToDataFunc interface {
 }
 
 func AppendDataFuncs(in []PlanToDataFunc, funs []PlanToDataFunc) (out []PlanToDataFunc) {
-	out = in
-	out = append(out, funs...)
-	return out
+	return append(in, funs...)
 }
 
 // For reading the node's data
@@ -31,12 +29,8 @@ type ConfigToPlanFunc interface {
 	ReadFunc() []ConfigReadFunc
 }
 
-func appendReadFuncs(in []ConfigToPlanFunc, funs any) (out []ConfigToPlanFunc) {
-	out = in
-	for _, fun := range funs.([]any) {
-		out = append(out, fun.(ConfigToPlanFunc))
-	}
-	return out
+func AppendReadFuncs(in []ConfigToPlanFunc, funs []ConfigToPlanFunc) (out []ConfigToPlanFunc) {
+	return append(in, funs...)
 }
 
 // For initial cluster wide configuration.

@@ -158,7 +158,10 @@ func (plan *talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err err
 		return
 	}
 
-	funcs := datatypes.TalosKubelet{KubeletConfig: in.MachineConfig.MachineKubelet}.ReadFunc()
+	funcs := []datatypes.ConfigToPlanFunc{
+		datatypes.TalosKubelet{KubeletConfig: in.MachineConfig.MachineKubelet},
+		datatypes.TalosAdminKubeconfigConfig{AdminKubeconfigConfig: in.ClusterConfig.AdminKubeconfigConfig},
+	}
 	/*
 		plan.Proxy,
 		plan.Registry,
@@ -188,10 +191,10 @@ func (plan *talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err err
 		plan.ExternalCloudProvider,
 	*/
 
-	for _, f := range funcs {
-		if err := f(&plan.TalosConfig); err != nil {
-			return err
-		}
+	readFuncs := []datatypes.ConfigReadFunc{}
+	readFuncs = datatypes.AppendReadFunc(readFuncs, funcs...)
+	if plan.TalosConfig, err = datatypes.ApplyReadFunc(&plan.TalosConfig, readFuncs); err != nil {
+		return err
 	}
 
 	return nil
