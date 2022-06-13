@@ -39,3 +39,28 @@ func (mount *ExtraMount) Read(mnt interface{}) error {
 
 	return nil
 }
+
+type ExtraMounts = []v1alpha1.ExtraMount
+
+type TalosExtraMounts struct {
+	*ExtraMounts
+}
+
+func (talosExtraMounts TalosExtraMounts) ReadFunc() []ConfigReadFunc {
+	return []ConfigReadFunc{
+		func(talosConfig *TalosConfig) error {
+			for _, mount := range *talosExtraMounts.ExtraMounts {
+				m := ExtraMount{}
+
+				m.Destination = readString(mount.Destination)
+				m.Options = readStringList(mount.Options)
+				m.Source = readString(mount.Source)
+				m.Type = readString(mount.Type)
+
+				talosConfig.Kubelet.ExtraMounts = append(talosConfig.Kubelet.ExtraMounts, m)
+			}
+
+			return nil
+		},
+	}
+}

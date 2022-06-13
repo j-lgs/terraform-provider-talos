@@ -64,12 +64,20 @@ func setBool(val types.Bool, dest *bool) {
 	*dest = val.Value
 }
 
+func readBool(val bool, dest *types.Bool) {
+	*dest = types.Bool{Value: val}
+}
+
 func setString(val types.String, dest *string) {
 	if val.Null {
 		return
 	}
 
 	*dest = val.Value
+}
+
+func readString(val string) types.String {
+	return types.String{Value: val}
 }
 
 func setStringDuration(str types.String, dest *time.Duration) error {
@@ -97,7 +105,7 @@ func setCertKey(crt types.String, key types.String, dest *x509.PEMEncodedCertifi
 		return
 	}
 
-	dest = &x509.PEMEncodedCertificateAndKey{
+	*dest = x509.PEMEncodedCertificateAndKey{
 		Crt: []byte(crt.Value),
 		Key: []byte(key.Value),
 	}
@@ -113,13 +121,21 @@ func setStringList(list []types.String, dest *[]string) {
 		return
 	}
 
-	if len(*dest) == 0 {
-		*dest = []string{}
-	}
-
 	for _, s := range list {
 		*dest = append(*dest, s.Value)
 	}
+}
+
+func readStringList(list []string) (dest []types.String) {
+	if len(list) <= 0 {
+		return
+	}
+
+	for _, s := range list {
+		dest = append(dest, types.String{Value: s})
+	}
+
+	return
 }
 
 func setStringMap(valmap map[string]types.String, dest *map[string]string) {
@@ -138,6 +154,19 @@ func setStringMap(valmap map[string]types.String, dest *map[string]string) {
 	for k, v := range valmap {
 		(*dest)[k] = v.Value
 	}
+}
+
+func readStringMap(valmap map[string]string) (dest map[string]types.String) {
+	if len(valmap) <= 0 {
+		return
+	}
+
+	dest = make(map[string]types.String)
+	for k, v := range valmap {
+		dest[k] = types.String{Value: v}
+	}
+
+	return
 }
 
 func setVolumeMounts(mounts []VolumeMount, dest *[]v1alpha1.VolumeMountConfig) error {
@@ -162,6 +191,17 @@ func setVolumeMounts(mounts []VolumeMount, dest *[]v1alpha1.VolumeMountConfig) e
 	}
 
 	return nil
+}
+
+func readObject(object v1alpha1.Unstructured) (dest types.String, err error) {
+	bytes, err := yaml.Marshal(&object)
+	if err != nil {
+		return
+	}
+
+	dest = types.String{Value: string(bytes)}
+
+	return
 }
 
 func setObjectList(yamls []types.String, dest *[]v1alpha1.Unstructured) error {

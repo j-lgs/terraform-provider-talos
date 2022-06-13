@@ -18,18 +18,23 @@ type PlanToDataFunc interface {
 	DataFunc() []ConfigDataFunc
 }
 
-func ToSliceOfAny[T any](s []T) []any {
-	result := make([]any, len(s))
-	for i, v := range s {
-		result[i] = v
-	}
-	return result
+func AppendDataFuncs(in []PlanToDataFunc, funs []PlanToDataFunc) (out []PlanToDataFunc) {
+	out = in
+	out = append(out, funs...)
+	return out
 }
 
-func AppendDataFuncs(in []PlanToDataFunc, funs any) (out []PlanToDataFunc) {
+// For reading the node's data
+type ConfigReadFunc = func(*TalosConfig) error
+
+type ConfigToPlanFunc interface {
+	ReadFunc() []ConfigReadFunc
+}
+
+func appendReadFuncs(in []ConfigToPlanFunc, funs any) (out []ConfigToPlanFunc) {
 	out = in
 	for _, fun := range funs.([]any) {
-		out = append(out, fun.(PlanToDataFunc))
+		out = append(out, fun.(ConfigToPlanFunc))
 	}
 	return out
 }

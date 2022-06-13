@@ -139,3 +139,37 @@ func (kubelet *KubeletConfig) Read(talosData interface{}) error {
 
 	return nil
 }
+
+type TalosKubelet struct {
+	*v1alpha1.KubeletConfig
+}
+
+func (talosKubelet TalosKubelet) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) error {
+			if planConfig.Kubelet == nil {
+				planConfig.Kubelet = &KubeletConfig{}
+			}
+
+			planConfig.Kubelet.Image = readString(talosKubelet.Image())
+			readBool(talosKubelet.RegisterWithFQDN(), &planConfig.Kubelet.RegisterWithFQDN)
+
+			var obj types.String
+			var err error
+			if obj, err = readObject(talosKubelet.KubeletExtraConfig); err != nil {
+				return err
+			}
+			planConfig.Kubelet.ExtraConfig = obj
+
+			planConfig.Kubelet.ClusterDNS = readStringList(talosKubelet.ClusterDNS())
+			planConfig.Kubelet.ExtraArgs = readStringMap(talosKubelet.ExtraArgs())
+			planConfig.Kubelet.NodeIPValidSubnets = readStringList(talosKubelet.NodeIP().ValidSubnets())
+
+			return nil
+		},
+	}
+
+	funs = append(funs, TalosExtraMounts{ExtraMounts: &talosKubelet.KubeletExtraMounts}.ReadFunc()...)
+
+	return funs
+}

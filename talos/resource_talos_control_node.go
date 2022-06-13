@@ -158,27 +158,43 @@ func (plan *talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err err
 		return
 	}
 
-	plan.Network = &datatypes.NetworkConfig{}
-	plan.Network.Nameservers = []types.String{}
-	for _, ns := range in.MachineConfig.MachineNetwork.NameServers {
-		plan.Network.Nameservers = append(plan.Network.Nameservers, types.String{Value: ns})
-	}
+	funcs := datatypes.TalosKubelet{KubeletConfig: in.MachineConfig.MachineKubelet}.ReadFunc()
 	/*
-		plan.ExtraManifests = []types.String{}
-		for _, manifestURL := range in.ClusterConfig.ExtraManifests {
-			plan.ExtraManifests = append(plan.ExtraManifests, types.String{Value: manifestURL})
-		}
-		for _, inlineManifest := range in.ClusterConfig.ClusterInlineManifests {
-			tfInlineManifest := InlineManifest{}
-			err := tfInlineManifest.Read(inlineManifest)
-			if err != nil {
-				return err
-			}
-			plan.InlineManifests = append(plan.InlineManifests, tfInlineManifest)
-		}
+		plan.Proxy,
+		plan.Registry,
+		plan.MachineControlPlane,
+		plan.Encryption,
+		plan.Install,
+		plan.Network,
+		plan.APIServer,
+		plan.ControlPlane,
+		plan.Sysfs,
+		plan.Sysctls,
+		pla
+		plan.Time,
+		plan.Logging,
+		plan.Kernel,
+		plan.ControllerManager,
+		plan.Scheduler,
+		plan.Discovery,
+		plan.Etcd,
+		plan.CoreDNS,
+		plan.AdminKubeConfig,
+		plan.ExtraManifestHeaders,
+		plan.CertSANS,
+		plan.Udev,
+		plan.ExtraManifests,
+		plan.Pod,
+		plan.ExternalCloudProvider,
 	*/
 
-	return
+	for _, f := range funcs {
+		if err := f(&plan.TalosConfig); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (plan *talosControlNodeResourceData) TalosData(in *v1alpha1.Config) (out *v1alpha1.Config, err error) {
@@ -318,18 +334,15 @@ func (r talosControlNodeResource) Read(ctx context.Context, req tfsdk.ReadResour
 	}
 
 	if !r.provider.skipread {
-		/*
-			conf, errDesc, err := readConfig(ctx, &state, readData{
-				ConfigIP:   state.ConfigIP.Value,
-				BaseConfig: state.BaseConfig.Value,
-			})
-			if err != nil {
-				resp.Diagnostics.AddError(errDesc, err.Error())
-				return
-			}
-			conf = nil
-		*/
-		state.ReadInto(nil)
+		conf, errDesc, err := readConfig(ctx, &state, readData{
+			ConfigIP:   state.ConfigIP.Value,
+			BaseConfig: state.BaseConfig.Value,
+		})
+		if err != nil {
+			resp.Diagnostics.AddError(errDesc, err.Error())
+			return
+		}
+		state.ReadInto(conf)
 	}
 
 	diags = resp.State.Set(ctx, &state)

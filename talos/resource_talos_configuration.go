@@ -13,10 +13,6 @@ import (
 	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 
-	//	"github.com/hashicorp/terraform-plugin-log/tflog"
-	//"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	//"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"

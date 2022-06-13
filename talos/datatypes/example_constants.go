@@ -35,9 +35,10 @@ var (
 	kubeletExtraConfigObjectExample = map[string]interface{}{
 		"serverTLSBootstrap": true,
 	}
-	kubeletExtraConfigExampleString = "serverTLSBootstrap: true"
-	kubeletRegisterWithFQDNExample  = false
-	kubeletSubnetExample            = []string{"10.0.0.0/8", "!10.0.0.3/32", "fdc7::/16"}
+	kubeletExtraConfigExampleString = `serverTLSBootstrap: true
+`
+	kubeletRegisterWithFQDNExample = false
+	kubeletSubnetExample           = []string{"10.0.0.0/8", "!10.0.0.3/32", "fdc7::/16"}
 
 	machinePodsObjectExample = map[string]interface{}{
 		"apiVersion": "v1",
