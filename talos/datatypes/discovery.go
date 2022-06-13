@@ -26,6 +26,19 @@ type TalosClusterDiscoveryConfig struct {
 	*v1alpha1.ClusterDiscoveryConfig
 }
 
+func (talosClusterDiscoveryConfig TalosClusterDiscoveryConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Discovery == nil {
+				planConfig.Discovery = &ClusterDiscoveryConfig{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}
+
 func (planDiscoveryRegistries DiscoveryRegistriesConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 	return [](func(*v1alpha1.Config) error){
 		func(cfg *v1alpha1.Config) error {

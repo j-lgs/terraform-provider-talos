@@ -29,8 +29,20 @@ func (planFile File) DataFunc() [](func(*v1alpha1.Config) error) {
 	}
 }
 
-type Files = []v1alpha1.MachineFile
-
+type Files = []*v1alpha1.MachineFile
 type TalosFiles struct {
-	*Files
+	Files
+}
+
+func (talosTalosFiles TalosFiles) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Files == nil {
+				planConfig.Files = make([]File, 0)
+			}
+
+			return nil
+		},
+	}
+	return funs
 }

@@ -152,7 +152,7 @@ func (talosKubelet TalosKubelet) ReadFunc() []ConfigReadFunc {
 			}
 
 			planConfig.Kubelet.Image = readString(talosKubelet.Image())
-			readBool(talosKubelet.RegisterWithFQDN(), &planConfig.Kubelet.RegisterWithFQDN)
+			planConfig.Kubelet.RegisterWithFQDN = readBool(talosKubelet.RegisterWithFQDN())
 
 			var obj types.String
 			var err error

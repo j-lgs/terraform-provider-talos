@@ -85,6 +85,20 @@ func (diskData MachineDiskDataList) GenOpts() (out []generate.GenOption, err err
 	return
 }
 
+type MachineDisks = []*v1alpha1.MachineDisk
 type TalosMachineDisk struct {
-	*v1alpha1.MachineDisk
+	MachineDisks
+}
+
+func (talosMachineDisk TalosMachineDisk) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Disks == nil {
+				planConfig.Disks = make([]MachineDiskData, 0)
+			}
+
+			return nil
+		},
+	}
+	return funs
 }

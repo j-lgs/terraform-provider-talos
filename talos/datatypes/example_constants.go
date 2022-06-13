@@ -55,16 +55,16 @@ var (
 			},
 		},
 	}
-	MachinePodsStringExample = strings.TrimSpace(`
+	MachinePodsStringExample = `
 apiVersion: v1
 kind: pod
 metadata:
-  name: nginx
+    name: nginx
 spec:
-  containers:
-  - name: nginx
-    image: nginx
-`)
+    containers:
+        - name: nginx
+          image: nginx
+`
 
 	hostnameExample        = "worker-1"
 	nameserversExample     = []string{"9.8.7.6", "8.7.6.5"}
@@ -238,22 +238,21 @@ var (
 	apiServerDisablePSPExample = false
 
 	pluginNameExample   = "PodSecurity"
-	pluginConfigExample = strings.TrimSpace(`
-apiVersion: pod-security.admission.config.k8s.io/v1alpha1
-kind:       PodSecurityConfiguration
+	pluginConfigExample = `apiVersion: pod-security.admission.config.k8s.io/v1alpha1
 defaults:
-  enforce:         baseline
-  enforce-version: latest
-  audit:           restricted
-  audit-version:   latest
-  warn:            restricted
-  warn-version:    latest
+    audit: restricted
+    audit-version: latest
+    enforce: baseline
+    enforce-version: latest
+    warn: restricted
+    warn-version: latest
 exemptions:
-  usernames: {}
-  runtimeClasses: {}
-  namespaces:
-  - kube-system
-`)
+    namespaces:
+        - kube-system
+    runtimeClasses: {}
+    usernames: {}
+kind: PodSecurityConfiguration
+`
 	pluginObjectExample = map[string]interface{}{
 		"apiVersion": "pod-security.admission.config.k8s.io/v1alpha1",
 		"kind":       "PodSecurityConfiguration",

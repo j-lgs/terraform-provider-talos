@@ -66,3 +66,16 @@ func (install InstallConfig) GenOpts() (out []generate.GenOption, err error) {
 type TalosInstallConfig struct {
 	*v1alpha1.InstallConfig
 }
+
+func (talosInstallConfig TalosInstallConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Install == nil {
+				planConfig.Install = &InstallConfig{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}

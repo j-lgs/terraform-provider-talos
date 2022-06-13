@@ -25,3 +25,16 @@ func (planEtcd EtcdConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 type TalosEtcdConfig struct {
 	*v1alpha1.EtcdConfig
 }
+
+func (talosEtcdConfig TalosEtcdConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Etcd == nil {
+				planConfig.Etcd = &EtcdConfig{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}

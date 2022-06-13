@@ -30,6 +30,19 @@ func (planScheduler SchedulerConfig) DataFunc() [](func(*v1alpha1.Config) error)
 	}
 }
 
-type TalosSchedulerCopnfig struct {
+type TalosSchedulerConfig struct {
 	*v1alpha1.SchedulerConfig
+}
+
+func (talosSchedulerConfig TalosSchedulerConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Scheduler == nil {
+				planConfig.Scheduler = &SchedulerConfig{}
+			}
+
+			return nil
+		},
+	}
+	return funs
 }

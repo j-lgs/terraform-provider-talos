@@ -37,3 +37,16 @@ func (stateKubespan *NetworkKubeSpan) Read(kubespan any) error {
 type TalosNetworkKubeSpan struct {
 	*v1alpha1.NetworkKubeSpan
 }
+
+func (talosKubeSpan TalosNetworkKubeSpan) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Network.Kubespan == nil {
+				planConfig.Network.Kubespan = &NetworkKubeSpan{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}

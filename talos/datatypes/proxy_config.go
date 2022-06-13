@@ -42,3 +42,16 @@ func (planProxy ProxyConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 type TalosProxyConfig struct {
 	*v1alpha1.ProxyConfig
 }
+
+func (talosProxyConfig TalosProxyConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Proxy == nil {
+				planConfig.Proxy = &ProxyConfig{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}

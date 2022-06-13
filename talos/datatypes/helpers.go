@@ -86,8 +86,8 @@ func setBool(val types.Bool, dest *bool) {
 	*dest = val.Value
 }
 
-func readBool(val bool, dest *types.Bool) {
-	*dest = types.Bool{Value: val}
+func readBool(val bool) types.Bool {
+	return types.Bool{Value: val}
 }
 
 func setString(val types.String, dest *string) {

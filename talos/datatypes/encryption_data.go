@@ -78,6 +78,19 @@ type TalosSystemDiskEncryptionConfig struct {
 	*v1alpha1.SystemDiskEncryptionConfig
 }
 
+func (talosSystemDiskEncryptionConfig TalosSystemDiskEncryptionConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Encryption == nil {
+				planConfig.Encryption = &EncryptionData{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}
+
 func (encryptionData EncryptionConfigData) Data() (any, error) {
 	encryptionConfig := &v1alpha1.EncryptionConfig{
 		EncryptionProvider: encryptionData.Provider.Value,

@@ -28,3 +28,16 @@ type KernelModules = []*v1alpha1.KernelModuleConfig
 type TalosKernelModuleConfigs struct {
 	*KernelModules
 }
+
+func (talosKernelModuleConfigs TalosKernelModuleConfigs) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Kernel == nil {
+				planConfig.Kernel = &KernelConfig{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}

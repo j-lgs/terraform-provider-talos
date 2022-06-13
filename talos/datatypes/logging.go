@@ -42,3 +42,16 @@ func (planLoggingDestination LoggingDestination) DataFunc() [](func(*v1alpha1.Co
 type TalosLoggingConfig struct {
 	*v1alpha1.LoggingConfig
 }
+
+func (talosLoggingConfig TalosLoggingConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Logging == nil {
+				planConfig.Logging = &LoggingConfig{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}

@@ -16,6 +16,21 @@ func (headers ExtraManifestHeaders) DataFunc() [](func(*v1alpha1.Config) error) 
 	}
 }
 
+type TalosExtraManifestHeaders map[string]string
+
+func (talosExtraManifestHeaders TalosExtraManifestHeaders) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.ExtraManifestHeaders == nil {
+				planConfig.ExtraManifestHeaders = make(ExtraManifestHeaders)
+			}
+
+			return nil
+		},
+	}
+	return funs
+}
+
 type MachineSysfs map[string]types.String
 
 func (sysfs MachineSysfs) DataFunc() [](func(*v1alpha1.Config) error) {
@@ -25,6 +40,21 @@ func (sysfs MachineSysfs) DataFunc() [](func(*v1alpha1.Config) error) {
 			return nil
 		},
 	}
+}
+
+type TalosMachineSysfs map[string]string
+
+func (talosMachineSysfs TalosMachineSysfs) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Sysfs == nil {
+				planConfig.Sysfs = make(MachineSysfs)
+			}
+
+			return nil
+		},
+	}
+	return funs
 }
 
 type MachineSysctls map[string]types.String
@@ -38,6 +68,21 @@ func (sysctls MachineSysctls) DataFunc() [](func(*v1alpha1.Config) error) {
 	}
 }
 
+type TalosMachineSysctls map[string]string
+
+func (talosMachineSysctls TalosMachineSysctls) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Sysctls == nil {
+				planConfig.Sysctls = make(MachineSysctls)
+			}
+
+			return nil
+		},
+	}
+	return funs
+}
+
 type MachineEnv map[string]types.String
 
 func (env MachineEnv) DataFunc() [](func(*v1alpha1.Config) error) {
@@ -49,6 +94,21 @@ func (env MachineEnv) DataFunc() [](func(*v1alpha1.Config) error) {
 	}
 }
 
+type TalosMachineEnv map[string]string
+
+func (talosMachineEnv TalosMachineEnv) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Env == nil {
+				planConfig.Env = make(MachineEnv)
+			}
+
+			return nil
+		},
+	}
+	return funs
+}
+
 type MachineCertSANs []types.String
 
 func (certSANs MachineCertSANs) DataFunc() [](func(*v1alpha1.Config) error) {
@@ -58,6 +118,21 @@ func (certSANs MachineCertSANs) DataFunc() [](func(*v1alpha1.Config) error) {
 			return nil
 		},
 	}
+}
+
+type TalosMachineCertSANs []string
+
+func (talosMachineCertSANs TalosMachineCertSANs) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.CertSANS == nil {
+				planConfig.CertSANS = make(MachineCertSANs, 0)
+			}
+
+			return nil
+		},
+	}
+	return funs
 }
 
 type MachineUdevRules []types.String
@@ -74,6 +149,21 @@ func (rules MachineUdevRules) DataFunc() [](func(*v1alpha1.Config) error) {
 	}
 }
 
+type TalosMachineUdev []string
+
+func (talosMachineUdev TalosMachineUdev) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Udev == nil {
+				planConfig.Udev = make(MachineUdevRules, 0)
+			}
+
+			return nil
+		},
+	}
+	return funs
+}
+
 type MachinePods []types.String
 
 func (pods MachinePods) DataFunc() [](func(*v1alpha1.Config) error) {
@@ -85,6 +175,21 @@ func (pods MachinePods) DataFunc() [](func(*v1alpha1.Config) error) {
 	}
 }
 
+type TalosMachinePods []v1alpha1.Unstructured
+
+func (talosMachinePods TalosMachinePods) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Pod == nil {
+				planConfig.Pod = make(MachinePods, 0)
+			}
+
+			return nil
+		},
+	}
+	return funs
+}
+
 type ClusterExtraManifests []types.String
 
 func (manifests ClusterExtraManifests) DataFunc() [](func(*v1alpha1.Config) error) {
@@ -94,6 +199,21 @@ func (manifests ClusterExtraManifests) DataFunc() [](func(*v1alpha1.Config) erro
 			return nil
 		},
 	}
+}
+
+type TalosClusterExtraManifests []string
+
+func (talosMachineExtraManfests TalosClusterExtraManifests) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.ExtraManifests == nil {
+				planConfig.ExtraManifests = make(ClusterExtraManifests, 0)
+			}
+
+			return nil
+		},
+	}
+	return funs
 }
 
 type ExternalCloudProvider []types.String
@@ -114,4 +234,19 @@ func (manifests ExternalCloudProvider) DataFunc() [](func(*v1alpha1.Config) erro
 			return nil
 		},
 	}
+}
+
+type TalosExternalCloudProvider []string
+
+func (talosExternalCloudProvider TalosExternalCloudProvider) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.ExternalCloudProvider == nil {
+				planConfig.ExternalCloudProvider = make(ExternalCloudProvider, 0)
+			}
+
+			return nil
+		},
+	}
+	return funs
 }

@@ -20,6 +20,32 @@ func (planAdmissionPluginConfig AdmissionPluginConfig) Data() (interface{}, erro
 	return admissionPluginConfig, nil
 }
 
-type TalosAdmissionPluginConfig struct {
-	*v1alpha1.AdminKubeconfigConfig
+type AdmissionControlConfigs []*v1alpha1.AdmissionPluginConfig
+type TalosAdmissionPluginConfigs struct {
+	AdmissionControlConfigs
+}
+
+func (talosAdmissionPluginConfigs TalosAdmissionPluginConfigs) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.APIServer.AdmissionPlugins == nil {
+				planConfig.APIServer.AdmissionPlugins = make([]AdmissionPluginConfig, 0)
+			}
+
+			for _, config := range talosAdmissionPluginConfigs.AdmissionControlConfigs {
+				conf := AdmissionPluginConfig{
+					Name: readString(config.Name()),
+				}
+				conf.Configuration, err = readObject(config.PluginConfiguration)
+				if err != nil {
+					return
+				}
+
+				planConfig.APIServer.AdmissionPlugins = append(planConfig.APIServer.AdmissionPlugins, conf)
+			}
+
+			return nil
+		},
+	}
+	return funs
 }

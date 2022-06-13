@@ -43,6 +43,19 @@ func (planManifest *InlineManifest) Read(talosInlineManifest interface{}) error 
 }
 
 type ClusterInlineManifests = []v1alpha1.ClusterInlineManifest
-type TalosClusterInlineManifest struct {
-	*ClusterInlineManifests
+type TalosClusterInlineManifests struct {
+	ClusterInlineManifests
+}
+
+func (talosClusterInlineManifest TalosClusterInlineManifests) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.InlineManifests == nil {
+				planConfig.InlineManifests = make([]InlineManifest, 0)
+			}
+
+			return
+		},
+	}
+	return funs
 }

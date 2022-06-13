@@ -29,3 +29,29 @@ func (mount *VolumeMount) Read(vol interface{}) error {
 
 	return nil
 }
+
+type VolumeMounts []v1alpha1.VolumeMountConfig
+type TalosKubeletMounts struct {
+	VolumeMounts
+}
+
+func (talosVolumeMounts TalosKubeletMounts) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.APIServer.ExtraVolumes == nil {
+				planConfig.APIServer.ExtraVolumes = make([]VolumeMount, 0)
+			}
+
+			for _, mount := range talosVolumeMounts.VolumeMounts {
+				planConfig.APIServer.ExtraVolumes = append(planConfig.APIServer.ExtraVolumes, VolumeMount{
+					HostPath:  readString(mount.HostPath()),
+					MountPath: readString(mount.MountPath()),
+					Readonly:  readBool(mount.ReadOnly()),
+				})
+			}
+
+			return nil
+		},
+	}
+	return funs
+}

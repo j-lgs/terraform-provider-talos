@@ -38,3 +38,16 @@ func (planControllerManager ControllerManagerConfig) DataFunc() [](func(*v1alpha
 type TalosControllerManagerConfig struct {
 	*v1alpha1.ControllerManagerConfig
 }
+
+func (talosControllerManagerConfig TalosControllerManagerConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.ControllerManager == nil {
+				planConfig.ControllerManager = &ControllerManagerConfig{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}

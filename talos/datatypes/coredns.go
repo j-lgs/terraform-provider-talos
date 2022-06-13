@@ -28,3 +28,16 @@ func (planCoreDNS CoreDNS) DataFunc() [](func(*v1alpha1.Config) error) {
 type TalosCoreDNS struct {
 	*v1alpha1.CoreDNS
 }
+
+func (talosCoreDNS TalosCoreDNS) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.CoreDNS == nil {
+				planConfig.CoreDNS = &CoreDNS{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}

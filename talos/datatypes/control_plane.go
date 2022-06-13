@@ -42,3 +42,16 @@ func (planControlPlane ControlPlaneConfig) DataFunc() [](func(*v1alpha1.Config) 
 type TalosControlPlaneConfig struct {
 	*v1alpha1.ControlPlaneConfig
 }
+
+func (talosControlPlaneConfig TalosControlPlaneConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.ControlPlane == nil {
+				planConfig.ControlPlane = &ControlPlaneConfig{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}

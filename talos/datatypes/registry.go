@@ -80,6 +80,19 @@ type TalosRegistriesConfig struct {
 	*v1alpha1.RegistriesConfig
 }
 
+func (talosRegistriesConfig TalosRegistriesConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Registry == nil {
+				planConfig.Registry = &Registry{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}
+
 // Data copies data from terraform state types to talos types.
 func (config RegistryConfig) Data() (interface{}, error) {
 	conf := &v1alpha1.RegistryConfig{}

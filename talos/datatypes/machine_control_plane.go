@@ -38,3 +38,16 @@ func (machineControlPlane MachineControlPlane) DataFunc() [](func(*v1alpha1.Conf
 type TalosMCPConfig struct {
 	*v1alpha1.MachineControlPlaneConfig
 }
+
+func (talosMCPConfig TalosMCPConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.MachineControlPlane == nil {
+				planConfig.MachineControlPlane = &MachineControlPlane{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}

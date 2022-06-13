@@ -29,3 +29,16 @@ func (planTimeConfig TimeConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 type TalosTimeConfig struct {
 	*v1alpha1.TimeConfig
 }
+
+func (talosTimeConfig TalosTimeConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Time == nil {
+				planConfig.Time = &TimeConfig{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}

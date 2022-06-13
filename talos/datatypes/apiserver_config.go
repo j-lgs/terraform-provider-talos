@@ -66,3 +66,25 @@ func (planAPIServer APIServerConfig) DataFunc() [](func(*v1alpha1.Config) error)
 type TalosAPIServerConfig struct {
 	*v1alpha1.APIServerConfig
 }
+
+func (talosAPIServerConfig TalosAPIServerConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.APIServer == nil {
+				planConfig.APIServer = &APIServerConfig{}
+			}
+
+			planConfig.APIServer.Image = readString(talosAPIServerConfig.Image())
+			planConfig.APIServer.DisablePSP = readBool(talosAPIServerConfig.DisablePodSecurityPolicyConfig)
+			planConfig.APIServer.Env = readStringMap(talosAPIServerConfig.EnvConfig)
+			planConfig.APIServer.ExtraArgs = readStringMap(talosAPIServerConfig.ExtraArgsConfig)
+
+			return nil
+		},
+	}
+
+	funs = append(funs, TalosKubeletMounts{VolumeMounts: talosAPIServerConfig.ExtraVolumesConfig}.ReadFunc()...)
+	funs = append(funs, TalosAdmissionPluginConfigs{AdmissionControlConfigs: talosAPIServerConfig.AdmissionControlConfig}.ReadFunc()...)
+
+	return funs
+}

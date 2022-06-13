@@ -60,3 +60,16 @@ func (planNetwork NetworkConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 type TalosNetworkConfig struct {
 	*v1alpha1.NetworkConfig
 }
+
+func (talosNetworkConfig TalosNetworkConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Network == nil {
+				planConfig.Network = &NetworkConfig{}
+			}
+
+			return nil
+		},
+	}
+	return funs
+}
