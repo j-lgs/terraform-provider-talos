@@ -66,3 +66,6 @@ test/
 
 # direnv related
 .direnv
+
+# flake output
+result/
