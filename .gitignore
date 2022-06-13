@@ -68,4 +68,4 @@ test/
 .direnv
 
 # flake output
-result/
+result
