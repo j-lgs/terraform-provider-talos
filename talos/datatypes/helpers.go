@@ -230,6 +230,21 @@ func readObject(object v1alpha1.Unstructured) (dest types.String, err error) {
 	return
 }
 
+func readObjectList(objects []v1alpha1.Unstructured) (dest []types.String, err error) {
+	for _, object := range objects {
+		var obj types.String
+
+		obj, err = readObject(object)
+		if err != nil {
+			return
+		}
+
+		dest = append(dest, obj)
+	}
+
+	return
+}
+
 func setObjectList(yamls []types.String, dest *[]v1alpha1.Unstructured) error {
 	if dest == nil {
 		return fmt.Errorf("null destination provided")

@@ -55,15 +55,14 @@ var (
 			},
 		},
 	}
-	MachinePodsStringExample = `
-apiVersion: v1
+	MachinePodsStringExample = `apiVersion: v1
 kind: pod
 metadata:
     name: nginx
 spec:
     containers:
-        - name: nginx
-          image: nginx
+        - image: nginx
+          name: nginx
 `
 
 	hostnameExample        = "worker-1"

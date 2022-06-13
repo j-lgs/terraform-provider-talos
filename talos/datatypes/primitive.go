@@ -21,10 +21,7 @@ type TalosExtraManifestHeaders map[string]string
 func (talosExtraManifestHeaders TalosExtraManifestHeaders) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
-			if planConfig.ExtraManifestHeaders == nil {
-				planConfig.ExtraManifestHeaders = make(ExtraManifestHeaders)
-			}
-
+			planConfig.ExtraManifestHeaders = readStringMap(talosExtraManifestHeaders)
 			return nil
 		},
 	}
@@ -47,10 +44,7 @@ type TalosMachineSysfs map[string]string
 func (talosMachineSysfs TalosMachineSysfs) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
-			if planConfig.Sysfs == nil {
-				planConfig.Sysfs = make(MachineSysfs)
-			}
-
+			planConfig.Sysfs = readStringMap(talosMachineSysfs)
 			return nil
 		},
 	}
@@ -73,10 +67,7 @@ type TalosMachineSysctls map[string]string
 func (talosMachineSysctls TalosMachineSysctls) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
-			if planConfig.Sysctls == nil {
-				planConfig.Sysctls = make(MachineSysctls)
-			}
-
+			planConfig.Sysctls = readStringMap(talosMachineSysctls)
 			return nil
 		},
 	}
@@ -99,10 +90,7 @@ type TalosMachineEnv map[string]string
 func (talosMachineEnv TalosMachineEnv) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
-			if planConfig.Env == nil {
-				planConfig.Env = make(MachineEnv)
-			}
-
+			planConfig.Env = readStringMap(talosMachineEnv)
 			return nil
 		},
 	}
@@ -125,10 +113,7 @@ type TalosMachineCertSANs []string
 func (talosMachineCertSANs TalosMachineCertSANs) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
-			if planConfig.CertSANS == nil {
-				planConfig.CertSANS = make(MachineCertSANs, 0)
-			}
-
+			planConfig.CertSANS = readStringList(talosMachineCertSANs)
 			return nil
 		},
 	}
@@ -143,6 +128,7 @@ func (rules MachineUdevRules) DataFunc() [](func(*v1alpha1.Config) error) {
 			if cfg.MachineConfig.MachineUdev == nil {
 				cfg.MachineConfig.MachineUdev = &v1alpha1.UdevConfig{}
 			}
+
 			setStringList(rules, &cfg.MachineConfig.MachineUdev.UdevRules)
 			return nil
 		},
@@ -154,10 +140,7 @@ type TalosMachineUdev []string
 func (talosMachineUdev TalosMachineUdev) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
-			if planConfig.Udev == nil {
-				planConfig.Udev = make(MachineUdevRules, 0)
-			}
-
+			planConfig.Udev = readStringList(talosMachineUdev)
 			return nil
 		},
 	}
@@ -180,8 +163,9 @@ type TalosMachinePods []v1alpha1.Unstructured
 func (talosMachinePods TalosMachinePods) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
-			if planConfig.Pod == nil {
-				planConfig.Pod = make(MachinePods, 0)
+			planConfig.Pod, err = readObjectList(talosMachinePods)
+			if err != nil {
+				return
 			}
 
 			return nil
@@ -206,10 +190,7 @@ type TalosClusterExtraManifests []string
 func (talosMachineExtraManfests TalosClusterExtraManifests) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
-			if planConfig.ExtraManifests == nil {
-				planConfig.ExtraManifests = make(ClusterExtraManifests, 0)
-			}
-
+			planConfig.ExtraManifests = readStringList(talosMachineExtraManfests)
 			return nil
 		},
 	}
@@ -241,10 +222,7 @@ type TalosExternalCloudProvider []string
 func (talosExternalCloudProvider TalosExternalCloudProvider) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
-			if planConfig.ExternalCloudProvider == nil {
-				planConfig.ExternalCloudProvider = make(ExternalCloudProvider, 0)
-			}
-
+			planConfig.ExternalCloudProvider = readStringList(talosExternalCloudProvider)
 			return nil
 		},
 	}
