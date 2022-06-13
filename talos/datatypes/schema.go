@@ -5,6 +5,194 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
+var TalosConfigSchema = tfsdk.Schema{
+	MarkdownDescription: "",
+	Attributes: map[string]tfsdk.Attribute{
+		"install": {
+			Required:    true,
+			Description: InstallSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(InstallSchema.Attributes),
+		},
+		"cert_sans": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Optional: true,
+			// TODO validation
+			Description: "Extra certificate subject alternative names for the machine’s certificate.",
+		},
+		"control_plane": {
+			Optional:    true,
+			Description: ControlPlaneConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(ControlPlaneConfigSchema.Attributes),
+		},
+		"kubelet": {
+			Optional:    true,
+			Description: KubeletConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(KubeletConfigSchema.Attributes),
+		},
+		"pods": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Optional: true,
+			// TODO validation
+			Description: "Used to provide static pod definitions to be run by the kubelet directly bypassing the kube-apiserver.",
+		},
+		"network": {
+			Required:    true,
+			Description: NetworkConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(NetworkConfigSchema.Attributes),
+		},
+		"disks": {
+			Optional:    true,
+			Description: MachineDiskSchema.MarkdownDescription,
+			Attributes:  tfsdk.ListNestedAttributes(MachineDiskSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+		},
+		"files": {
+			Optional:    true,
+			Description: FileSchema.Description,
+			Attributes:  tfsdk.ListNestedAttributes(FileSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+		},
+		"env": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "Allows for the addition of environment variables. All environment variables are set on PID 1 in addition to every service.",
+		},
+		"time": {
+			Description: TimeConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(TimeConfigSchema.Attributes),
+			Optional:    true,
+		},
+		"sysctls": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "Used to configure the machine’s sysctls.",
+		},
+		"sysfs": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Optional:    true,
+			Description: "Used to configure the machine’s sysctls.",
+		},
+		"registry": {
+			Optional:    true,
+			Description: RegistrySchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(RegistrySchema.Attributes),
+		},
+		"encryption": {
+			Optional:    true,
+			Description: EncryptionSchema.MarkdownDescription,
+			Attributes:  tfsdk.SingleNestedAttributes(EncryptionSchema.Attributes),
+		},
+		// features not implemented
+		"udev": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Description: "Configures the udev system.",
+			Optional:    true,
+		},
+		"logging": {
+			Description: LoggingConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(LoggingConfigSchema.Attributes),
+			Optional:    true,
+		},
+		"kernel": {
+			Description: KernelConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(KernelConfigSchema.Attributes),
+			Optional:    true,
+		},
+
+		"control_plane_config": {
+			Optional:    true,
+			Description: MachineControlPlaneSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(MachineControlPlaneSchema.Attributes),
+		},
+
+		// clustername already filled
+		// cluster_network not implemented
+		"apiserver": {
+			Optional:    true,
+			Description: APIServerConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(APIServerConfigSchema.Attributes),
+		},
+		"controller_manager": {
+			Description: ControllerManagerConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(ControllerManagerConfigSchema.Attributes),
+			Optional:    true,
+		},
+		"proxy": {
+			Optional:    true,
+			Description: ProxyConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(ProxyConfigSchema.Attributes),
+		},
+		"scheduler": {
+			Description: SchedulerConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(SchedulerConfigSchema.Attributes),
+			Optional:    true,
+		},
+		"discovery": {
+			Description: ClusterDiscoveryConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(ClusterDiscoveryConfigSchema.Attributes),
+			Optional:    true,
+		},
+		"etcd": {
+			Description: EtcdConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(EtcdConfigSchema.Attributes),
+			Optional:    true,
+		},
+		"coredns": {
+			Description: CoreDNSConfigSchema.MarkdownDescription,
+			Attributes:  tfsdk.SingleNestedAttributes(CoreDNSConfigSchema.Attributes),
+			Optional:    true,
+		},
+		"external_cloud_provider": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Description: "Contains external cloud provider configuration.",
+			Optional:    true,
+		},
+		"extra_manifest_headers": {
+			Type: types.MapType{
+				ElemType: types.StringType,
+			},
+			Description: "A map of key value pairs that will be added while fetching the extraManifests. ",
+			Optional:    true,
+		},
+		"extra_manifests": {
+			Type: types.ListType{
+				ElemType: types.StringType,
+			},
+			Description: "A list of urls that point to additional manifests. These will get automatically deployed as part of the bootstrap.",
+			Optional:    true,
+		},
+		// TODO Add verification function confirming it's a correct manifest that can be downloaded.
+		"inline_manifests": {
+			Optional:    true,
+			Description: InlineManifestSchema.Description,
+			Attributes:  tfsdk.ListNestedAttributes(InlineManifestSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+		},
+		"admin_kube_config": {
+			Description: AdminKubeconfigConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(AdminKubeconfigConfigSchema.Attributes),
+			Optional:    true,
+		},
+		// admin_kubeconfig not implemented
+		"allow_scheduling_on_masters": {
+			Type:        types.BoolType,
+			Optional:    true,
+			Description: "Allows running workload on master nodes.",
+		},
+	},
+}
+
 // EncryptionSchema specifies system disk partitions encryption settings.
 var EncryptionSchema = tfsdk.Schema{
 	MarkdownDescription: "Specifies system disk partition encryption settings.",

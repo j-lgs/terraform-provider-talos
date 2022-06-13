@@ -403,7 +403,110 @@ var (
 		Name:    Wraps(inlineManifestNameExample),
 		Content: Wraps(inlineManifestContentExample),
 	}
+
+	CertSANsExample = Wrapsl(MachineCertSANsExample[0])
+
+	PodsExample = Wrapsl(MachinePodsStringExample)
+
+	TFUdevExample = Wrapsl(UdevExample[0])
+
+	TFExtraManifestExample = ClusterExtraManifests{
+		Wraps(ExtraManifestExample[0]),
+		Wraps(ExtraManifestExample[1]),
+	}
+
+	ExtraManifestHeaderExample = map[string]types.String{
+		"Token":       Wraps("1234567"),
+		"X-ExtraInfo": Wraps("info"),
+	}
+
+	ExternalCloudProviderExample = Wrapsl(ExternalManifestsExample...)
+
+	TalosConfigExample = &TalosConfig{
+		Install:      InstallExample,
+		CertSANS:     CertSANsExample,
+		ControlPlane: ControlPlaneConfigExample,
+		Kubelet:      KubeletExample,
+		Pod:          PodsExample,
+		Network:      NetworkConfigExample,
+		Files: []File{
+			FileExample,
+		},
+		Env: map[string]types.String{
+			"GRPC_GO_LOG_VERBOSITY_LEVEL": Wraps("99"),
+			"GRPC_GO_LOG_SEVERITY_LEVEL":  Wraps("info"),
+			"https_proxy":                 Wraps("http://DOMAIN\\USERNAME:PASSWORD@SERVER:PORT/"),
+		},
+		Sysctls: map[string]types.String{
+			"kernel.domainname":   Wraps("talos.dev"),
+			"net.ipv4.ip_forward": Wraps("0"),
+		},
+		Sysfs: map[string]types.String{
+			"devices.system.cpu.cpu0.cpufreq.scaling_governor": Wraps("performance"),
+		},
+		Disks: []MachineDiskData{
+			*MachineDiskExample,
+		},
+		Time:                TimeConfigExample,
+		Logging:             LoggingConfigExample,
+		Kernel:              KernelConfigExample,
+		Encryption:          EncryptionDataExample,
+		Registry:            RegistryExample,
+		Udev:                TFUdevExample,
+		MachineControlPlane: MachineControlPlaneExample,
+
+		APIServer:             APIServerExample,
+		ControllerManager:     ControllerManagerExample,
+		Proxy:                 ProxyConfigExample,
+		Scheduler:             SchedulerExample,
+		Discovery:             ClusterDiscoveryConfigExample,
+		Etcd:                  EtcdConfigExample,
+		CoreDNS:               CoreDNSExample,
+		ExtraManifestHeaders:  ExtraManifestHeaderExample,
+		ExtraManifests:        TFExtraManifestExample,
+		ExternalCloudProvider: ExternalCloudProviderExample,
+		InlineManifests: []InlineManifest{
+			InlineManifestExample,
+		},
+		AdminKubeConfig:          AdminKubeconfigConfigExample,
+		AllowSchedulingOnMasters: Wrapb(AllowSchedulingOnMastersExample),
+	}
 )
+
+type TalosConfig struct {
+	Install             *InstallConfig       `tfsdk:"install"`
+	CertSANS            MachineCertSANs      `tfsdk:"cert_sans"`
+	ControlPlane        *ControlPlaneConfig  `tfsdk:"control_plane"`
+	Kubelet             *KubeletConfig       `tfsdk:"kubelet"`
+	Pod                 MachinePods          `tfsdk:"pods"`
+	Network             *NetworkConfig       `tfsdk:"network"`
+	Files               []File               `tfsdk:"files"`
+	Env                 MachineEnv           `tfsdk:"env"`
+	Time                *TimeConfig          `tfsdk:"time"`
+	Logging             *LoggingConfig       `tfsdk:"logging"`
+	Kernel              *KernelConfig        `tfsdk:"kernel"`
+	Sysctls             MachineSysctls       `tfsdk:"sysctls"`
+	Sysfs               MachineSysfs         `tfsdk:"sysfs"`
+	Registry            *Registry            `tfsdk:"registry"`
+	Disks               []MachineDiskData    `tfsdk:"disks"`
+	Encryption          *EncryptionData      `tfsdk:"encryption"`
+	Udev                MachineUdevRules     `tfsdk:"udev"`
+	MachineControlPlane *MachineControlPlane `tfsdk:"control_plane_config"`
+
+	APIServer                *APIServerConfig         `tfsdk:"apiserver"`
+	ControllerManager        *ControllerManagerConfig `tfsdk:"controller_manager"`
+	Proxy                    *ProxyConfig             `tfsdk:"proxy"`
+	Scheduler                *SchedulerConfig         `tfsdk:"scheduler"`
+	Discovery                *ClusterDiscoveryConfig  `tfsdk:"discovery"`
+	Etcd                     *EtcdConfig              `tfsdk:"etcd"`
+	CoreDNS                  *CoreDNS                 `tfsdk:"coredns"`
+	ExtraManifestHeaders     ExtraManifestHeaders     `tfsdk:"extra_manifest_headers"`
+	ExternalCloudProvider    ExternalCloudProvider    `tfsdk:"external_cloud_provider"`
+	ExtraManifests           ClusterExtraManifests    `tfsdk:"extra_manifests"`
+	InlineManifests          []InlineManifest         `tfsdk:"inline_manifests"`
+	AdminKubeConfig          *AdminKubeconfigConfig   `tfsdk:"admin_kube_config"`
+	AllowSchedulingOnMasters types.Bool               `tfsdk:"allow_scheduling_on_masters"`
+}
 
 type InstallConfig struct {
 	Disk       types.String   `tfsdk:"disk"`
