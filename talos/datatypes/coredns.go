@@ -24,3 +24,7 @@ func (planCoreDNS CoreDNS) DataFunc() [](func(*v1alpha1.Config) error) {
 		},
 	}
 }
+
+type TalosCoreDNS struct {
+	*v1alpha1.CoreDNS
+}

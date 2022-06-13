@@ -22,6 +22,10 @@ func (planDiscovery ClusterDiscoveryConfig) DataFunc() [](func(*v1alpha1.Config)
 	return funcs
 }
 
+type TalosClusterDiscoveryConfig struct {
+	*v1alpha1.ClusterDiscoveryConfig
+}
+
 func (planDiscoveryRegistries DiscoveryRegistriesConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 	return [](func(*v1alpha1.Config) error){
 		func(cfg *v1alpha1.Config) error {
@@ -35,4 +39,8 @@ func (planDiscoveryRegistries DiscoveryRegistriesConfig) DataFunc() [](func(*v1a
 			return nil
 		},
 	}
+}
+
+type TalosDiscoveryRegistriesConfig struct {
+	*v1alpha1.DiscoveryRegistriesConfig
 }

@@ -38,3 +38,7 @@ func (planProxy ProxyConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 	}
 	return funs
 }
+
+type TalosProxyConfig struct {
+	*v1alpha1.ProxyConfig
+}

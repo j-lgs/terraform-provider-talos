@@ -21,3 +21,7 @@ func (planDHCPOptions DHCPOptions) Data() (interface{}, error) {
 
 	return dhcpOptions, nil
 }
+
+type TalosDHCPOptions struct {
+	*v1alpha1.DHCPOptions
+}

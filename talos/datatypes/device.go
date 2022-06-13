@@ -82,3 +82,7 @@ func (planDevice NetworkDevice) Data() (interface{}, error) {
 
 	return device, nil
 }
+
+type TalosDevice struct {
+	*v1alpha1.Device
+}

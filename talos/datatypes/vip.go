@@ -22,3 +22,7 @@ func (planVIP VIP) Data() (interface{}, error) {
 
 	return vip, nil
 }
+
+type TalosDeviceVIPConfig struct {
+	*v1alpha1.DeviceVIPConfig
+}

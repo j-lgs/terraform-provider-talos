@@ -56,3 +56,7 @@ func (planNetwork NetworkConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 		},
 	}
 }
+
+type TalosNetworkConfig struct {
+	*v1alpha1.NetworkConfig
+}

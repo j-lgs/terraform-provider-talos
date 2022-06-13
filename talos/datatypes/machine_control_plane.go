@@ -34,3 +34,7 @@ func (machineControlPlane MachineControlPlane) DataFunc() [](func(*v1alpha1.Conf
 		},
 	}
 }
+
+type TalosMCPConfig struct {
+	*v1alpha1.MachineControlPlaneConfig
+}

@@ -41,3 +41,8 @@ func (planManifest *InlineManifest) Read(talosInlineManifest interface{}) error 
 
 	return nil
 }
+
+type ClusterInlineManifests = []v1alpha1.ClusterInlineManifest
+type TalosClusterInlineManifest struct {
+	*ClusterInlineManifests
+}

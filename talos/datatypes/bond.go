@@ -93,3 +93,7 @@ func (planBond BondData) Data() (interface{}, error) {
 
 	return bond, nil
 }
+
+type TalosBond struct {
+	*v1alpha1.Bond
+}

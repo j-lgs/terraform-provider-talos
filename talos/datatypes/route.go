@@ -22,3 +22,7 @@ func (planRoute Route) Data() (interface{}, error) {
 
 	return route, nil
 }
+
+type TalosRoute struct {
+	*v1alpha1.Route
+}

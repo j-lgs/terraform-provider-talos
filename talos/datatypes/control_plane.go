@@ -38,3 +38,7 @@ func (planControlPlane ControlPlaneConfig) DataFunc() [](func(*v1alpha1.Config) 
 		},
 	}
 }
+
+type TalosControlPlaneConfig struct {
+	*v1alpha1.ControlPlaneConfig
+}

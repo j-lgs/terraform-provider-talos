@@ -23,3 +23,8 @@ func (planKernelConfig KernelConfig) DataFunc() [](func(*v1alpha1.Config) error)
 		},
 	}
 }
+
+type KernelModules = []*v1alpha1.KernelModuleConfig
+type TalosKernelModuleConfigs struct {
+	*KernelModules
+}

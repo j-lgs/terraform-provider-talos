@@ -76,6 +76,10 @@ func (install Registry) GenOpts() (out []generate.GenOption, err error) {
 	return
 }
 
+type TalosRegistriesConfig struct {
+	*v1alpha1.RegistriesConfig
+}
+
 // Data copies data from terraform state types to talos types.
 func (config RegistryConfig) Data() (interface{}, error) {
 	conf := &v1alpha1.RegistryConfig{}
@@ -119,4 +123,8 @@ func (registry Registry) DataFunc() [](func(*v1alpha1.Config) error) {
 			return nil
 		},
 	}
+}
+
+type TalosRegistryConfig struct {
+	*v1alpha1.RegistryConfig
 }

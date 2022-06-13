@@ -62,3 +62,7 @@ func (planAPIServer APIServerConfig) DataFunc() [](func(*v1alpha1.Config) error)
 		},
 	}
 }
+
+type TalosAPIServerConfig struct {
+	*v1alpha1.APIServerConfig
+}

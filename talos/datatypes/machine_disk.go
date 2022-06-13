@@ -33,6 +33,11 @@ func (partition *PartitionData) Read(part any) error {
 	return nil
 }
 
+type Partitions = []*v1alpha1.DiskPartition
+type TalosPartitions struct {
+	*Partitions
+}
+
 func (diskData MachineDiskData) Data() (any, error) {
 	disk := &v1alpha1.MachineDisk{
 		DeviceName: diskData.DeviceName.Value,
@@ -78,4 +83,8 @@ func (diskData MachineDiskDataList) GenOpts() (out []generate.GenOption, err err
 	out = append(out, generate.WithUserDisks(userDisks))
 
 	return
+}
+
+type TalosMachineDisk struct {
+	*v1alpha1.MachineDisk
 }

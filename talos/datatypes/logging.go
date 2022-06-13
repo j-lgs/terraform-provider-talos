@@ -38,3 +38,7 @@ func (planLoggingDestination LoggingDestination) DataFunc() [](func(*v1alpha1.Co
 		},
 	}
 }
+
+type TalosLoggingConfig struct {
+	*v1alpha1.LoggingConfig
+}

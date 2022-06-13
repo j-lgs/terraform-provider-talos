@@ -29,3 +29,7 @@ func (planScheduler SchedulerConfig) DataFunc() [](func(*v1alpha1.Config) error)
 		},
 	}
 }
+
+type TalosSchedulerCopnfig struct {
+	*v1alpha1.SchedulerConfig
+}

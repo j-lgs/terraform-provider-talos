@@ -28,3 +28,9 @@ func (planFile File) DataFunc() [](func(*v1alpha1.Config) error) {
 		},
 	}
 }
+
+type Files = []v1alpha1.MachineFile
+
+type TalosFiles struct {
+	*Files
+}

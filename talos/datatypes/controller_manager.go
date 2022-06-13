@@ -34,3 +34,7 @@ func (planControllerManager ControllerManagerConfig) DataFunc() [](func(*v1alpha
 		},
 	}
 }
+
+type TalosControllerManagerConfig struct {
+	*v1alpha1.ControllerManagerConfig
+}

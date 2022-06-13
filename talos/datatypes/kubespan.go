@@ -33,3 +33,7 @@ func (stateKubespan *NetworkKubeSpan) Read(kubespan any) error {
 
 	return nil
 }
+
+type TalosNetworkKubeSpan struct {
+	*v1alpha1.NetworkKubeSpan
+}

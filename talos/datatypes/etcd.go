@@ -21,3 +21,7 @@ func (planEtcd EtcdConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 		},
 	}
 }
+
+type TalosEtcdConfig struct {
+	*v1alpha1.EtcdConfig
+}

@@ -19,3 +19,7 @@ func (planAdmissionPluginConfig AdmissionPluginConfig) Data() (interface{}, erro
 	}
 	return admissionPluginConfig, nil
 }
+
+type TalosAdmissionPluginConfig struct {
+	*v1alpha1.AdminKubeconfigConfig
+}

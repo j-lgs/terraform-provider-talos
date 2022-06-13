@@ -36,3 +36,7 @@ func (cni CNI) GenOpts() (out []generate.GenOption, err error) {
 	out = append(out, generate.WithClusterCNIConfig(cniConfig.(*v1alpha1.CNIConfig)))
 	return
 }
+
+type TalosCNIConfig struct {
+	*v1alpha1.CNIConfig
+}

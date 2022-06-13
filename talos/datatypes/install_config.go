@@ -62,3 +62,7 @@ func (install InstallConfig) GenOpts() (out []generate.GenOption, err error) {
 	}
 	return
 }
+
+type TalosInstallConfig struct {
+	*v1alpha1.InstallConfig
+}

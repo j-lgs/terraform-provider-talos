@@ -74,6 +74,10 @@ func (data *EncryptionData) Read(diskData any) error {
 	return nil
 }
 
+type TalosSystemDiskEncryptionConfig struct {
+	*v1alpha1.SystemDiskEncryptionConfig
+}
+
 func (encryptionData EncryptionConfigData) Data() (any, error) {
 	encryptionConfig := &v1alpha1.EncryptionConfig{
 		EncryptionProvider: encryptionData.Provider.Value,
@@ -139,6 +143,10 @@ func (data *EncryptionConfigData) Read(encryptionData any) error {
 	return nil
 }
 
+type TalosEncryptionConfig struct {
+	*v1alpha1.EncryptionConfig
+}
+
 func (keyData KeyConfig) Data() (any, error) {
 	encryptionKey := &v1alpha1.EncryptionKey{
 		KeySlot: int(keyData.Slot.Value),
@@ -177,4 +185,8 @@ func (data *KeyConfig) Read(keyData any) error {
 	}
 
 	return nil
+}
+
+type TalosEncryptionKey struct {
+	*v1alpha1.EncryptionKey
 }

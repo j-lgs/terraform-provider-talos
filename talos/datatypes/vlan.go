@@ -36,3 +36,7 @@ func (planVLAN VLAN) Data() (interface{}, error) {
 	}
 	return vlan, nil
 }
+
+type TalosVlan struct {
+	*v1alpha1.Vlan
+}
