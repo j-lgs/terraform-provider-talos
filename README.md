@@ -10,14 +10,12 @@ Check it out [Here](https://registry.terraform.io/providers/j-lgs/talos/latest)
 # Use
 Check the examples folder to see how the provider can be used. Also check out my [homelab provisioning](https://github.com/j-lgs/provisioning) repo to see the provider used to set up a Kubernetes cluster on Proxmox hosts.
 
+The current provider version targets Talos v1.0.5.
+
+This project is developed on an AMD64 Linux platform. Releases have not been tested on alternative platforms yet.
+
 ## Limitations
 So far
-+ Multiple interfaces cannot be specified for a node
-+ Multiple wireguard links cannot be specified for a node
 + Node resource deletion doesn't take into account cluster membership
 + Worker nodes don't work properly yet
-+ The full range of config options are not covered by either resource
-
-## Known issues
-+ Resource input values are not checked
-+ There are no acceptance or unit tests
++ Read, Update and Deletion are not properly implemented
