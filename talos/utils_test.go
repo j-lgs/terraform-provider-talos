@@ -124,38 +124,40 @@ func testControlConfig(nodes ...*testNode) string {
   configure_ip = "{{.IP}}"
   provision_ip = "{{.ProvisionIP}}"
 
-  install = {
-    disk = "{{.Disk}}"
-    kernel_args = [
-      // Required for testing in QEMU VMs.
-      "reboot=h,e,f",
-      "talos.shutdown=halt"
-    ]
-  }
-
-  network = {
-    hostname = "node-{{.Index}}"
-    devices = [{
-      name = "eth0"
-      addresses = [
-        "{{.IP}}/24"
+  config = {
+    install = {
+      disk = "{{.Disk}}"
+      kernel_args = [
+        // Required for testing in QEMU VMs.
+        "reboot=h,e,f",
+        "talos.shutdown=halt"
       ]
-      routes = [{
-        network = "0.0.0.0/0"
-        gateway = "{{.Gateway}}"
+    }
+    network = {
+      hostname = "node-{{.Index}}"
+      devices = [{
+        name = "eth0"
+        addresses = [
+          "{{.IP}}/24"
+        ]
+        routes = [{
+          network = "0.0.0.0/0"
+          gateway = "{{.Gateway}}"
+        }]
       }]
-    }]
-    nameservers = [
-      "{{.Nameserver}}"
-    ]
-  }
-  registry = {
-    mirrors = {
-      "docker.io":  [ "http://10.0.2.100:5000" ],
-      "k8s.gcr.io": [ "http://10.0.2.100:5001" ],
-      "quay.io":    [ "http://10.0.2.100:5002" ],
-      "gcr.io":     [ "http://10.0.2.100:5003" ],
-      "ghcr.io":    [ "http://10.0.2.100:5004" ],
+      nameservers = [
+        "{{.Nameserver}}"
+      ]
+    }
+
+    registry = {
+      mirrors = {
+        "docker.io":  [ "http://10.0.2.100:5000" ],
+        "k8s.gcr.io": [ "http://10.0.2.100:5001" ],
+        "quay.io":    [ "http://10.0.2.100:5002" ],
+        "gcr.io":     [ "http://10.0.2.100:5003" ],
+        "ghcr.io":    [ "http://10.0.2.100:5004" ],
+      }
     }
   }
 
