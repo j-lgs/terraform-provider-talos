@@ -31,7 +31,7 @@ require (
 require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/golangci/golangci-lint v1.46.2
-	github.com/hashicorp/terraform-plugin-docs v0.9.0
+	github.com/hashicorp/terraform-plugin-docs v0.10.0
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 	github.com/talos-systems/go-blockdevice v0.3.2
 	github.com/wI2L/jsondiff v0.2.0
