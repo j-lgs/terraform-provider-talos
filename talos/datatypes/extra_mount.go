@@ -49,6 +49,10 @@ type TalosExtraMounts struct {
 func (talosExtraMounts TalosExtraMounts) ReadFunc() []ConfigReadFunc {
 	return []ConfigReadFunc{
 		func(talosConfig *TalosConfig) error {
+			if len(*talosExtraMounts.ExtraMounts) <= 0 {
+				return nil
+			}
+
 			for _, mount := range *talosExtraMounts.ExtraMounts {
 				m := ExtraMount{}
 
