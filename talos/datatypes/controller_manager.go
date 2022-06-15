@@ -53,11 +53,27 @@ func (talosControllerManagerConfig TalosControllerManagerConfig) ReadFunc() []Co
 				planConfig.ControllerManager = &ControllerManagerConfig{}
 			}
 
+			if talosControllerManagerConfig.ContainerImage != (&v1alpha1.ControllerManagerConfig{}).Image() {
+				planConfig.ControllerManager.Image = readString(talosControllerManagerConfig.Image())
+			}
+			if planConfig.ControllerManager.Image.Value == "" {
+				planConfig.ControllerManager.Image.Value = (&v1alpha1.ControllerManagerConfig{}).Image()
+			}
+
+			planConfig.ControllerManager.Env = readStringMap(talosControllerManagerConfig.EnvConfig)
+			planConfig.ControllerManager.ExtraArgs = readStringMap(talosControllerManagerConfig.ExtraArgsConfig)
+
 			if planConfig.ControllerManager.zero() {
 				planConfig.ControllerManager = nil
 			}
+
 			return nil
 		},
 	}
+
+	if len(talosControllerManagerConfig.ExtraVolumesConfig) > 0 {
+		funs = append(funs, TalosControllerManagerMounts{talosControllerManagerConfig.ExtraVolumesConfig}.ReadFunc()...)
+	}
+
 	return funs
 }
