@@ -53,14 +53,31 @@ func (proxyConfig ProxyConfig) zero() bool {
 func (talosProxyConfig TalosProxyConfig) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if talosProxyConfig.ProxyConfig == nil {
+				return nil
+			}
+
 			if planConfig.Proxy == nil {
 				planConfig.Proxy = &ProxyConfig{}
 			}
 
+			if talosProxyConfig.ContainerImage != (&v1alpha1.ProxyConfig{}).Image() {
+				planConfig.Proxy.Image = readString(talosProxyConfig.Image())
+			}
+			if planConfig.Proxy.Image.Value == "" {
+				planConfig.Proxy.Image.Value = (&v1alpha1.ProxyConfig{}).Image()
+			}
+
+			mkBool(talosProxyConfig.Disabled).read(&planConfig.Proxy.Disabled)
+
+			readStringMap_(talosProxyConfig.ExtraArgsConfig, &planConfig.Proxy.ExtraArgs)
+
+			mkString(talosProxyConfig.ModeConfig).read(&planConfig.Proxy.Mode)
 
 			if planConfig.Proxy.zero() {
 				planConfig.Proxy = nil
 			}
+
 			return nil
 		},
 	}
