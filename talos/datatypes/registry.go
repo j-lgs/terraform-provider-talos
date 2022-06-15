@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/talos-systems/crypto/x509"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
@@ -83,13 +84,30 @@ type TalosRegistriesConfig struct {
 func (talosRegistriesConfig TalosRegistriesConfig) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if talosRegistriesConfig.RegistriesConfig == nil {
+				return nil
+			}
+
 			if planConfig.Registry == nil {
 				planConfig.Registry = &Registry{}
+			}
+
+			if planConfig.Registry.Mirrors == nil {
+				planConfig.Registry.Mirrors = make(map[string][]types.String)
+			}
+
+			for k, v := range talosRegistriesConfig.RegistryMirrors {
+				planConfig.Registry.Mirrors[k] = readStringList(v.MirrorEndpoints)
 			}
 
 			return nil
 		},
 	}
+
+	if len(talosRegistriesConfig.RegistryConfig) > 0 {
+		funs = append(funs, TalosRegistryConfigs{RegistryConfigs: talosRegistriesConfig.RegistryConfig}.ReadFunc()...)
+	}
+
 	return funs
 }
 
@@ -138,6 +156,42 @@ func (registry Registry) DataFunc() [](func(*v1alpha1.Config) error) {
 	}
 }
 
-type TalosRegistryConfig struct {
-	*v1alpha1.RegistryConfig
+type RegistryConfigs map[string]*v1alpha1.RegistryConfig
+type TalosRegistryConfigs struct {
+	RegistryConfigs
+}
+
+func (talosRegistryConfigs TalosRegistryConfigs) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Registry.Configs == nil {
+				planConfig.Registry.Configs = make(map[string]RegistryConfig)
+			}
+
+			for host, config := range talosRegistryConfigs.RegistryConfigs {
+				registry := RegistryConfig{}
+
+				if config.RegistryTLS != nil {
+					registry.ClientCRT = readCert(*config.TLS().ClientIdentity())
+					registry.ClientKey = readKey(*config.TLS().ClientIdentity())
+
+					registry.CA = readString(string(config.TLS().CA()))
+					registry.InsecureSkipVerify = readBool(config.TLS().InsecureSkipVerify())
+				}
+
+				if config.RegistryAuth != nil {
+					registry.Username = readString(config.Auth().Username())
+					registry.Password = readString(config.RegistryAuth.Password())
+
+					registry.Auth = readString(config.Auth().Auth())
+					registry.IdentityToken = readString(config.Auth().IdentityToken())
+				}
+
+				planConfig.Registry.Configs[host] = registry
+			}
+
+			return nil
+		},
+	}
+	return funs
 }
