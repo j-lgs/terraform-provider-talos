@@ -50,8 +50,19 @@ type TalosClusterInlineManifests struct {
 func (talosClusterInlineManifest TalosClusterInlineManifests) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if len(talosClusterInlineManifest.ClusterInlineManifests) <= 0 {
+				return nil
+			}
+
 			if planConfig.InlineManifests == nil {
 				planConfig.InlineManifests = make([]InlineManifest, 0)
+			}
+
+			for _, manifest := range talosClusterInlineManifest.ClusterInlineManifests {
+				planConfig.InlineManifests = append(planConfig.InlineManifests, InlineManifest{
+					Name:    readString(manifest.Name()),
+					Content: readString(manifest.Contents()),
+				})
 			}
 
 			return
