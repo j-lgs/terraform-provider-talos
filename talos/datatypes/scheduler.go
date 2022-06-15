@@ -13,16 +13,15 @@ func (planScheduler SchedulerConfig) DataFunc() [](func(*v1alpha1.Config) error)
 				scheduler = &v1alpha1.SchedulerConfig{}
 			}
 
-			if planScheduler.Image.Null {
-				scheduler.ContainerImage = (&v1alpha1.SchedulerConfig{}).Image()
-			}
-
+			setString(planScheduler.Image, &scheduler.ContainerImage)
 			setStringMap(planScheduler.ExtraArgs, &scheduler.ExtraArgsConfig)
 			setStringMap(planScheduler.Env, &scheduler.EnvConfig)
 
 			// TODO: Migrate to datafuncs
-			if err := setVolumeMounts(planScheduler.ExtraVolumes, &scheduler.ExtraVolumesConfig); err != nil {
-				return err
+			if len(planScheduler.ExtraVolumes) > 0 {
+				if err := setVolumeMounts(planScheduler.ExtraVolumes, &scheduler.ExtraVolumesConfig); err != nil {
+					return err
+				}
 			}
 
 			return nil
