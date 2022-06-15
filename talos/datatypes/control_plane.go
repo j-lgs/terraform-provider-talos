@@ -50,6 +50,9 @@ func (talosControlPlaneConfig TalosControlPlaneConfig) ReadFunc() []ConfigReadFu
 				planConfig.ControlPlane = &ControlPlaneConfig{}
 			}
 
+			planConfig.ControlPlane.Endpoint = readEndpoint(talosControlPlaneConfig.Endpoint.URL)
+			planConfig.ControlPlane.LocalAPIServerPort = readInt(talosControlPlaneConfig.LocalAPIServerPort)
+
 			return nil
 		},
 	}
