@@ -387,7 +387,7 @@ var CNISchema tfsdk.Schema = tfsdk.Schema{
 
 // NetworkKubeSpanSchema describes KubeSpan configuration.
 var NetworkKubeSpanSchema tfsdk.Schema = tfsdk.Schema{
-	Description: "describes talos KubeSpan configuration.",
+	Description: "Describes Talos KubeSpan configuration.",
 	Attributes: map[string]tfsdk.Attribute{
 		"enabled": {
 			Required:    true,
@@ -522,7 +522,8 @@ var NetworkConfigSchema = tfsdk.Schema{
 
 // NetworkDeviceSchema describes a Talos Device configuration.
 var NetworkDeviceSchema tfsdk.Schema = tfsdk.Schema{
-	Description: "Describes a Talos network device configuration. The map's key is the interface name.",
+	Description:         "Describes a Talos network device configuration. The map's key is the interface name.",
+	MarkdownDescription: "",
 	Attributes: map[string]tfsdk.Attribute{
 		"name": {
 			Type:        types.StringType,
@@ -537,14 +538,11 @@ var NetworkDeviceSchema tfsdk.Schema = tfsdk.Schema{
 			Description: "A list of IP addresses for the interface.",
 			// TODO Add field validation
 		},
-
 		"routes": {
 			Optional:    true,
 			Attributes:  tfsdk.ListNestedAttributes(RouteSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			Description: RouteSchema.Description,
 		},
-		// Broken in a way I cannot currently comprehend.
-		// TODO Find a fix for this schema breaking terraform.
 		"bond": {
 			Optional:    true,
 			Attributes:  tfsdk.SingleNestedAttributes(BondSchema.Attributes),
@@ -555,7 +553,6 @@ var NetworkDeviceSchema tfsdk.Schema = tfsdk.Schema{
 			Attributes:  tfsdk.ListNestedAttributes(VLANSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			Description: VLANSchema.Description,
 		},
-
 		"mtu": {
 			Type:        types.Int64Type,
 			Optional:    true,
@@ -829,7 +826,8 @@ var VIPSchema tfsdk.Schema = tfsdk.Schema{
 
 // RouteSchema represents a network route.
 var RouteSchema tfsdk.Schema = tfsdk.Schema{
-	Description: "Represents a list of routes.",
+	Description:         "Represents a list of routes.",
+	MarkdownDescription: "",
 	Attributes: map[string]tfsdk.Attribute{
 		"network": {
 			Type:     types.StringType,
@@ -1296,6 +1294,26 @@ var SchedulerConfigSchema tfsdk.Schema = tfsdk.Schema{
 // ClusterDiscoveryConfigSchema configures cluster membership discovery.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#clusterdiscoveryconfig for more information.
 var ClusterDiscoveryConfigSchema tfsdk.Schema = tfsdk.Schema{
+	Description: "Configures cluster membership discovery.",
+	Attributes: map[string]tfsdk.Attribute{
+		"enabled": {
+			Optional:    true,
+			Description: "Enable cluster membership discovery",
+			Computed:    true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
+			Type: types.BoolType,
+		},
+		"registries": {
+			Optional:    true,
+			Description: DiscoveryRegistriesConfigSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(DiscoveryRegistriesConfigSchema.Attributes),
+		},
+	},
+}
+
+var DiscoveryRegistriesConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Configures cluster membership discovery.",
 	Attributes: map[string]tfsdk.Attribute{
 		"kubernetes_disabled": {
