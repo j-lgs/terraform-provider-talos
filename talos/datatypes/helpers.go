@@ -325,27 +325,35 @@ func setVolumeMounts(mounts []VolumeMount, dest *[]v1alpha1.VolumeMountConfig) e
 	return nil
 }
 
-func readObject(object v1alpha1.Unstructured) (dest types.String, err error) {
+func readObject(object v1alpha1.Unstructured) (dest *types.String, err error) {
 	bytes, err := yaml.Marshal(&object)
 	if err != nil {
 		return
 	}
 
-	dest = types.String{Value: string(bytes)}
+	if string(bytes) == `{}
+` {
+		return
+	}
+
+	s := readString(string(bytes))
+	dest = &s
 
 	return
 }
 
 func readObjectList(objects []v1alpha1.Unstructured) (dest []types.String, err error) {
 	for _, object := range objects {
-		var obj types.String
+		var obj *types.String
 
 		obj, err = readObject(object)
 		if err != nil {
 			return
 		}
 
-		dest = append(dest, obj)
+		if obj != nil {
+			dest = append(dest, *obj)
+		}
 	}
 
 	return

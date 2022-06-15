@@ -36,9 +36,15 @@ func (talosAdmissionPluginConfigs TalosAdmissionPluginConfigs) ReadFunc() []Conf
 				conf := AdmissionPluginConfig{
 					Name: readString(config.Name()),
 				}
-				conf.Configuration, err = readObject(config.PluginConfiguration)
+
+				var obj *types.String
+				obj, err = readObject(config.PluginConfiguration)
 				if err != nil {
 					return
+				}
+
+				if obj != nil {
+					conf.Configuration = *obj
 				}
 
 				planConfig.APIServer.AdmissionPlugins = append(planConfig.APIServer.AdmissionPlugins, conf)
