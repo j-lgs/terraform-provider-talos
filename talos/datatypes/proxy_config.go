@@ -10,12 +10,10 @@ func (planProxy ProxyConfig) Data() (any, error) {
 	if !planProxy.Image.Null {
 		proxy.ContainerImage = planProxy.Image.Value
 	}
-	if !planProxy.Disabled.Null {
-		proxy.Disabled = planProxy.Disabled.Value
-	}
-	if !planProxy.Mode.Null {
-		proxy.ModeConfig = planProxy.Mode.Value
-	}
+
+	mkBool(planProxy.Disabled).set(&proxy.Disabled)
+	mkString(planProxy.Mode).set(&proxy.ModeConfig)
+
 	proxy.ExtraArgsConfig = map[string]string{}
 	for arg, value := range planProxy.ExtraArgs {
 		proxy.ExtraArgsConfig[arg] = value.Value

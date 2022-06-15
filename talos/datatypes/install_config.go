@@ -12,8 +12,7 @@ func (install InstallConfig) Data() (any, error) {
 	installConfig.InstallDisk = generate.DefaultGenOptions().InstallDisk
 	setString(install.Disk, &installConfig.InstallDisk)
 
-	installConfig.InstallImage = generate.DefaultGenOptions().InstallImage
-	setString(install.Image, &installConfig.InstallImage)
+	mkString(install.Image).set(&installConfig.InstallImage)
 
 	setBool(install.Wipe, &installConfig.InstallWipe)
 	setBool(install.LegacyBios, &installConfig.InstallLegacyBIOSSupport)
