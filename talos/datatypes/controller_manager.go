@@ -9,9 +9,6 @@ func (planControllerManager ControllerManagerConfig) DataFunc() [](func(*v1alpha
 		func(cfg *v1alpha1.Config) error {
 			controllerManager := cfg.ClusterConfig.ControllerManagerConfig
 
-			if planControllerManager.Image.Null {
-				controllerManager.ContainerImage = (&v1alpha1.ControllerManagerConfig{}).Image()
-			}
 			setString(planControllerManager.Image, &cfg.ClusterConfig.ControllerManagerConfig.ContainerImage)
 
 			setStringMap(planControllerManager.ExtraArgs, &controllerManager.ExtraArgsConfig)
