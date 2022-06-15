@@ -85,6 +85,20 @@ func (talosSystemDiskEncryptionConfig TalosSystemDiskEncryptionConfig) ReadFunc(
 				planConfig.Encryption = &EncryptionData{}
 			}
 
+			if talosSystemDiskEncryptionConfig.EphemeralPartition != nil {
+				planConfig.Encryption.Ephemeral = &EncryptionConfigData{}
+				if err = planConfig.Encryption.Ephemeral.Read(talosSystemDiskEncryptionConfig.EphemeralPartition); err != nil {
+					return
+				}
+			}
+
+			if talosSystemDiskEncryptionConfig.StatePartition != nil {
+				planConfig.Encryption.State = &EncryptionConfigData{}
+				if err = planConfig.Encryption.State.Read(talosSystemDiskEncryptionConfig.StatePartition); err != nil {
+					return
+				}
+			}
+
 			return nil
 		},
 	}
