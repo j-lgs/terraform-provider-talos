@@ -24,16 +24,23 @@ func (planKernelConfig KernelConfig) DataFunc() [](func(*v1alpha1.Config) error)
 	}
 }
 
-type KernelModules = []*v1alpha1.KernelModuleConfig
-type TalosKernelModuleConfigs struct {
-	*KernelModules
+type TalosKernelConfig struct {
+	*v1alpha1.KernelConfig
 }
 
-func (talosKernelModuleConfigs TalosKernelModuleConfigs) ReadFunc() []ConfigReadFunc {
+func (talosKernelConfig TalosKernelConfig) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if talosKernelConfig.KernelConfig == nil {
+				return
+			}
+
 			if planConfig.Kernel == nil {
 				planConfig.Kernel = &KernelConfig{}
+			}
+
+			for _, module := range talosKernelConfig.KernelModules {
+				planConfig.Kernel.Modules = append(planConfig.Kernel.Modules, readString(module.Name()))
 			}
 
 			return nil
