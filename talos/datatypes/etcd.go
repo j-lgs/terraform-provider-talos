@@ -9,10 +9,12 @@ func (planEtcd EtcdConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 		func(cfg *v1alpha1.Config) error {
 			etcd := cfg.ClusterConfig.EtcdConfig
 
-			if planEtcd.Image.Null {
-				etcd.ContainerImage = (&v1alpha1.EtcdConfig{}).Image()
+			etcd.ContainerImage = (&v1alpha1.EtcdConfig{}).Image()
+			if !planEtcd.Image.Null {
+				etcd.ContainerImage = planEtcd.Image.Value
+
 			}
-			setString(planEtcd.Image, &etcd.ContainerImage)
+
 			setCertKey(planEtcd.CaCrt, planEtcd.CaKey, etcd.RootCA)
 			setStringMap(planEtcd.ExtraArgs, &etcd.EtcdExtraArgs)
 			setString(planEtcd.Subnet, &etcd.EtcdSubnet)
@@ -33,7 +35,19 @@ func (talosEtcdConfig TalosEtcdConfig) ReadFunc() []ConfigReadFunc {
 				planConfig.Etcd = &EtcdConfig{}
 			}
 
-			return nil
+			if talosEtcdConfig.ContainerImage != (&v1alpha1.EtcdConfig{}).Image() {
+				planConfig.Etcd.Image = readString(talosEtcdConfig.Image())
+			}
+			if planConfig.Etcd.Image.Value == "" {
+				planConfig.Etcd.Image.Value = (&v1alpha1.EtcdConfig{}).Image()
+			}
+
+			planConfig.Etcd.ExtraArgs = readStringMap(talosEtcdConfig.ExtraArgs())
+			planConfig.Etcd.Subnet = readString(talosEtcdConfig.Subnet())
+			planConfig.Etcd.CaKey = readKey(*talosEtcdConfig.CA())
+			planConfig.Etcd.CaCrt = readCert(*talosEtcdConfig.CA())
+
+			return
 		},
 	}
 	return funs
