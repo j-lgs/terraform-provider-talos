@@ -31,25 +31,61 @@ func (mount *VolumeMount) Read(vol interface{}) error {
 }
 
 type VolumeMounts []v1alpha1.VolumeMountConfig
-type TalosKubeletMounts struct {
+type TalosAPIServerMounts struct {
 	VolumeMounts
 }
 
-func (talosVolumeMounts TalosKubeletMounts) ReadFunc() []ConfigReadFunc {
+func readExtraVolumes(mounts []VolumeMount, talosMounts VolumeMounts) []VolumeMount {
+	if mounts == nil {
+		mounts = make([]VolumeMount, 0)
+	}
+
+	for _, mount := range talosMounts {
+		mounts = append(mounts, VolumeMount{
+			HostPath:  readString(mount.HostPath()),
+			MountPath: readString(mount.MountPath()),
+			Readonly:  readBool(mount.ReadOnly()),
+		})
+	}
+
+	return mounts
+}
+
+func (talosVolumeMounts TalosAPIServerMounts) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
-		func(planConfig *TalosConfig) (err error) {
-			if planConfig.APIServer.ExtraVolumes == nil {
-				planConfig.APIServer.ExtraVolumes = make([]VolumeMount, 0)
-			}
+		func(planConfig *TalosConfig) error {
+			planConfig.APIServer.ExtraVolumes = readExtraVolumes(planConfig.APIServer.ExtraVolumes,
+				talosVolumeMounts.VolumeMounts)
+			return nil
+		},
+	}
+	return funs
+}
 
-			for _, mount := range talosVolumeMounts.VolumeMounts {
-				planConfig.APIServer.ExtraVolumes = append(planConfig.APIServer.ExtraVolumes, VolumeMount{
-					HostPath:  readString(mount.HostPath()),
-					MountPath: readString(mount.MountPath()),
-					Readonly:  readBool(mount.ReadOnly()),
-				})
-			}
+type TalosSchedulerMounts struct {
+	VolumeMounts
+}
 
+func (talosVolumeMounts TalosSchedulerMounts) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) error {
+			planConfig.Scheduler.ExtraVolumes = readExtraVolumes(planConfig.Scheduler.ExtraVolumes,
+				talosVolumeMounts.VolumeMounts)
+			return nil
+		},
+	}
+	return funs
+}
+
+type TalosControllerManagerMounts struct {
+	VolumeMounts
+}
+
+func (talosVolumeMounts TalosControllerManagerMounts) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) error {
+			planConfig.ControllerManager.ExtraVolumes = readExtraVolumes(planConfig.ControllerManager.ExtraVolumes,
+				talosVolumeMounts.VolumeMounts)
 			return nil
 		},
 	}
