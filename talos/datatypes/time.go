@@ -33,9 +33,17 @@ type TalosTimeConfig struct {
 func (talosTimeConfig TalosTimeConfig) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if talosTimeConfig.TimeConfig == nil {
+				return nil
+			}
+
 			if planConfig.Time == nil {
 				planConfig.Time = &TimeConfig{}
 			}
+
+			planConfig.Time.BootTimeout = readStringDuration(talosTimeConfig.TimeBootTimeout)
+			planConfig.Time.Disabled = readBool(talosTimeConfig.TimeDisabled)
+			planConfig.Time.Servers = readStringList(talosTimeConfig.TimeServers)
 
 			return nil
 		},
