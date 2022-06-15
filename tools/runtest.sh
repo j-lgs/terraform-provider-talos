@@ -5,7 +5,6 @@ nodes=$(($nNodes-1))
 
 # kill parent processes
 cleanup() {
-    for i in $(seq 0 $nodes); do kill $(cat test/run/qemu-"$i".pid); done
     pkill -P $$
 }
 
