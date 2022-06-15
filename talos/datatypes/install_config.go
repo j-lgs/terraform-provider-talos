@@ -74,6 +74,23 @@ func (talosInstallConfig TalosInstallConfig) ReadFunc() []ConfigReadFunc {
 				planConfig.Install = &InstallConfig{}
 			}
 
+			mkString(talosInstallConfig.InstallImage).read(&planConfig.Install.Image)
+
+			mkBool(talosInstallConfig.InstallBootloader).read(&planConfig.Install.Bootloader)
+			mkBool(talosInstallConfig.LegacyBIOSSupport()).read(&planConfig.Install.LegacyBios)
+			mkBool(talosInstallConfig.InstallWipe).read(&planConfig.Install.Wipe)
+
+			planConfig.Install.Disk = readString(talosInstallConfig.InstallDisk)
+			planConfig.Install.KernelArgs = readStringList(talosInstallConfig.InstallExtraKernelArgs)
+
+			if len(talosInstallConfig.InstallExtensions) > 0 {
+				planConfig.Install.Extensions = make([]types.String, 0)
+			}
+
+			for _, extension := range talosInstallConfig.InstallExtensions {
+				planConfig.Install.Extensions = append(planConfig.Install.Extensions, readString(extension.Image()))
+			}
+
 			return nil
 		},
 	}
