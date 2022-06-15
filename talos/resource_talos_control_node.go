@@ -253,7 +253,12 @@ func (plan *talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err err
 	readFuncs := []datatypes.ConfigReadFunc{}
 	readFuncs = datatypes.AppendReadFunc(readFuncs, funcs...)
 	if plan.TalosConfig, err = datatypes.ApplyReadFunc(&plan.TalosConfig, readFuncs); err != nil {
-		return err
+		return fmt.Errorf("error applying read functions: %w", err)
+	}
+
+	if in.ClusterConfig.AllowSchedulingOnMasters {
+		plan.AllowSchedulingOnMasters = types.Bool{Value: in.ClusterConfig.AllowSchedulingOnMasters}
+		plan.AllowSchedulingOnMasters.Null = false
 	}
 
 	return nil
