@@ -24,10 +24,18 @@ var TalosConfigSchema = tfsdk.Schema{
 		"control_plane": {
 			Optional:    true,
 			Description: ControlPlaneConfigSchema.Description,
-			Attributes:  tfsdk.SingleNestedAttributes(ControlPlaneConfigSchema.Attributes),
+			Computed:    true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
+			Attributes: tfsdk.SingleNestedAttributes(ControlPlaneConfigSchema.Attributes),
 		},
 		"kubelet": {
-			Optional:    true,
+			Optional: true,
+			Computed: true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 			Description: KubeletConfigSchema.Description,
 			Attributes:  tfsdk.SingleNestedAttributes(KubeletConfigSchema.Attributes),
 		},
@@ -120,37 +128,65 @@ var TalosConfigSchema = tfsdk.Schema{
 		"apiserver": {
 			Optional:    true,
 			Description: APIServerConfigSchema.Description,
-			Attributes:  tfsdk.SingleNestedAttributes(APIServerConfigSchema.Attributes),
+			Computed:    true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
+			Attributes: tfsdk.SingleNestedAttributes(APIServerConfigSchema.Attributes),
 		},
 		"controller_manager": {
 			Description: ControllerManagerConfigSchema.Description,
 			Attributes:  tfsdk.SingleNestedAttributes(ControllerManagerConfigSchema.Attributes),
-			Optional:    true,
+			Computed:    true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
+			Optional: true,
 		},
 		"proxy": {
 			Optional:    true,
 			Description: ProxyConfigSchema.Description,
 			Attributes:  tfsdk.SingleNestedAttributes(ProxyConfigSchema.Attributes),
+			Computed:    true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 		},
 		"scheduler": {
 			Description: SchedulerConfigSchema.Description,
 			Attributes:  tfsdk.SingleNestedAttributes(SchedulerConfigSchema.Attributes),
 			Optional:    true,
+			Computed:    true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 		},
 		"discovery": {
 			Description: ClusterDiscoveryConfigSchema.Description,
 			Attributes:  tfsdk.SingleNestedAttributes(ClusterDiscoveryConfigSchema.Attributes),
-			Optional:    true,
+			Computed:    true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
+			Optional: true,
 		},
 		"etcd": {
 			Description: EtcdConfigSchema.Description,
 			Attributes:  tfsdk.SingleNestedAttributes(EtcdConfigSchema.Attributes),
-			Optional:    true,
+			Computed:    true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
+			Optional: true,
 		},
 		"coredns": {
 			Description: CoreDNSConfigSchema.MarkdownDescription,
 			Attributes:  tfsdk.SingleNestedAttributes(CoreDNSConfigSchema.Attributes),
 			Optional:    true,
+			Computed:    true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 		},
 		"external_cloud_provider": {
 			Type: types.ListType{
@@ -184,10 +220,13 @@ var TalosConfigSchema = tfsdk.Schema{
 			Attributes:  tfsdk.SingleNestedAttributes(AdminKubeconfigConfigSchema.Attributes),
 			Optional:    true,
 		},
-		// admin_kubeconfig not implemented
 		"allow_scheduling_on_masters": {
-			Type:        types.BoolType,
-			Optional:    true,
+			Type:     types.BoolType,
+			Optional: true,
+			Computed: true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 			Description: "Allows running workload on master nodes.",
 		},
 	},
@@ -278,8 +317,12 @@ var KubeletConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the kubelet's config values.",
 	Attributes: map[string]tfsdk.Attribute{
 		"image": {
-			Type:        types.StringType,
-			Optional:    true,
+			Type:     types.StringType,
+			Optional: true,
+			Computed: true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 			Description: "An optional reference to an alternative kubelet image.",
 			//			ValidateFunc: validateImage,
 		},
@@ -999,8 +1042,12 @@ var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the kube apiserver configuration options.",
 	Attributes: map[string]tfsdk.Attribute{
 		"image": {
-			Type:        types.StringType,
-			Optional:    true,
+			Type:     types.StringType,
+			Optional: true,
+			Computed: true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 			Description: "The container image used in the API server manifest.",
 			// TODO validation
 			// ValidateFunc: validateImage,
@@ -1029,12 +1076,13 @@ var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
 			Type: types.ListType{
 				ElemType: types.StringType,
 			},
-			Required:    true,
+			Computed:    true,
 			Description: "Extra certificate subject alternative names for the API server’s certificate.",
 		},
 		"disable_pod_security_policy": {
 			Type:        types.BoolType,
 			Optional:    true,
+			Computed:    true,
 			Description: "Disable PodSecurityPolicy in the API server and default manifests.",
 		},
 		"admission_control": {
@@ -1069,8 +1117,12 @@ var ProxyConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the kube proxy configuration options.",
 	Attributes: map[string]tfsdk.Attribute{
 		"image": {
-			Type:        types.StringType,
-			Optional:    true,
+			Type:     types.StringType,
+			Optional: true,
+			Computed: true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 			Description: "The container image used in the kube-proxy manifest.",
 			// TODO validate
 			// ValidateFunc: validateImage,
@@ -1175,8 +1227,12 @@ var ControllerManagerConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the kube controller manager configuration options.",
 	Attributes: map[string]tfsdk.Attribute{
 		"image": {
-			Type:        types.StringType,
-			Optional:    true,
+			Type:     types.StringType,
+			Optional: true,
+			Computed: true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 			Description: "The container image used in the controller manager manifest.",
 		},
 		"extra_args": {
@@ -1207,8 +1263,12 @@ var SchedulerConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the kube scheduler configuration options.",
 	Attributes: map[string]tfsdk.Attribute{
 		"image": {
-			Type:        types.StringType,
-			Optional:    true,
+			Type:     types.StringType,
+			Optional: true,
+			Computed: true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 			Description: "The container image used in the scheduler manifest.",
 		},
 		"extra_args": {
@@ -1264,18 +1324,24 @@ var EtcdConfigSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Represents the etcd configuration options.",
 	Attributes: map[string]tfsdk.Attribute{
 		"image": {
-			Type:        types.StringType,
-			Optional:    true,
+			Type:     types.StringType,
+			Optional: true,
+			Computed: true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 			Description: "The container image used to create the etcd service.",
 		},
 		"ca_crt": {
 			Type:                types.StringType,
 			Optional:            true,
+			Computed:            true,
 			MarkdownDescription: "PEM encoded etcd root certificate authority crt.",
 		},
 		"ca_key": {
 			Type:                types.StringType,
 			Optional:            true,
+			Computed:            true,
 			MarkdownDescription: "PEM encoded etcd root certificate authority key.",
 		},
 		"extra_args": {
@@ -1305,8 +1371,12 @@ Refer to [CoreDNS in the TalosOS Documentation](https://www.talos.dev/v1.0/refer
 			Description: "Disable coredns deployment on cluster bootstrap.",
 		},
 		"image": {
-			Type:                types.StringType,
-			Optional:            true,
+			Type:     types.StringType,
+			Optional: true,
+			Computed: true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 			MarkdownDescription: "The `image` field is an override to the default coredns image.",
 		},
 	},
@@ -1335,6 +1405,7 @@ var ControlPlaneConfigSchema tfsdk.Schema = tfsdk.Schema{
 			Type:        types.StringType,
 			Optional:    true,
 			Description: "Endpoint is the canonical controlplane endpoint, which can be an IP address or a DNS hostname.",
+			Computed:    true,
 			// TODO Verify well formed endpoint
 		},
 		"local_api_server_port": {
@@ -1358,6 +1429,10 @@ var InstallSchema tfsdk.Schema = tfsdk.Schema{
 		"image": {
 			Type:     types.StringType,
 			Optional: true,
+			Computed: true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 			// TODO validate
 			// ValidateFunc: validateImage,
 		},

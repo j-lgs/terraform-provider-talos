@@ -3,6 +3,7 @@ package talos
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"strconv"
@@ -10,9 +11,9 @@ import (
 	"time"
 
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
 	"github.com/talos-systems/talos/pkg/machinery/api/machine"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	machinetype "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
@@ -129,6 +130,11 @@ type talosControlNodeResourceData struct {
 }
 
 func (plan *talosControlNodeResourceData) Generate() (err error) {
+	input := generate.Input{}
+	if err := json.Unmarshal([]byte(plan.BaseConfig.Value), &input); err != nil {
+		return fmt.Errorf("unable to marshal node's base_config data into it's generate.Input struct: %w", err)
+	}
+
 	// Generate wireguard keys.
 	for _, device := range plan.Network.Devices {
 		// If the device's wireguard configuration exists, derive the public key from it's private key.
@@ -148,6 +154,59 @@ func (plan *talosControlNodeResourceData) Generate() (err error) {
 
 			device.Wireguard.PublicKey = types.String{Value: pk.PublicKey().String()}
 		}
+	}
+
+	// TODO derive these from talos machinery
+
+	plan.ControlPlane = &datatypes.ControlPlaneConfig{
+		Endpoint:           types.String{Value: input.GetControlPlaneEndpoint()},
+		LocalAPIServerPort: types.Int64{Null: true},
+	}
+
+	plan.ControllerManager = &datatypes.ControllerManagerConfig{
+		Image: types.String{Value: (&v1alpha1.SchedulerConfig{}).Image()},
+	}
+
+	plan.CoreDNS = &datatypes.CoreDNS{
+		Image: types.String{Value: (&v1alpha1.CoreDNS{}).Image()},
+	}
+
+	plan.AllowSchedulingOnMasters = types.Bool{Value: input.AllowSchedulingOnMasters}
+
+	plan.Kubelet = &datatypes.KubeletConfig{
+		Image: types.String{Value: (&v1alpha1.KubeletConfig{}).Image()},
+	}
+
+	plan.Proxy = &datatypes.ProxyConfig{
+		Image: types.String{Value: (&v1alpha1.ProxyConfig{}).Image()},
+	}
+
+	plan.Scheduler = &datatypes.SchedulerConfig{
+		Image: types.String{Value: (&v1alpha1.SchedulerConfig{}).Image()},
+	}
+
+	plan.APIServer = &datatypes.APIServerConfig{
+		Image:      types.String{Value: (&v1alpha1.APIServerConfig{}).Image()},
+		DisablePSP: types.Bool{Value: bool(true)},
+	}
+
+	for _, san := range input.GetAPIServerSANs() {
+		plan.APIServer.CertSANS = append(plan.APIServer.CertSANS, types.String{Value: san})
+	}
+
+	plan.Install.Image = types.String{Value: input.InstallImage}
+	if input.InstallImage == "" {
+		plan.Install.Image = types.String{Value: generate.DefaultGenOptions().InstallDisk}
+	}
+
+	plan.Discovery = &datatypes.ClusterDiscoveryConfig{
+		Enabled: types.Bool{Value: input.DiscoveryEnabled},
+	}
+
+	plan.Etcd = &datatypes.EtcdConfig{
+		Image: types.String{Value: (&v1alpha1.EtcdConfig{}).Image()},
+		CaCrt: types.String{Value: string(input.Certs.Etcd.Crt)},
+		CaKey: types.String{Value: string(input.Certs.Etcd.Key)},
 	}
 
 	return
@@ -276,27 +335,6 @@ func (r talosControlNodeResource) Create(ctx context.Context, req tfsdk.CreateRe
 		return
 	}
 
-	/*
-			config, err := r.provider.client.GetConfig()
-			if err != nil {
-				resp.Diagnostics.AddError(errDesc, err.Error())
-				return
-			}
-
-			err := r.provider.createNode(machinetype.TypeControlPlane, plan.ProvisionIP.Value)
-			if err != nil {
-				resp.Diagnostics.AddError(errDesc, err.Error())
-				return
-			}
-
-			if plan.Bootstrap.Value {
-				err := r.provider.client.Bootstrap(plan.ConfigIP.Value)
-			        if err != nil {
-		  		  resp.Diagnostics.AddError(errDesc, err.Error())
-				  return
-			        }
-			}
-	*/
 	p := &plan
 	config, errDesc, err := applyConfig(ctx, &p, configData{
 		Bootstrap:   plan.Bootstrap.Value,
@@ -345,7 +383,11 @@ func (r talosControlNodeResource) Read(ctx context.Context, req tfsdk.ReadResour
 			resp.Diagnostics.AddError(errDesc, err.Error())
 			return
 		}
-		state.ReadInto(conf)
+
+		if err = state.ReadInto(conf); err != nil {
+			resp.Diagnostics.AddError("Error reading talos configuration.", err.Error())
+			return
+		}
 	}
 
 	diags = resp.State.Set(ctx, &state)
