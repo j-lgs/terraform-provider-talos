@@ -1,7 +1,11 @@
 #!/bin/sh
+
+nNodes=4
+nodes=$(($nNodes-1))
+
 # kill parent processes
 cleanup() {
-    for i in $(seq 0 3); do kill $(cat test/run/qemu-"$i".pid); done
+    for i in $(seq 0 $nodes); do kill $(cat test/run/qemu-"$i".pid); done
     pkill -P $$
 }
 
@@ -93,31 +97,23 @@ vmup() {
 		       -drive file=test/opt/vm-"$1".qcow2,format=qcow2,if=virtio \
 		       -netdev tap,id=mynet0,ifname=tap"$1",script=no,downscript=no \
 		       -device virtio-net-pci,netdev=mynet0,mac=$MAC \
-		       -serial file:test/run/vm-"$1".log -display none \
-		       -daemonize -pidfile test/run/qemu-"$1".pid \
+		       -serial stdio \
+		       -display none \
 		       -device virtio-rng-pci \
     		       -qmp unix:/tmp/qmp/vm-node-"$1".sock,server,nowait \
-		       ${kvm}
-
-    tail -f test/run/vm-"$1".log | sed "s/^/(vm-node-$1 LOG): /" &
+		       ${kvm} | sed -e "s/^/VM Node $1: /;"
 }
 
 mkdir -p test/run
 # Create VM pool
-for i in $(seq 0 3); do
+for i in $(seq 0 $nodes); do
     tapup tap"$i";
-    vmup "$i"
-done
 
-(
-    while socket=$(inotifywait -q /tmp/qmp -e delete --format '%f'); do {
-	if [ "${socket: -5}" == ".sock" ]; then
-	    echo "restarting $socket"
-	    vmup $(echo "$socket" | sed 's/[^0-9]*//g')
-	fi
-    }
-    done
-) &
+    until vmup "$i"; do
+	echo "Qemu VM '$i' crashed with exit code $?.  Respawning.." >&2
+	sleep 1
+    done &
+done
 
 sleep 2
 
