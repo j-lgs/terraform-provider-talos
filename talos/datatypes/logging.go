@@ -50,8 +50,16 @@ func (talosLoggingConfig TalosLoggingConfig) ReadFunc() []ConfigReadFunc {
 				planConfig.Logging = &LoggingConfig{}
 			}
 
+			for _, dest := range talosLoggingConfig.LoggingDestinations {
+				planConfig.Logging.Destinations = append(planConfig.Logging.Destinations, LoggingDestination{
+					Endpoint: readEndpoint(dest.Endpoint()),
+					Format:   readString(dest.Format()),
+				})
+			}
+
 			return nil
 		},
 	}
+
 	return funs
 }
