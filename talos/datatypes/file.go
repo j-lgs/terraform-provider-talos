@@ -34,11 +34,20 @@ type TalosFiles struct {
 	Files
 }
 
-func (talosTalosFiles TalosFiles) ReadFunc() []ConfigReadFunc {
+func (talosFiles TalosFiles) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
 			if planConfig.Files == nil {
 				planConfig.Files = make([]File, 0)
+			}
+
+			for _, file := range talosFiles.Files {
+				planConfig.Files = append(planConfig.Files, File{
+					Content:     readString(file.Content()),
+					Permissions: readInt(int(file.Permissions())),
+					Path:        readString(file.Path()),
+					Op:          readString(file.Op()),
+				})
 			}
 
 			return nil
