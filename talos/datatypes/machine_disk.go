@@ -97,8 +97,24 @@ func (talosMachineDisk TalosMachineDisk) ReadFunc() []ConfigReadFunc {
 				planConfig.Disks = make([]MachineDiskData, 0)
 			}
 
+			for _, talosDisk := range talosMachineDisk.MachineDisks {
+				disk := MachineDiskData{
+					DeviceName: readString(talosDisk.DeviceName),
+				}
+
+				for _, talosPart := range talosDisk.DiskPartitions {
+					disk.Partitions = append(disk.Partitions, PartitionData{
+						Size:       readString(humanize.Bytes(talosPart.Size())),
+						MountPoint: readString(talosPart.MountPoint()),
+					})
+				}
+
+				planConfig.Disks = append(planConfig.Disks, disk)
+			}
+
 			return nil
 		},
 	}
+
 	return funs
 }
