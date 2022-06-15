@@ -225,11 +225,14 @@ func setStringDuration(str types.String, dest *time.Duration) error {
 }
 
 func readStringDuration(lifetime time.Duration) types.String {
+	if reflect.ValueOf(lifetime).IsZero() {
+		return types.String{Null: true}
+	}
+
 	return types.String{Value: lifetime.String()}
 }
 
 func setEndpoint(str types.String, dest *v1alpha1.Endpoint) error {
-
 	return nil
 }
 
@@ -250,6 +253,14 @@ func setCertKey(crt types.String, key types.String, dest *x509.PEMEncodedCertifi
 		Crt: []byte(crt.Value),
 		Key: []byte(key.Value),
 	}
+}
+
+func readCert(pem x509.PEMEncodedCertificateAndKey) types.String {
+	return types.String{Value: string(pem.Crt)}
+}
+
+func readKey(pem x509.PEMEncodedCertificateAndKey) types.String {
+	return types.String{Value: string(pem.Key)}
 }
 
 // TODO return errors whenever a null pointer is passed
