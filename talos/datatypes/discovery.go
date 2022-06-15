@@ -29,13 +29,26 @@ type TalosClusterDiscoveryConfig struct {
 func (talosClusterDiscoveryConfig TalosClusterDiscoveryConfig) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if talosClusterDiscoveryConfig.ClusterDiscoveryConfig == nil {
+				return nil
+			}
+
+			if !talosClusterDiscoveryConfig.DiscoveryEnabled {
+				return nil
+			}
+
 			if planConfig.Discovery == nil {
 				planConfig.Discovery = &ClusterDiscoveryConfig{}
 			}
 
+			planConfig.Discovery.Enabled = readBool(talosClusterDiscoveryConfig.DiscoveryEnabled)
+
 			return nil
 		},
 	}
+
+	funs = append(funs, TalosDiscoveryRegistriesConfig{DiscoveryRegistriesConfig: talosClusterDiscoveryConfig.DiscoveryRegistries}.ReadFunc()...)
+
 	return funs
 }
 
@@ -55,5 +68,22 @@ func (planDiscoveryRegistries DiscoveryRegistriesConfig) DataFunc() [](func(*v1a
 }
 
 type TalosDiscoveryRegistriesConfig struct {
-	*v1alpha1.DiscoveryRegistriesConfig
+	v1alpha1.DiscoveryRegistriesConfig
+}
+
+func (talosDiscoveryRegistriesConfig TalosDiscoveryRegistriesConfig) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			if planConfig.Discovery.Registries == nil {
+				planConfig.Discovery.Registries = &DiscoveryRegistriesConfig{}
+			}
+
+			planConfig.Discovery.Registries.KubernetesDisabled = readBool(talosDiscoveryRegistriesConfig.RegistryKubernetes.RegistryDisabled)
+			planConfig.Discovery.Registries.ServiceDisabled = readBool(talosDiscoveryRegistriesConfig.RegistryService.RegistryDisabled)
+			planConfig.Discovery.Registries.ServiceEndpoint = readString(talosDiscoveryRegistriesConfig.RegistryService.RegistryEndpoint)
+
+			return nil
+		},
+	}
+	return funs
 }
