@@ -2,6 +2,7 @@ package datatypes
 
 import (
 	"fmt"
+	"net/url"
 	"reflect"
 	"time"
 
