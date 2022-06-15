@@ -36,6 +36,9 @@ func (talosCoreDNS TalosCoreDNS) ReadFunc() []ConfigReadFunc {
 				planConfig.CoreDNS = &CoreDNS{}
 			}
 
+			planConfig.CoreDNS.Image = readString(talosCoreDNS.Image())
+			planConfig.CoreDNS.Disabled = readBool(talosCoreDNS.CoreDNSDisabled)
+
 			return nil
 		},
 	}
