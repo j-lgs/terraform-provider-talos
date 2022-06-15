@@ -79,10 +79,116 @@ func ApplyReadFunc(talosConfig *TalosConfig, funcs []ConfigReadFunc) (TalosConfi
 	return *talosConfig, nil
 }
 
+type (
+	StringType interface {
+		read(*types.String)
+		set(*string)
+		zero() bool
+	}
+
+	StringTypeValue string
+	StringTypeNone  struct{}
+)
+
+func mkString(val any) StringType {
+	switch v := val.(type) {
+	case string:
+		if reflect.ValueOf(v).IsZero() {
+			return StringTypeNone{}
+		}
+		return StringTypeValue(v)
+	case types.String:
+		if v.Null || reflect.ValueOf(v.Value).IsZero() {
+			return StringTypeNone{}
+		}
+		return StringTypeValue(v.Value)
+	default:
+		panic("unsupported type passed to mkString")
+	}
+}
+
+func (val StringTypeValue) read(out *types.String) {
+	if out == nil {
+		return
+	}
+
+	(*out) = types.String{Value: string(val)}
+}
+func (val StringTypeValue) set(out *string) {
+	if out == nil {
+		return
+	}
+
+	(*out) = string(val)
+}
+func (StringTypeValue) zero() bool {
+	return false
+}
+
+func (StringTypeNone) read(out *types.String) {}
+func (StringTypeNone) set(*string)            {}
+func (StringTypeNone) zero() bool             { return true }
+
+type (
+	BoolType interface {
+		read(*types.Bool)
+		set(*bool)
+		zero() bool
+	}
+
+	BoolTypeValue bool
+	BoolTypeNone  struct{}
+)
+
+func mkBool(val any) BoolType {
+	switch v := val.(type) {
+	case bool:
+		if !v {
+			return BoolTypeNone{}
+		}
+		return BoolTypeValue(v)
+	case types.Bool:
+		if v.Null || !v.Value {
+			return BoolTypeNone{}
+		}
+
+		return BoolTypeValue(v.Value)
+	default:
+		panic("unsupported type passed to mkBool")
+	}
+}
+
+func (val BoolTypeValue) read(out *types.Bool) {
+	if out == nil {
+		return
+	}
+
+	(*out) = types.Bool{Value: bool(val)}
+}
+
+func (val BoolTypeValue) set(out *bool) {
+	if out == nil {
+		return
+	}
+
+	(*out) = bool(val)
+}
+func (BoolTypeValue) zero() bool { return false }
+
+func (BoolTypeNone) read(out *types.Bool) {}
+
+func (BoolTypeNone) set(*bool)  {}
+func (BoolTypeNone) zero() bool { return true }
+
+func readInt(val int) types.Int64 {
+	return types.Int64{Value: int64(val)}
+}
+
 func setBool(val types.Bool, dest *bool) {
 	if val.Null {
 		return
 	}
+
 	*dest = val.Value
 }
 
