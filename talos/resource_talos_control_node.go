@@ -232,7 +232,7 @@ func (plan *talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err err
 		datatypes.TalosMachineSysctls(in.MachineConfig.MachineSysctls),
 		datatypes.TalosFiles{Files: in.MachineConfig.MachineFiles},
 		datatypes.TalosTimeConfig{TimeConfig: in.MachineConfig.MachineTime},
-		datatypes.TalosKernelModuleConfigs{KernelModules: &in.MachineConfig.MachineKernel.KernelModules},
+		datatypes.TalosKernelConfig{KernelConfig: in.MachineConfig.MachineKernel},
 		datatypes.TalosLoggingConfig{LoggingConfig: in.MachineConfig.MachineLogging},
 		datatypes.TalosSchedulerConfig{SchedulerConfig: in.ClusterConfig.SchedulerConfig},
 		datatypes.TalosClusterDiscoveryConfig{ClusterDiscoveryConfig: &in.ClusterConfig.ClusterDiscoveryConfig},
