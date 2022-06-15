@@ -19,6 +19,10 @@ func (planKubespan NetworkKubeSpan) Data() (any, error) {
 	return kubespan, nil
 }
 
+func (planKubespan NetworkKubeSpan) zero() bool {
+	return mkBool(planKubespan.Enabled).zero() && mkBool(planKubespan.AllowPeerDownBypass).zero()
+}
+
 func (stateKubespan *NetworkKubeSpan) Read(kubespan any) error {
 	if kubespan == nil {
 		return fmt.Errorf("nil talos NetworkKubeSpan pointer provided to Read function")
@@ -45,6 +49,10 @@ func (talosKubeSpan TalosNetworkKubeSpan) ReadFunc() []ConfigReadFunc {
 				planConfig.Network.Kubespan = &NetworkKubeSpan{}
 			}
 
+
+			if planConfig.Network.Kubespan.zero() {
+				planConfig.Network.Kubespan = nil
+			}
 			return nil
 		},
 	}

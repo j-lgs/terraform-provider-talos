@@ -43,6 +43,13 @@ type TalosProxyConfig struct {
 	*v1alpha1.ProxyConfig
 }
 
+func (proxyConfig ProxyConfig) zero() bool {
+	return mkString(proxyConfig.Image).zero() &&
+		mkBool(proxyConfig.Disabled).zero() &&
+		len(proxyConfig.ExtraArgs) <= 0 &&
+		mkString(proxyConfig.Mode).zero()
+}
+
 func (talosProxyConfig TalosProxyConfig) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
@@ -50,6 +57,10 @@ func (talosProxyConfig TalosProxyConfig) ReadFunc() []ConfigReadFunc {
 				planConfig.Proxy = &ProxyConfig{}
 			}
 
+
+			if planConfig.Proxy.zero() {
+				planConfig.Proxy = nil
+			}
 			return nil
 		},
 	}

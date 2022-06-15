@@ -35,6 +35,13 @@ func (planControllerManager ControllerManagerConfig) DataFunc() [](func(*v1alpha
 	}
 }
 
+func (planControllerManager ControllerManagerConfig) zero() bool {
+	return mkString(planControllerManager.Image).zero() &&
+		len(planControllerManager.Env) <= 0 &&
+		len(planControllerManager.ExtraArgs) <= 0 &&
+		len(planControllerManager.ExtraVolumes) <= 0
+}
+
 type TalosControllerManagerConfig struct {
 	*v1alpha1.ControllerManagerConfig
 }
@@ -46,6 +53,9 @@ func (talosControllerManagerConfig TalosControllerManagerConfig) ReadFunc() []Co
 				planConfig.ControllerManager = &ControllerManagerConfig{}
 			}
 
+			if planConfig.ControllerManager.zero() {
+				planConfig.ControllerManager = nil
+			}
 			return nil
 		},
 	}

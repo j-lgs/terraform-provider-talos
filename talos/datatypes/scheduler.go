@@ -30,6 +30,13 @@ func (planScheduler SchedulerConfig) DataFunc() [](func(*v1alpha1.Config) error)
 	}
 }
 
+func (planScheduler SchedulerConfig) zero() bool {
+	return mkString(planScheduler.Image).zero() &&
+		len(planScheduler.Env) <= 0 &&
+		len(planScheduler.ExtraArgs) <= 0 &&
+		len(planScheduler.ExtraVolumes) <= 0
+}
+
 type TalosSchedulerConfig struct {
 	*v1alpha1.SchedulerConfig
 }
@@ -41,6 +48,10 @@ func (talosSchedulerConfig TalosSchedulerConfig) ReadFunc() []ConfigReadFunc {
 				planConfig.Scheduler = &SchedulerConfig{}
 			}
 
+			if planConfig.Scheduler.zero() {
+				planConfig.Scheduler = nil
+				return nil
+			}
 			return nil
 		},
 	}

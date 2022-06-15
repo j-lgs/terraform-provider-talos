@@ -50,6 +50,16 @@ func (planAPIServer APIServerConfig) Data() (interface{}, error) {
 	return apiServer, nil
 }
 
+func (planAPIServer APIServerConfig) zero() bool {
+	return mkString(planAPIServer.Image).zero() &&
+		len(planAPIServer.ExtraArgs) <= 0 &&
+		mkBool(planAPIServer.DisablePSP).zero() &&
+		len(planAPIServer.AdmissionPlugins) <= 0 &&
+		len(planAPIServer.CertSANS) <= 0 &&
+		len(planAPIServer.Env) <= 0 &&
+		len(planAPIServer.ExtraVolumes) <= 0
+}
+
 func (planAPIServer APIServerConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 	return [](func(*v1alpha1.Config) error){
 		func(cfg *v1alpha1.Config) error {
@@ -78,6 +88,9 @@ func (talosAPIServerConfig TalosAPIServerConfig) ReadFunc() []ConfigReadFunc {
 			planConfig.APIServer.DisablePSP = readBool(talosAPIServerConfig.DisablePodSecurityPolicyConfig)
 			planConfig.APIServer.Env = readStringMap(talosAPIServerConfig.EnvConfig)
 			planConfig.APIServer.ExtraArgs = readStringMap(talosAPIServerConfig.ExtraArgsConfig)
+			if planConfig.APIServer.zero() {
+				planConfig.APIServer = nil
+			}
 
 			return nil
 		},

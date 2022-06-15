@@ -58,6 +58,16 @@ func (kubelet KubeletConfig) DataFunc() [](func(*v1alpha1.Config) error) {
 	return funs
 }
 
+func (kubelet KubeletConfig) zero() bool {
+	return mkString(kubelet.Image).zero() &&
+		mkBool(kubelet.RegisterWithFQDN).zero() &&
+		mkString(kubelet.ExtraConfig.Value).zero() &&
+		len(kubelet.ClusterDNS) <= 0 &&
+		len(kubelet.ExtraMounts) <= 0 &&
+		len(kubelet.NodeIPValidSubnets) <= 0 &&
+		len(kubelet.ExtraArgs) <= 0
+}
+
 // Data copies data from terraform state types to talos types.
 func (kubelet KubeletConfig) Data() (interface{}, error) {
 	talosKubelet := &v1alpha1.KubeletConfig{}
@@ -164,6 +174,10 @@ func (talosKubelet TalosKubelet) ReadFunc() []ConfigReadFunc {
 			planConfig.Kubelet.ClusterDNS = readStringList(talosKubelet.ClusterDNS())
 			planConfig.Kubelet.ExtraArgs = readStringMap(talosKubelet.ExtraArgs())
 			planConfig.Kubelet.NodeIPValidSubnets = readStringList(talosKubelet.NodeIP().ValidSubnets())
+
+			if planConfig.Kubelet.zero() {
+				planConfig.Kubelet = nil
+			}
 
 			return nil
 		},
