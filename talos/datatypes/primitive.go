@@ -21,6 +21,10 @@ type TalosExtraManifestHeaders map[string]string
 func (talosExtraManifestHeaders TalosExtraManifestHeaders) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if len(talosExtraManifestHeaders) <= 0 {
+				return nil
+			}
+
 			planConfig.ExtraManifestHeaders = readStringMap(talosExtraManifestHeaders)
 			return nil
 		},
@@ -44,6 +48,10 @@ type TalosMachineSysfs map[string]string
 func (talosMachineSysfs TalosMachineSysfs) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if len(talosMachineSysfs) <= 0 {
+				return nil
+			}
+
 			planConfig.Sysfs = readStringMap(talosMachineSysfs)
 			return nil
 		},
@@ -67,6 +75,10 @@ type TalosMachineSysctls map[string]string
 func (talosMachineSysctls TalosMachineSysctls) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if len(talosMachineSysctls) <= 0 {
+				return nil
+			}
+
 			planConfig.Sysctls = readStringMap(talosMachineSysctls)
 			return nil
 		},
@@ -90,6 +102,10 @@ type TalosMachineEnv map[string]string
 func (talosMachineEnv TalosMachineEnv) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if len(talosMachineEnv) <= 0 {
+				return nil
+			}
+
 			planConfig.Env = readStringMap(talosMachineEnv)
 			return nil
 		},
@@ -113,6 +129,10 @@ type TalosMachineCertSANs []string
 func (talosMachineCertSANs TalosMachineCertSANs) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if len(talosMachineCertSANs) <= 0 {
+				return nil
+			}
+
 			planConfig.CertSANS = readStringList(talosMachineCertSANs)
 			return nil
 		},
@@ -163,6 +183,10 @@ type TalosMachinePods []v1alpha1.Unstructured
 func (talosMachinePods TalosMachinePods) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if len(talosMachinePods) <= 0 {
+				return nil
+			}
+
 			planConfig.Pod, err = readObjectList(talosMachinePods)
 			if err != nil {
 				return
@@ -190,6 +214,10 @@ type TalosClusterExtraManifests []string
 func (talosMachineExtraManfests TalosClusterExtraManifests) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if len(talosMachineExtraManfests) <= 0 {
+				return nil
+			}
+
 			planConfig.ExtraManifests = readStringList(talosMachineExtraManfests)
 			return nil
 		},
