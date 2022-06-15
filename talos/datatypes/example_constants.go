@@ -317,7 +317,7 @@ metadata:
 	timedisabledExample  = false
 	timeserversExample   = []string{"time.cloudflare.com"}
 	timeoutExample       = 2
-	timeoutExampleString = "2m"
+	timeoutExampleString = "2m0s"
 
 	sysctlsExample = map[string]string{
 		"kernel.domainname":   "talos.dev",
@@ -358,7 +358,7 @@ metadata:
 
 	deviceNameExample = "/dev/sdb1"
 
-	diskSizeExampleInt = 100000000
-	diskSizeExampleStr = "100GiB"
+	diskSizeExampleInt = 100000000000
+	diskSizeExampleStr = "100 GB"
 	diskMountExample   = "/var/mnt/extra"
 )
