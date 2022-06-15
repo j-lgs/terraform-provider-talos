@@ -231,7 +231,7 @@ Optional:
 - `devices` (Attributes List) Describes a Talos network device configuration. The map's key is the interface name. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices))
 - `extra_hosts` (Map of List of String) Allows for extra entries to be added to the `/etc/hosts` file.
 - `hostname` (String) Used to statically set the hostname for the machine.
-- `kubespan` (Attributes) describes talos KubeSpan configuration. (see [below for nested schema](#nestedatt--network--with_networkconfig--kubespan))
+- `kubespan` (Attributes) Describes Talos KubeSpan configuration. (see [below for nested schema](#nestedatt--network--with_networkconfig--kubespan))
 - `nameservers` (List of String) Used to statically set the nameservers for the machine.
 
 <a id="nestedatt--network--with_networkconfig--devices"></a>
@@ -242,7 +242,7 @@ Optional:
 - `addresses` (List of String) A list of IP addresses for the interface.
 - `bond` (Attributes) Contains the various options for configuring a bonded interface. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--bond))
 - `dhcp` (Boolean) Indicates if DHCP should be used to configure the interface.
-- `dhcp_options` (Attributes) Contains settings for configuring Wireguard network interface. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--dhcp_options))
+- `dhcp_options` (Attributes) Specifies DHCP specific options. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--dhcp_options))
 - `dummy` (Boolean) Indicates if the interface is a dummy interface..
 - `ignore` (Boolean) Indicates if the interface should be ignored (skips configuration).
 - `mtu` (Number) The interface’s MTU. If used in combination with DHCP, this will override any MTU settings returned from DHCP server.
@@ -291,22 +291,9 @@ Optional:
 
 Optional:
 
-- `firewall_mark` (Number) Firewall mark for wireguard packets.
-- `listen_port` (Number) Listening port for if this node should be a wireguard server.
-- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard--peer))
-- `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
-- `public_key` (String) Automatically derived from the private_key field.
-
-<a id="nestedatt--network--with_networkconfig--devices--wireguard--peer"></a>
-### Nested Schema for `network.with_networkconfig.devices.wireguard.peer`
-
-Optional:
-
-- `allowed_ips` (List of String) AllowedIPs specifies a list of allowed IP addresses in CIDR notation for this peer.
-- `endpoint` (String) Specifies the endpoint of this peer entry.
-- `persistent_keepalive_interval` (Number) Specifies the persistent keepalive interval for this peer. Provided in seconds.
-- `public_key` (String) Specifies the public key of this peer.
-
+- `ipv4` (Boolean) Enables DHCPv4 protocol for the interface.
+- `ipv6` (Boolean) Enables DHCPv6 protocol for the interface.
+- `route_metric` (Number) The priority of all routes received via DHCP. Must be castable to a uint32.
 
 
 <a id="nestedatt--network--with_networkconfig--devices--routes"></a>
@@ -371,12 +358,12 @@ Optional:
 
 - `firewall_mark` (Number) Firewall mark for wireguard packets.
 - `listen_port` (Number) Listening port for if this node should be a wireguard server.
-- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard--peer))
+- `peers` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard--peers))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
 - `public_key` (String) Automatically derived from the private_key field.
 
-<a id="nestedatt--network--with_networkconfig--devices--wireguard--peer"></a>
-### Nested Schema for `network.with_networkconfig.devices.wireguard.peer`
+<a id="nestedatt--network--with_networkconfig--devices--wireguard--peers"></a>
+### Nested Schema for `network.with_networkconfig.devices.wireguard.peers`
 
 Optional:
 
@@ -393,7 +380,7 @@ Optional:
 
 Optional:
 
-- `allow_down_peer_bypass` (Boolean) Skip sending traffic via KubeSpan if the peer connection state is not up.
+- `allow_peer_down_bypass` (Boolean) Skip sending traffic via KubeSpan if the peer connection state is not up.
 - `enabled` (Boolean) Enable the KubeSpan feature.
 
 
@@ -405,12 +392,12 @@ Optional:
 
 - `firewall_mark` (Number) Firewall mark for wireguard packets.
 - `listen_port` (Number) Listening port for if this node should be a wireguard server.
-- `peer` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_wireguard--peer))
+- `peers` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_wireguard--peers))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
 - `public_key` (String) Automatically derived from the private_key field.
 
-<a id="nestedatt--network--with_wireguard--peer"></a>
-### Nested Schema for `network.with_wireguard.peer`
+<a id="nestedatt--network--with_wireguard--peers"></a>
+### Nested Schema for `network.with_wireguard.peers`
 
 Optional:
 
