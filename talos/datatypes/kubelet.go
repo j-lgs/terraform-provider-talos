@@ -157,19 +157,31 @@ type TalosKubelet struct {
 func (talosKubelet TalosKubelet) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) error {
+			if talosKubelet.KubeletConfig == nil {
+				return nil
+			}
+
 			if planConfig.Kubelet == nil {
 				planConfig.Kubelet = &KubeletConfig{}
 			}
 
-			planConfig.Kubelet.Image = readString(talosKubelet.Image())
+			if talosKubelet.KubeletImage != (&v1alpha1.KubeletConfig{}).Image() {
+				planConfig.Kubelet.Image = readString(talosKubelet.Image())
+			}
+			if planConfig.Kubelet.Image.Value == "" {
+				planConfig.Kubelet.Image.Value = (&v1alpha1.KubeletConfig{}).Image()
+			}
+
 			planConfig.Kubelet.RegisterWithFQDN = readBool(talosKubelet.RegisterWithFQDN())
 
-			var obj types.String
+			var obj *types.String
 			var err error
 			if obj, err = readObject(talosKubelet.KubeletExtraConfig); err != nil {
 				return err
 			}
-			planConfig.Kubelet.ExtraConfig = obj
+			if obj != nil {
+				planConfig.Kubelet.ExtraConfig = *obj
+			}
 
 			planConfig.Kubelet.ClusterDNS = readStringList(talosKubelet.ClusterDNS())
 			planConfig.Kubelet.ExtraArgs = readStringMap(talosKubelet.ExtraArgs())
