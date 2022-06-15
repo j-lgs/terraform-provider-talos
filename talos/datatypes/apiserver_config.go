@@ -84,10 +84,24 @@ func (talosAPIServerConfig TalosAPIServerConfig) ReadFunc() []ConfigReadFunc {
 				planConfig.APIServer = &APIServerConfig{}
 			}
 
-			planConfig.APIServer.Image = readString(talosAPIServerConfig.Image())
+			if talosAPIServerConfig.ContainerImage != (&v1alpha1.APIServerConfig{}).Image() {
+				planConfig.APIServer.Image = readString(talosAPIServerConfig.Image())
+			}
+			if planConfig.APIServer.Image.Value == "" {
+				planConfig.APIServer.Image.Value = (&v1alpha1.APIServerConfig{}).Image()
+			}
+
 			planConfig.APIServer.DisablePSP = readBool(talosAPIServerConfig.DisablePodSecurityPolicyConfig)
 			planConfig.APIServer.Env = readStringMap(talosAPIServerConfig.EnvConfig)
-			planConfig.APIServer.ExtraArgs = readStringMap(talosAPIServerConfig.ExtraArgsConfig)
+
+			if len(talosAPIServerConfig.ExtraArgsConfig) > 0 {
+				planConfig.APIServer.ExtraArgs = readStringMap(talosAPIServerConfig.ExtraArgsConfig)
+			}
+
+			if len(talosAPIServerConfig.CertSANs) > 0 {
+				planConfig.APIServer.CertSANS = readStringList(talosAPIServerConfig.CertSANs)
+			}
+
 			if planConfig.APIServer.zero() {
 				planConfig.APIServer = nil
 			}
@@ -96,8 +110,13 @@ func (talosAPIServerConfig TalosAPIServerConfig) ReadFunc() []ConfigReadFunc {
 		},
 	}
 
-	funs = append(funs, TalosKubeletMounts{VolumeMounts: talosAPIServerConfig.ExtraVolumesConfig}.ReadFunc()...)
-	funs = append(funs, TalosAdmissionPluginConfigs{AdmissionControlConfigs: talosAPIServerConfig.AdmissionControlConfig}.ReadFunc()...)
+	if len(talosAPIServerConfig.ExtraVolumesConfig) > 0 {
+		funs = append(funs, TalosAPIServerMounts{VolumeMounts: talosAPIServerConfig.ExtraVolumesConfig}.ReadFunc()...)
+	}
+
+	if len(talosAPIServerConfig.AdmissionControlConfig) > 0 {
+		funs = append(funs, TalosAdmissionPluginConfigs{AdmissionControlConfigs: talosAPIServerConfig.AdmissionControlConfig}.ReadFunc()...)
+	}
 
 	return funs
 }

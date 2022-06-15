@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"gopkg.in/yaml.v3"
 )
