@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 )
 
@@ -23,6 +24,12 @@ func (planVIP VIP) Data() (interface{}, error) {
 	return vip, nil
 }
 
-type TalosDeviceVIPConfig struct {
-	*v1alpha1.DeviceVIPConfig
+func readVIPConfig(vip config.VIPConfig) (out *VIP) {
+	out = &VIP{}
+
+	out.EquinixMetalAPIToken = readString(vip.EquinixMetal().APIToken())
+	out.HetznerCloudAPIToken = readString(vip.HCloud().APIToken())
+	out.IP = readString(vip.IP())
+
+	return
 }

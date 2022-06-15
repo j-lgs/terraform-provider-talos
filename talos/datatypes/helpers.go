@@ -232,6 +232,14 @@ func setEndpoint(str types.String, dest *v1alpha1.Endpoint) error {
 	return nil
 }
 
+func readEndpoint(endpoint *url.URL) types.String {
+	if reflect.ValueOf(endpoint).IsZero() {
+		return types.String{Null: true}
+	}
+
+	return readString(endpoint.String())
+}
+
 func setCertKey(crt types.String, key types.String, dest *x509.PEMEncodedCertificateAndKey) {
 	if crt.Null || key.Null {
 		return

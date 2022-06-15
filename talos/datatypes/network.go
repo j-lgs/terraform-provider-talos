@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 )
 
@@ -64,12 +65,30 @@ type TalosNetworkConfig struct {
 func (talosNetworkConfig TalosNetworkConfig) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if talosNetworkConfig.NetworkConfig == nil {
+				return nil
+			}
+
 			if planConfig.Network == nil {
 				planConfig.Network = &NetworkConfig{}
+			}
+
+			planConfig.Network.Hostname = readString(talosNetworkConfig.NetworkHostname)
+			planConfig.Network.Nameservers = readStringList(talosNetworkConfig.NameServers)
+
+			if len(talosNetworkConfig.ExtraHostEntries) > 0 {
+				planConfig.Network.ExtraHosts = make(map[string][]types.String)
+				for _, host := range talosNetworkConfig.ExtraHostEntries {
+					planConfig.Network.ExtraHosts[host.IP()] = readStringList(host.Aliases())
+				}
 			}
 
 			return nil
 		},
 	}
+
+	funs = append(funs, TalosNetworkInterfaces{talosNetworkConfig.NetworkInterfaces}.ReadFunc()...)
+	funs = append(funs, TalosNetworkKubeSpan{talosNetworkConfig.NetworkKubeSpan}.ReadFunc()...)
+
 	return funs
 }

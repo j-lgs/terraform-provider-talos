@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 )
 
@@ -37,6 +38,15 @@ func (planVLAN VLAN) Data() (interface{}, error) {
 	return vlan, nil
 }
 
-type TalosVlan struct {
-	*v1alpha1.Vlan
+func readVLAN(vlan config.Vlan) (out VLAN) {
+	out.Addresses = readStringList(vlan.Addresses())
+	out.DHCP = readBool(vlan.DHCP())
+	out.MTU = readInt(int(vlan.MTU()))
+	out.VLANId = readInt(int(vlan.ID()))
+	for _, route := range vlan.Routes() {
+		out.Routes = append(out.Routes, readRoute(route))
+	}
+	out.VIP = readVIPConfig(vlan.VIPConfig())
+
+	return
 }

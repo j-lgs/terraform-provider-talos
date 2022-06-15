@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 )
 
@@ -22,6 +23,12 @@ func (planDHCPOptions DHCPOptions) Data() (interface{}, error) {
 	return dhcpOptions, nil
 }
 
-type TalosDHCPOptions struct {
-	*v1alpha1.DHCPOptions
+func readDHCP(dhcp config.DHCPOptions) (out *DHCPOptions) {
+	out = &DHCPOptions{}
+
+	out.IPV4 = readBool(dhcp.IPv4())
+	out.IPV6 = readBool(dhcp.IPv6())
+	out.RouteMetric = readInt(int(dhcp.RouteMetric()))
+
+	return
 }

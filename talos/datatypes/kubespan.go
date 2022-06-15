@@ -8,13 +8,10 @@ import (
 )
 
 func (planKubespan NetworkKubeSpan) Data() (any, error) {
-	kubespan := v1alpha1.NetworkKubeSpan{
-		KubeSpanEnabled: planKubespan.Enabled.Value,
-	}
+	kubespan := v1alpha1.NetworkKubeSpan{}
 
-	if !planKubespan.AllowPeerDownBypass.Null {
-		kubespan.KubeSpanAllowDownPeerBypass = planKubespan.AllowPeerDownBypass.Value
-	}
+	mkBool(planKubespan.Enabled).set(&kubespan.KubeSpanEnabled)
+	mkBool(planKubespan.AllowPeerDownBypass).set(&kubespan.KubeSpanAllowDownPeerBypass)
 
 	return kubespan, nil
 }
@@ -39,7 +36,7 @@ func (stateKubespan *NetworkKubeSpan) Read(kubespan any) error {
 }
 
 type TalosNetworkKubeSpan struct {
-	*v1alpha1.NetworkKubeSpan
+	v1alpha1.NetworkKubeSpan
 }
 
 func (talosKubeSpan TalosNetworkKubeSpan) ReadFunc() []ConfigReadFunc {
@@ -49,10 +46,13 @@ func (talosKubeSpan TalosNetworkKubeSpan) ReadFunc() []ConfigReadFunc {
 				planConfig.Network.Kubespan = &NetworkKubeSpan{}
 			}
 
+			mkBool(talosKubeSpan.Enabled()).read(&planConfig.Network.Kubespan.Enabled)
+			mkBool(talosKubeSpan.KubeSpanAllowDownPeerBypass).read(&planConfig.Network.Kubespan.AllowPeerDownBypass)
 
 			if planConfig.Network.Kubespan.zero() {
 				planConfig.Network.Kubespan = nil
 			}
+
 			return nil
 		},
 	}

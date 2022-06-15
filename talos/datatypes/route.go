@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 )
 
@@ -23,6 +24,11 @@ func (planRoute Route) Data() (interface{}, error) {
 	return route, nil
 }
 
-type TalosRoute struct {
-	*v1alpha1.Route
+func readRoute(route config.Route) (out Route) {
+	out.Network = readString(route.Network())
+	out.Gateway = readString(route.Gateway())
+	out.Source = readString(route.Source())
+	out.Metric = readInt(int(route.Metric()))
+
+	return
 }

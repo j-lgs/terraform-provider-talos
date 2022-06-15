@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 )
 
@@ -13,6 +14,7 @@ func (planBond BondData) Data() (interface{}, error) {
 	for _, arpIPTarget := range planBond.ARPIPTarget {
 		bond.BondARPIPTarget = append(bond.BondARPIPTarget, arpIPTarget.Value)
 	}
+
 	b := planBond
 	bond.BondMode = b.Mode.Value
 
@@ -94,6 +96,33 @@ func (planBond BondData) Data() (interface{}, error) {
 	return bond, nil
 }
 
-type TalosBond struct {
-	*v1alpha1.Bond
+func readBond(bond config.Bond) (out *BondData) {
+	out = &BondData{}
+
+	out.Interfaces = readStringList(bond.Interfaces())
+	out.ARPIPTarget = readStringList(bond.ARPIPTarget())
+	out.Mode = readString(bond.Mode())
+
+	out.ArpValidate = readString(bond.ARPValidate())
+	out.Primary = readString(bond.Primary())
+	out.PrimaryReselect = readString(bond.PrimaryReselect())
+	out.AdSelect = readString(bond.ADSelect())
+	out.AdUserPortKey = readInt(int(bond.ADUserPortKey()))
+	out.AllSlavesActive = readInt(int(bond.AllSlavesActive()))
+	out.ArpAllTargets = readString(bond.ARPAllTargets())
+	out.DownDelay = readInt(int(bond.DownDelay()))
+	out.FailoverMac = readString(bond.FailOverMac())
+	out.LacpRate = readString(bond.LACPRate())
+	out.LpInterval = readInt(int(bond.LPInterval()))
+	out.MiiMon = readInt(int(bond.MIIMon()))
+	out.MinLinks = readInt(int(bond.MinLinks()))
+	out.NumPeerNotif = readInt(int(bond.NumPeerNotif()))
+	out.PeerNotifyDelay = readInt(int(bond.PeerNotifyDelay()))
+	out.ResendIgmp = readInt(int(bond.ResendIGMP()))
+	out.UpDelay = readInt(int(bond.UpDelay()))
+	out.XmitHashPolicy = readString(bond.HashPolicy())
+
+	out.AdActorSysPrio = readInt(int(bond.ADActorSysPrio()))
+
+	return
 }

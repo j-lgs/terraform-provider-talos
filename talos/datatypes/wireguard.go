@@ -3,7 +3,9 @@ package datatypes
 import (
 	"time"
 
+	"github.com/talos-systems/talos/pkg/machinery/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // Data copies data from terraform state types to talos types.
@@ -33,6 +35,15 @@ func (planWireguard Wireguard) Data() (interface{}, error) {
 	return wireguard, nil
 }
 
+func readWireguardPeer(peer config.WireguardPeer) (out WireguardPeer) {
+	out.AllowedIPs = readStringList(peer.AllowedIPs())
+	out.Endpoint = readString(peer.Endpoint())
+	out.PersistentKeepaliveInterval = readInt(int(peer.PersistentKeepaliveInterval().Seconds()))
+	out.PublicKey = readString(peer.PublicKey())
+
+	return
+}
+
 // Data copies data from terraform state types to talos types.
 func (planPeer WireguardPeer) Data() (interface{}, error) {
 	peer := &v1alpha1.DeviceWireguardPeer{
@@ -49,4 +60,24 @@ func (planPeer WireguardPeer) Data() (interface{}, error) {
 	}
 
 	return peer, nil
+}
+
+func readWireguardConfig(config config.WireguardConfig) (out *Wireguard, err error) {
+	out = &Wireguard{}
+
+	out.FirewallMark = readInt(config.FirewallMark())
+	out.ListenPort = readInt(config.ListenPort())
+	out.PrivateKey = readString(config.PrivateKey())
+
+	key, err := wgtypes.ParseKey(config.PrivateKey())
+	if err != nil {
+		return
+	}
+	out.PublicKey = readString(key.PublicKey().String())
+
+	for _, peer := range config.Peers() {
+		out.Peers = append(out.Peers, readWireguardPeer(peer))
+	}
+
+	return
 }

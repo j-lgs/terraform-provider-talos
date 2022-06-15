@@ -65,6 +65,7 @@ func (planDevice NetworkDevice) Data() (interface{}, error) {
 	if !planDevice.Dummy.Null {
 		device.DeviceDummy = planDevice.Dummy.Value
 	}
+
 	if planDevice.Wireguard != nil {
 		wireguard, err := planDevice.Wireguard.Data()
 		if err != nil {
@@ -72,6 +73,7 @@ func (planDevice NetworkDevice) Data() (interface{}, error) {
 		}
 		device.DeviceWireguardConfig = wireguard.(*v1alpha1.DeviceWireguardConfig)
 	}
+
 	if planDevice.VIP != nil {
 		vip, err := planDevice.VIP.Data()
 		if err != nil {
@@ -83,6 +85,84 @@ func (planDevice NetworkDevice) Data() (interface{}, error) {
 	return device, nil
 }
 
-type TalosDevice struct {
+type TalosNetworkInterface struct {
 	*v1alpha1.Device
+}
+
+func readInterface(talosNetworkInterface TalosNetworkInterface, device *NetworkDevice) (err error) {
+	device.Name = readString(talosNetworkInterface.Interface())
+	device.Addresses = readStringList(talosNetworkInterface.Addresses())
+
+	device.DHCP = readBool(talosNetworkInterface.DHCP())
+	device.Dummy = readBool(talosNetworkInterface.Dummy())
+	device.Ignore = readBool(talosNetworkInterface.Ignore())
+	device.MTU = readInt(talosNetworkInterface.MTU())
+
+	for _, route := range talosNetworkInterface.Routes() {
+		device.Routes = append(device.Routes, readRoute(route))
+	}
+
+	if talosNetworkInterface.DeviceBond != nil {
+		device.BondData = readBond(talosNetworkInterface.Bond())
+	}
+
+	if talosNetworkInterface.DeviceDHCPOptions != nil {
+		device.DHCPOptions = readDHCP(talosNetworkInterface.DHCPOptions())
+	}
+
+	if talosNetworkInterface.DeviceVIPConfig != nil {
+		device.VIP = readVIPConfig(talosNetworkInterface.VIPConfig())
+	}
+
+	for _, vlan := range talosNetworkInterface.Vlans() {
+		device.VLANs = append(device.VLANs, readVLAN(vlan))
+	}
+
+	if talosNetworkInterface.DeviceWireguardConfig != nil {
+		device.Wireguard, err = readWireguardConfig(talosNetworkInterface.WireguardConfig())
+		if err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+func (talosNetworkInterface TalosNetworkInterface) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{
+		func(planConfig *TalosConfig) (err error) {
+			inList := false
+			for _, device := range planConfig.Network.Devices {
+				if device.Name.Value == talosNetworkInterface.Interface() {
+					readInterface(talosNetworkInterface, &device)
+					inList = true
+				}
+			}
+
+			if !inList {
+				device := NetworkDevice{}
+				readInterface(talosNetworkInterface, &device)
+				planConfig.Network.Devices = append(planConfig.Network.Devices, device)
+			}
+
+			return nil
+		},
+	}
+	return funs
+}
+
+type Interfaces []*v1alpha1.Device
+
+type TalosNetworkInterfaces struct {
+	Interfaces
+}
+
+func (talosNetworkInterfaces TalosNetworkInterfaces) ReadFunc() []ConfigReadFunc {
+	funs := []ConfigReadFunc{}
+
+	for _, device := range talosNetworkInterfaces.Interfaces {
+		funs = append(funs, TalosNetworkInterface{Device: device}.ReadFunc()...)
+	}
+
+	return funs
 }
