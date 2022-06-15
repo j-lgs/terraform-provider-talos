@@ -42,29 +42,31 @@ func TestAccResourceTalosControlSingleMaster(t *testing.T) {
 					Bootstrap:   true,
 				}),
 				Check: resource.ComposeTestCheckFunc(
+
 					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "name"),
+
 					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "bootstrap"),
 					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "configure_ip"),
 					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "provision_ip"),
-					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "install.disk"),
+					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "config.install.disk"),
 					resource.TestCheckResourceAttrSet("talos_control_node.control_0", "base_config"),
 
 					resource.TestCheckResourceAttr("talos_control_node.control_0",
-						"network.devices.0.name", "eth0"),
+						"config.network.devices.0.name", "eth0"),
 					resource.TestCheckResourceAttr("talos_control_node.control_0",
-						"network.devices.0.addresses.0", testControlIPs[0]+"/24"),
+						"config.network.devices.0.addresses.0", testControlIPs[0]+"/24"),
 					resource.TestCheckResourceAttr("talos_control_node.control_0",
-						"network.devices.0.routes.0.network", "0.0.0.0/0"),
+						"config.network.devices.0.routes.0.network", "0.0.0.0/0"),
 					resource.TestCheckResourceAttr("talos_control_node.control_0",
-						"network.devices.0.routes.0.gateway", gateway),
+						"config.network.devices.0.routes.0.gateway", gateway),
 					resource.TestCheckResourceAttr("talos_control_node.control_0",
-						"network.nameservers.0", nameserver),
-
+						"config.network.nameservers.0", nameserver),
 					testAccTalosConnectivity(testConnArg{
 						resourcepath: testControlNodePath(0),
 						talosIP:      testControlIPs[0],
 					}),
 					testAccKubernetesConnectivity("https://"+testControlIPs[0]+":6443"),
+
 					testAccTalosHealth(&clusterNodes{
 						Control: []string{testControlIPs[0]},
 					}),

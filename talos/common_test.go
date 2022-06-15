@@ -125,7 +125,9 @@ func TestConfigDataAll(t *testing.T) {
 
 // TestReadControlConfig checks whether we can successfully read a talos Config struct into a Terraform state struct.
 func TestReadControlConfig(t *testing.T) {
-	var state = &talosControlNodeResourceData{}
+	var state = &talosControlNodeResourceData{
+		Name: datatypes.Wraps("test-node"),
+	}
 
 	state.ReadInto(datatypes.MachineConfigExample)
 	if !reflect.DeepEqual(talosControlNodeResourceDataExample, state) {
