@@ -42,7 +42,6 @@
               gcc
 
               qemu_full
-              inotify-tools
 
               terraform
             ];
