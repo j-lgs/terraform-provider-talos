@@ -162,11 +162,11 @@ func (plan *talosControlNodeResourceData) Generate() (err error) {
 		Endpoint:           types.String{Value: input.GetControlPlaneEndpoint()},
 		LocalAPIServerPort: types.Int64{Null: true},
 	}
-
-	plan.ControllerManager = &datatypes.ControllerManagerConfig{
-		Image: types.String{Value: (&v1alpha1.SchedulerConfig{}).Image()},
-	}
-
+	/*
+		plan.ControllerManager = &datatypes.ControllerManagerConfig{
+			Image: types.String{Value: (&v1alpha1.SchedulerConfig{}).Image()},
+		}
+	*/
 	plan.CoreDNS = &datatypes.CoreDNS{
 		Image: types.String{Value: (&v1alpha1.CoreDNS{}).Image()},
 	}
