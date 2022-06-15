@@ -44,16 +44,36 @@ type TalosSchedulerConfig struct {
 func (talosSchedulerConfig TalosSchedulerConfig) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
+			if talosSchedulerConfig.SchedulerConfig == nil {
+				return nil
+			}
+
 			if planConfig.Scheduler == nil {
 				planConfig.Scheduler = &SchedulerConfig{}
 			}
+
+			if talosSchedulerConfig.ContainerImage != (&v1alpha1.SchedulerConfig{}).Image() {
+				planConfig.Scheduler.Image = readString(talosSchedulerConfig.Image())
+			}
+			if planConfig.Scheduler.Image.Value == "" {
+				planConfig.Scheduler.Image.Value = (&v1alpha1.SchedulerConfig{}).Image()
+			}
+
+			planConfig.Scheduler.Env = readStringMap(talosSchedulerConfig.Env())
+			planConfig.Scheduler.ExtraArgs = readStringMap(talosSchedulerConfig.ExtraArgs())
 
 			if planConfig.Scheduler.zero() {
 				planConfig.Scheduler = nil
 				return nil
 			}
+
 			return nil
 		},
 	}
+
+	if len(talosSchedulerConfig.ExtraVolumesConfig) > 0 {
+		funs = append(funs, TalosSchedulerMounts{VolumeMounts: talosSchedulerConfig.ExtraVolumesConfig}.ReadFunc()...)
+	}
+
 	return funs
 }
