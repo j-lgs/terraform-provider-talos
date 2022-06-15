@@ -659,7 +659,7 @@ type Route struct {
 // Wireguard describes a network interface's Wireguard configuration and keys.
 // Refer to https://www.talos.dev/v1.0/reference/configuration/#devicewireguardconfig for more information.
 type Wireguard struct {
-	Peers        []WireguardPeer `tfsdk:"peer"`
+	Peers        []WireguardPeer `tfsdk:"peers"`
 	FirewallMark types.Int64     `tfsdk:"firewall_mark"`
 	ListenPort   types.Int64     `tfsdk:"listen_port"`
 	PublicKey    types.String    `tfsdk:"public_key"`
@@ -771,7 +771,7 @@ type EtcdConfig struct {
 	ExtraArgs map[string]types.String `tfsdk:"extra_args"`
 	CaCrt     types.String            `tfsdk:"ca_crt"`
 	CaKey     types.String            `tfsdk:"ca_key"`
-	Subnet    types.String            `tfsdk:"subent"`
+	Subnet    types.String            `tfsdk:"subnet"`
 }
 
 // ClusterDiscoveryConfig struct configures cluster membership discovery.

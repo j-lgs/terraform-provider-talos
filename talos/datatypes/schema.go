@@ -394,7 +394,7 @@ var NetworkKubeSpanSchema tfsdk.Schema = tfsdk.Schema{
 			Description: "Enable the KubeSpan feature.",
 			Type:        types.BoolType,
 		},
-		"allow_down_peer_bypass": {
+		"allow_peer_down_bypass": {
 			Optional:    true,
 			Type:        types.BoolType,
 			Description: "Skip sending traffic via KubeSpan if the peer connection state is not up.",
@@ -579,8 +579,8 @@ var NetworkDeviceSchema tfsdk.Schema = tfsdk.Schema{
 
 		"dhcp_options": {
 			Optional:    true,
-			Attributes:  tfsdk.SingleNestedAttributes(WireguardSchema.Attributes),
-			Description: WireguardSchema.Description,
+			Attributes:  tfsdk.SingleNestedAttributes(DHCPOptionsSchema.Attributes),
+			Description: DHCPOptionsSchema.Description,
 		},
 		"wireguard": {
 			Optional:    true,
@@ -864,7 +864,7 @@ var RouteSchema tfsdk.Schema = tfsdk.Schema{
 var WireguardSchema tfsdk.Schema = tfsdk.Schema{
 	Description: "Contains settings for configuring Wireguard network interface.",
 	Attributes: map[string]tfsdk.Attribute{
-		"peer": {
+		"peers": {
 			Required:    true,
 			Attributes:  tfsdk.ListNestedAttributes(WireguardPeerSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
 			Description: WireguardPeerSchema.Description,
