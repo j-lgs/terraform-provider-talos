@@ -267,12 +267,8 @@ func setStringList(list []types.String, dest *[]string) {
 }
 
 func readStringList(list []string) (dest []types.String) {
-	if len(list) <= 0 {
-		return
-	}
-
 	for _, s := range list {
-		dest = append(dest, types.String{Value: s})
+		dest = append(dest, readString(s))
 	}
 
 	return
@@ -303,10 +299,21 @@ func readStringMap(valmap map[string]string) (dest map[string]types.String) {
 
 	dest = make(map[string]types.String)
 	for k, v := range valmap {
-		dest[k] = types.String{Value: v}
+		dest[k] = readString(v)
 	}
 
 	return
+}
+
+func readStringMap_(valmap map[string]string, dest *map[string]types.String) {
+	if len(valmap) <= 0 {
+		return
+	}
+
+	(*dest) = make(map[string]types.String)
+	for k, v := range valmap {
+		(*dest)[k] = readString(v)
+	}
 }
 
 func setVolumeMounts(mounts []VolumeMount, dest *[]v1alpha1.VolumeMountConfig) error {

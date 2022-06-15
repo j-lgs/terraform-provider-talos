@@ -243,11 +243,11 @@ func (plan *talosControlNodeResourceData) ReadInto(in *v1alpha1.Config) (err err
 		datatypes.TalosClusterInlineManifests{ClusterInlineManifests: in.ClusterConfig.ClusterInlineManifests},
 		datatypes.TalosMachineEnv(in.MachineConfig.MachineEnv),
 		datatypes.TalosExtraManifestHeaders(in.ClusterConfig.ExtraManifestHeaders),
-		datatypes.TalosMachineUdev(in.MachineConfig.MachineUdev.UdevRules),
+		datatypes.TalosMachineUdev{UdevConfig: in.MachineConfig.MachineUdev},
 		datatypes.TalosMachineCertSANs(in.MachineConfig.MachineCertSANs),
 		datatypes.TalosClusterExtraManifests(in.ClusterConfig.ExtraManifests),
 		datatypes.TalosMachinePods(in.MachineConfig.MachinePods),
-		datatypes.TalosExternalCloudProvider(in.ClusterConfig.ExternalCloudProviderConfig.ExternalManifests),
+		datatypes.TalosExternalCloudProvider{ExternalCloudProviderConfig: in.ClusterConfig.ExternalCloudProviderConfig},
 	}
 
 	readFuncs := []datatypes.ConfigReadFunc{}

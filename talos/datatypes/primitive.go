@@ -155,13 +155,20 @@ func (rules MachineUdevRules) DataFunc() [](func(*v1alpha1.Config) error) {
 	}
 }
 
-type TalosMachineUdev []string
+type TalosMachineUdev struct {
+	*v1alpha1.UdevConfig
+}
 
 func (talosMachineUdev TalosMachineUdev) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
-			planConfig.Udev = readStringList(talosMachineUdev)
-			return nil
+			if talosMachineUdev.UdevConfig == nil {
+				return
+			}
+
+			planConfig.Udev = readStringList(talosMachineUdev.UdevRules)
+
+			return
 		},
 	}
 	return funs
@@ -245,13 +252,20 @@ func (manifests ExternalCloudProvider) DataFunc() [](func(*v1alpha1.Config) erro
 	}
 }
 
-type TalosExternalCloudProvider []string
+type TalosExternalCloudProvider struct {
+	*v1alpha1.ExternalCloudProviderConfig
+}
 
 func (talosExternalCloudProvider TalosExternalCloudProvider) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
-			planConfig.ExternalCloudProvider = readStringList(talosExternalCloudProvider)
-			return nil
+			if talosExternalCloudProvider.ExternalCloudProviderConfig == nil {
+				return
+			}
+
+			planConfig.ExternalCloudProvider = readStringList(talosExternalCloudProvider.ExternalManifests)
+
+			return
 		},
 	}
 	return funs
