@@ -1,21 +1,10 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+trap "exit" INT TERM ERR
+trap "kill 0" EXIT
 
 nNodes=4
 nodes=$(($nNodes-1))
-
-# kill parent processes
-cleanup() {
-    pkill -P $$
-}
-
-# Setup signals to kill child processes on exit.
-for sig in INT QUIT HUP TERM; do
-  trap "
-    cleanup
-    trap - $sig EXIT
-    kill -s $sig "'"$$"' "$sig"
-done
-trap cleanup EXIT
 
 timeout="120"
 bridge="br0"
@@ -108,8 +97,9 @@ mkdir -p test/run
 for i in $(seq 0 $nodes); do
     tapup tap"$i";
 
-    until vmup "$i"; do
-	echo "Qemu VM '$i' crashed with exit code $?.  Respawning.." >&2
+    while true; do
+	echo "Qemu VM '$i' (re)starting" >&2
+	vmup "$i" && break
 	sleep 1
     done &
 done
@@ -118,3 +108,4 @@ sleep 2
 
 # Run acceptance tests
 TF_ACC=1 TALOSCONF_DIR=$(pwd)/test/run go test -v ./talos -timeout 120m
+jobs -p | xargs -n1 pkill -SIGINT -g
