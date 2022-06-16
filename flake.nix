@@ -19,7 +19,7 @@
           pname = "terraform-provider-talos";
           version = "0.0.11";
 
-          src = ./.;
+          src = builtins.path { path = ./.; name = "terraform-provider-talos"; };
 
           vendorSha256 = "sha256-/ttIyNegFRzWt8PvhNCgiw5tFOqUmHrJ02av8rofINY=";
 
