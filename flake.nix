@@ -17,7 +17,7 @@
         tpt = pkgs.buildGo118Module {
           inherit system;
           pname = "terraform-provider-talos";
-          version = "0.0.11";
+          version = "0.0.12";
 
           src = builtins.path { path = ./.; name = "terraform-provider-talos"; };
 
