@@ -274,6 +274,18 @@ func (plan *talosClusterConfigResourceData) TalosData() (out []generate.GenOptio
 		return nil, err
 	}
 
+	if !plan.Debug.Null {
+		out = append(out, generate.WithDebug(plan.Debug.Value))
+	}
+
+	if len(plan.K8sCertSANs) > 0 {
+		sans := []string{}
+		for _, san := range plan.K8sCertSANs {
+			sans = append(sans, san.Value)
+		}
+		out = append(out, generate.WithAdditionalSubjectAltNames(sans))
+	}
+
 	return
 }
 
