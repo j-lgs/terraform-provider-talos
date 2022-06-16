@@ -358,7 +358,7 @@ metadata:
 
 	deviceNameExample = "/dev/sdb1"
 
-	diskSizeExampleInt = 100000000000
-	diskSizeExampleStr = "100 GB"
-	diskMountExample   = "/var/mnt/extra"
+	diskSizeExampleInt int64 = 100000000000
+	diskSizeExampleStr       = "100 GB"
+	diskMountExample         = "/var/mnt/extra"
 )
