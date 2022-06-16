@@ -27,7 +27,7 @@ var (
 		Certs:                     SecretsBundleExample.Certs,
 		VersionContract:           config.TalosVersionCurrent,
 		ControlPlaneEndpoint:      EndpointExample.String(),
-		AdditionalSubjectAltNames: apiServerSANsExample,
+		AdditionalSubjectAltNames: ApiServerSANsExample,
 		AdditionalMachineCertSANs: []string{},
 		ClusterID:                 clusterIDExample,
 		ClusterName:               ClusterNameExample,
@@ -582,7 +582,7 @@ MC4CAQAwBQYDK2VwBCIEIJCuZGq2GPWZnvtJvmwC+HIu6e95GecdBxC9qR4nGw4t
 			volumeMountConfigExample,
 		},
 		EnvConfig:                      apiServerEnvExample,
-		CertSANs:                       apiServerSANsExample,
+		CertSANs:                       ApiServerSANsExample,
 		DisablePodSecurityPolicyConfig: apiServerDisablePSPExample,
 		AdmissionControlConfig: []*v1alpha1.AdmissionPluginConfig{
 			admissionPluginExample,

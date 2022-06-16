@@ -6,6 +6,7 @@ import (
 	"terraform-provider-talos/talos/datatypes"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	"github.com/wI2L/jsondiff"
 )
@@ -15,18 +16,20 @@ var (
 
 	tfinput = talosClusterConfigResourceData{
 		// For Resource
-		TargetVersion: datatypes.Wraps("v1.0.0"),
-		ClusterName:   datatypes.Wraps(datatypes.ClusterNameExample),
-		Endpoints:     datatypes.Wrapsl("0.0.0.0"),
+		TargetVersion:            datatypes.Wraps("v1.0.0"),
+		Debug:                    datatypes.Wrapb(datatypes.ConfigDebugExample),
+		AllowSchedulingOnMasters: datatypes.Wrapb(datatypes.AllowSchedulingOnMastersExample),
+		ClusterName:              datatypes.Wraps(datatypes.ClusterNameExample),
+		Endpoints:                datatypes.Wrapsl("0.0.0.0"),
 		// Talos related
+		MachineCertSANs:    []types.String{},
+		K8sCertSANs:        []types.String{{Value: "1.2.3.4"}, {Value: "4.5.6.7"}},
 		Install:            datatypes.InstallExample,
 		CNI:                datatypes.CniExample,
-		/*
-		Sysctls:            nodeData.Sysctls,
 		Registry:           nodeData.Registry,
+		Sysctls:            datatypes.SysctlData(nodeData.Sysctls),
 		Disks:              nodeData.Disks,
 		Encryption:         nodeData.Encryption,
-		*/
 		KubernetesEndpoint: datatypes.Wraps(datatypes.EndpointExample.String()),
 		KubernetesVersion:  datatypes.Wraps(testKubernetesVersion),
 	}
@@ -52,6 +55,9 @@ func TestCreateTalosConfiguration(t *testing.T) {
 	}
 
 	testExpected := expectedInput
+	// Test data for either needs to be slightly different, as the Talos generate function
+	// for assigning Cert SANs changes both AdditionalMachineCertSANs and AdditionalSubjectAltNames.
+	testExpected.AdditionalMachineCertSANs = testExpected.AdditionalSubjectAltNames
 	testInput := *input
 
 	testExpected.NetworkConfigOptions = nil
@@ -77,7 +83,7 @@ func TestCreateTalosConfiguration(t *testing.T) {
 }
 
 func TestReadTalosConfiguration(t *testing.T) {
-	var state talosClusterConfigResourceData = tfinput
+	var state = tfinput
 	state.ReadInto(&expectedInput)
 
 	if !reflect.DeepEqual(tfinput, state) {

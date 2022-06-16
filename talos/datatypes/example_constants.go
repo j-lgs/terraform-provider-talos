@@ -233,7 +233,7 @@ var (
 	apiServerEnvExample = map[string]string{
 		"key": "value",
 	}
-	apiServerSANsExample       = []string{"1.2.3.4", "4.5.6.7"}
+	ApiServerSANsExample       = []string{"1.2.3.4", "4.5.6.7"}
 	apiServerDisablePSPExample = false
 
 	pluginNameExample   = "PodSecurity"

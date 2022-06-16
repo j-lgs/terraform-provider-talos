@@ -382,7 +382,7 @@ var (
 		Env: map[string]types.String{
 			"key": Wraps("value"),
 		},
-		CertSANS:         Wrapsl(apiServerSANsExample...),
+		CertSANS:         Wrapsl(ApiServerSANsExample...),
 		DisablePSP:       Wrapb(apiServerDisablePSPExample),
 		AdmissionPlugins: []AdmissionPluginConfig{AdmissionPluginExample},
 	}
