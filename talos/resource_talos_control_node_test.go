@@ -73,41 +73,19 @@ func TestAccResourceTalosControlSingleMaster(t *testing.T) {
 					testAccEnsureNMembers(1, testControlIPs[0]),
 				),
 			},
-		},
-	})
-}
-
-func TestAccResourceTalosControlThreeMaster(t *testing.T) {
-	ips := []string{}
-	for current := testInitialIPs.From(); current != testInitialIPs.To(); current = current.Next() {
-		ips = append(ips, current.String())
-	}
-
-	resource.Test(t, resource.TestCase{
-		PreCheck: func() {
-			testAccPreCheck(t)
-		},
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		ExternalProviders: map[string]resource.ExternalProvider{
-			"local": {
-				VersionConstraint: "2.2.3",
-				Source:            "hashicorp/local",
-			},
-		},
-		Steps: []resource.TestStep{
 			{
 				Config: testTalosConfig(&testConfig{
-					Endpoint: testControlIPs[1],
+					Endpoint: testControlIPs[0],
 				}) + testControlConfig(&testNode{
 					IP:          testControlIPs[0],
 					ProvisionIP: ips[0],
 					Index:       0,
-					Bootstrap:   false,
+					Bootstrap:   true,
 				}, &testNode{
 					IP:          testControlIPs[1],
 					ProvisionIP: ips[1],
 					Index:       1,
-					Bootstrap:   true,
+					Bootstrap:   false,
 				}, &testNode{
 					IP:          testControlIPs[2],
 					ProvisionIP: ips[2],
@@ -118,18 +96,13 @@ func TestAccResourceTalosControlThreeMaster(t *testing.T) {
 					testAccTalosConnectivity(testConnArg{
 						resourcepath: testControlNodePath(0),
 						talosIP:      testControlIPs[0],
-					}, testConnArg{
-						resourcepath: testControlNodePath(1),
-						talosIP:      testControlIPs[1],
-					}, testConnArg{
-						resourcepath: testControlNodePath(2),
-						talosIP:      testControlIPs[2],
 					}),
-					testAccKubernetesConnectivity("https://"+testControlIPs[1]+":6443"),
+					testAccKubernetesConnectivity("https://"+testControlIPs[0]+":6443"),
+
 					testAccTalosHealth(&clusterNodes{
 						Control: []string{testControlIPs[0], testControlIPs[1], testControlIPs[2]},
 					}),
-					testAccEnsureNMembers(3, testControlIPs[1]),
+					testAccEnsureNMembers(3, testControlIPs[0]),
 				),
 			},
 		},
