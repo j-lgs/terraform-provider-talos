@@ -111,7 +111,7 @@ func (t talosWorkerNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema,
 			"devices": {
 				Required:    true,
 				Description: datatypes.NetworkDeviceSchema.Description,
-				Attributes:  tfsdk.MapNestedAttributes(datatypes.NetworkDeviceSchema.Attributes, tfsdk.MapNestedAttributesOptions{}),
+				Attributes:  tfsdk.MapNestedAttributes(datatypes.NetworkDeviceSchema.Attributes),
 			},
 			"nameservers": {
 				Type: types.ListType{
@@ -138,7 +138,7 @@ func (t talosWorkerNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema,
 			"files": {
 				Optional:    true,
 				Description: datatypes.FileSchema.Description,
-				Attributes:  tfsdk.ListNestedAttributes(datatypes.FileSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+				Attributes:  tfsdk.ListNestedAttributes(datatypes.FileSchema.Attributes),
 			},
 
 			"env": {

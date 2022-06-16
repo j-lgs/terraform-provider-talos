@@ -103,7 +103,7 @@ func (t talosClusterConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Sc
 			"network": {
 				Optional:            true,
 				MarkdownDescription: datatypes.NetworkConfigOptionSchema.MarkdownDescription,
-				Attributes:          tfsdk.ListNestedAttributes(datatypes.NetworkConfigOptionSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+				Attributes:          tfsdk.ListNestedAttributes(datatypes.NetworkConfigOptionSchema.Attributes),
 			},
 			"cni": {
 				Optional:    true,
@@ -118,7 +118,7 @@ func (t talosClusterConfigResourceType) GetSchema(ctx context.Context) (tfsdk.Sc
 			"disks": {
 				Optional:    true,
 				Description: datatypes.MachineDiskSchema.MarkdownDescription,
-				Attributes:  tfsdk.ListNestedAttributes(datatypes.MachineDiskSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+				Attributes:  tfsdk.ListNestedAttributes(datatypes.MachineDiskSchema.Attributes),
 			},
 			"encryption": {
 				Optional:    true,

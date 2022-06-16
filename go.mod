@@ -8,7 +8,7 @@ replace (
 	// use same forked yaml that talos does.
 	gopkg.in/yaml.v3 => github.com/unix4ever/yaml v0.0.0-20210315173758-8fb30b8e5a5b
 	// workaround for talos siderolabs not working
-	talos-systems/talos => github.com/siderolabs/talos v1.0.5
+	talos-systems/talos => github.com/siderolabs/talos v1.0.6
 )
 
 // terraform
@@ -16,7 +16,7 @@ require (
 	github.com/hashicorp/hc-install v0.3.2 // indirect
 	github.com/hashicorp/terraform-exec v0.16.1 // indirect
 	github.com/hashicorp/terraform-json v0.14.0 // indirect
-	github.com/hashicorp/terraform-plugin-framework v0.8.0
+	github.com/hashicorp/terraform-plugin-framework v0.9.0
 	github.com/hashicorp/terraform-plugin-go v0.9.1
 	github.com/hashicorp/terraform-plugin-log v0.4.1
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.17.0

@@ -55,12 +55,12 @@ var TalosConfigSchema = tfsdk.Schema{
 		"disks": {
 			Optional:    true,
 			Description: MachineDiskSchema.MarkdownDescription,
-			Attributes:  tfsdk.ListNestedAttributes(MachineDiskSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(MachineDiskSchema.Attributes),
 		},
 		"files": {
 			Optional:    true,
 			Description: FileSchema.Description,
-			Attributes:  tfsdk.ListNestedAttributes(FileSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(FileSchema.Attributes),
 		},
 		"env": {
 			Type: types.MapType{
@@ -213,7 +213,7 @@ var TalosConfigSchema = tfsdk.Schema{
 		"inline_manifests": {
 			Optional:    true,
 			Description: InlineManifestSchema.Description,
-			Attributes:  tfsdk.ListNestedAttributes(InlineManifestSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(InlineManifestSchema.Attributes),
 		},
 		"admin_kube_config": {
 			Description: AdminKubeconfigConfigSchema.Description,
@@ -343,7 +343,7 @@ var KubeletConfigSchema tfsdk.Schema = tfsdk.Schema{
 		},
 		"extra_mount": {
 			Optional:    true,
-			Attributes:  tfsdk.ListNestedAttributes(ExtraMountSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(ExtraMountSchema.Attributes),
 			Description: ExtraMountSchema.Description,
 		},
 		// TODO Add yaml validation function
@@ -418,7 +418,7 @@ var RegistrySchema tfsdk.Schema = tfsdk.Schema{
 		"configs": {
 			Optional:    true,
 			Description: RegistryConfigSchema.Description,
-			Attributes:  tfsdk.MapNestedAttributes(RegistryConfigSchema.Attributes, tfsdk.MapNestedAttributesOptions{}),
+			Attributes:  tfsdk.MapNestedAttributes(RegistryConfigSchema.Attributes),
 		},
 	},
 }
@@ -494,7 +494,7 @@ var NetworkConfigSchema = tfsdk.Schema{
 		"devices": {
 			Optional:    true,
 			Description: NetworkDeviceSchema.Description,
-			Attributes:  tfsdk.ListNestedAttributes(NetworkDeviceSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(NetworkDeviceSchema.Attributes),
 		},
 		"nameservers": {
 			Type: types.ListType{
@@ -540,7 +540,7 @@ var NetworkDeviceSchema tfsdk.Schema = tfsdk.Schema{
 		},
 		"routes": {
 			Optional:    true,
-			Attributes:  tfsdk.ListNestedAttributes(RouteSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(RouteSchema.Attributes),
 			Description: RouteSchema.Description,
 		},
 		"bond": {
@@ -550,7 +550,7 @@ var NetworkDeviceSchema tfsdk.Schema = tfsdk.Schema{
 		},
 		"vlans": {
 			Optional:    true,
-			Attributes:  tfsdk.ListNestedAttributes(VLANSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(VLANSchema.Attributes),
 			Description: VLANSchema.Description,
 		},
 		"mtu": {
@@ -774,7 +774,7 @@ var VLANSchema tfsdk.Schema = tfsdk.Schema{
 		},
 		"routes": {
 			Optional:    true,
-			Attributes:  tfsdk.ListNestedAttributes(RouteSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(RouteSchema.Attributes),
 			Description: RouteSchema.Description,
 		},
 		"dhcp": {
@@ -864,7 +864,7 @@ var WireguardSchema tfsdk.Schema = tfsdk.Schema{
 	Attributes: map[string]tfsdk.Attribute{
 		"peers": {
 			Required:    true,
-			Attributes:  tfsdk.ListNestedAttributes(WireguardPeerSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(WireguardPeerSchema.Attributes),
 			Description: WireguardPeerSchema.Description,
 		},
 		"firewall_mark": {
@@ -950,7 +950,7 @@ var MachineDiskSchema = tfsdk.Schema{
 		"partitions": {
 			Required:    true,
 			Description: PartitionSchema.MarkdownDescription,
-			Attributes:  tfsdk.ListNestedAttributes(PartitionSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(PartitionSchema.Attributes),
 		},
 	},
 }
@@ -985,7 +985,7 @@ var EncryptionConfigSchema = tfsdk.Schema{
 		"keys": {
 			Required:    true,
 			Description: KeySchema.MarkdownDescription,
-			Attributes:  tfsdk.ListNestedAttributes(KeySchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(KeySchema.Attributes),
 		},
 		"cipher": {
 			Optional:    true,
@@ -1060,7 +1060,7 @@ var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
 		"extra_volumes": {
 			Optional:    true,
 			Description: VolumeMountSchema.Description,
-			Attributes:  tfsdk.ListNestedAttributes(VolumeMountSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(VolumeMountSchema.Attributes),
 		},
 		"env": {
 			Type: types.MapType{
@@ -1086,7 +1086,7 @@ var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
 		"admission_control": {
 			Optional:    true,
 			Description: AdmissionPluginSchema.Description,
-			Attributes:  tfsdk.ListNestedAttributes(AdmissionPluginSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(AdmissionPluginSchema.Attributes),
 		},
 	},
 }
@@ -1181,7 +1181,7 @@ var LoggingConfigSchema tfsdk.Schema = tfsdk.Schema{
 		"destinations": {
 			Required:    true,
 			Description: LoggingDestinationSchema.Description,
-			Attributes:  tfsdk.ListNestedAttributes(LoggingDestinationSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(LoggingDestinationSchema.Attributes),
 		},
 	},
 }
@@ -1243,7 +1243,7 @@ var ControllerManagerConfigSchema tfsdk.Schema = tfsdk.Schema{
 		"extra_volumes": {
 			Optional:    true,
 			Description: VolumeMountSchema.Description,
-			Attributes:  tfsdk.ListNestedAttributes(VolumeMountSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(VolumeMountSchema.Attributes),
 		},
 		"env": {
 			Type: types.MapType{
@@ -1279,7 +1279,7 @@ var SchedulerConfigSchema tfsdk.Schema = tfsdk.Schema{
 		"extra_volumes": {
 			Optional:    true,
 			Description: VolumeMountSchema.Description,
-			Attributes:  tfsdk.ListNestedAttributes(VolumeMountSchema.Attributes, tfsdk.ListNestedAttributesOptions{}),
+			Attributes:  tfsdk.ListNestedAttributes(VolumeMountSchema.Attributes),
 		},
 		"env": {
 			Type: types.MapType{
@@ -1633,7 +1633,7 @@ var NetworkConfigOptionSchema = tfsdk.Schema{
 		"with_wireguard": {
 			Optional:    true,
 			Description: WireguardSchema.Description,
-			Attributes:  tfsdk.MapNestedAttributes(WireguardSchema.Attributes, tfsdk.MapNestedAttributesOptions{}),
+			Attributes:  tfsdk.MapNestedAttributes(WireguardSchema.Attributes),
 		},
 		"with_mtu": {
 			Optional:    true,
