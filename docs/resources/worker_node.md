@@ -46,7 +46,6 @@ Represents a Talos worker node.
 ### Read-Only
 
 - `id` (String) Identifier hash, derived from the node's name.
-- `patch` (String, Sensitive)
 
 <a id="nestedatt--devices"></a>
 ### Nested Schema for `devices`

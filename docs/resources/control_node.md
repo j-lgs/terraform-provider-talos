@@ -340,7 +340,6 @@ TOC
 ### Read-Only
 
 - `id` (String) Identifier hash, derived from the node's name.
-- `patch` (String, Sensitive)
 
 <a id="nestedatt--config"></a>
 ### Nested Schema for `config`
