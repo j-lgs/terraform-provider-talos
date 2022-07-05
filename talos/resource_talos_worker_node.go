@@ -13,7 +13,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
-	machinetype "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/machine"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -207,11 +206,6 @@ func (t talosWorkerNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema,
 				// ValidateFunc: validateIP,
 			},
 			// Generated
-			"patch": {
-				Type:      types.StringType,
-				Computed:  true,
-				Sensitive: true,
-			},
 			"id": {
 				Computed:            true,
 				MarkdownDescription: "Identifier hash, derived from the node's name.",
@@ -247,7 +241,6 @@ type talosWorkerNodeResourceData struct {
 	Udev            []types.String                     `tfsdk:"udev"`
 	ConfigIP        types.String                       `tfsdk:"config_ip"`
 	BaseConfig      types.String                       `tfsdk:"base_config"`
-	Patch           types.String                       `tfsdk:"patch"`
 	ID              types.String                       `tfsdk:"id"`
 }
 
@@ -398,22 +391,22 @@ func (r talosWorkerNodeResource) Create(ctx context.Context, req tfsdk.CreateRes
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	/*
+		p := &plan
+		config, errDesc, err := applyConfig(ctx, &p, configData{
+			Bootstrap:   false,
+			CreateNode:  true,
+			Mode:        machine.ApplyConfigurationRequest_REBOOT,
+			BaseConfig:  plan.BaseConfig.Value,
+			MachineType: machinetype.TypeWorker,
+		})
+		if err != nil {
+			resp.Diagnostics.AddError(errDesc, err.Error())
+			return
+		}
 
-	p := &plan
-	config, errDesc, err := applyConfig(ctx, &p, configData{
-		Bootstrap:   false,
-		CreateNode:  true,
-		Mode:        machine.ApplyConfigurationRequest_REBOOT,
-		BaseConfig:  plan.BaseConfig.Value,
-		MachineType: machinetype.TypeWorker,
-	})
-	if err != nil {
-		resp.Diagnostics.AddError(errDesc, err.Error())
-		return
-	}
-
-	plan.Patch = types.String{Value: config}
-
+		plan.Patch = types.String{Value: config}
+	*/
 	plan.ID = types.String{Value: string(plan.Name.Value)}
 	diags = resp.State.Set(ctx, &plan)
 	resp.Diagnostics.Append(diags...)
@@ -468,34 +461,34 @@ func (r talosWorkerNodeResource) Update(ctx context.Context, req tfsdk.UpdateRes
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	p := &state
-	config, errDesc, err := applyConfig(ctx, &p, configData{
-		Bootstrap:   false,
-		ConfigIP:    state.ConfigIP.Value,
-		Mode:        machine.ApplyConfigurationRequest_AUTO,
-		BaseConfig:  state.BaseConfig.Value,
-		MachineType: machinetype.TypeWorker,
-	})
-	if err != nil {
-		resp.Diagnostics.AddError(errDesc, err.Error())
-		return
-	}
-
-	state.Patch = types.String{Value: config}
-
-	if !r.provider.skipread {
-		conf, errDesc, err := readConfig(ctx, &state, readData{
-			ConfigIP:   state.ConfigIP.Value,
-			BaseConfig: state.BaseConfig.Value,
+	/*
+		p := &state
+		config, errDesc, err := applyConfig(ctx, &p, configData{
+			Bootstrap:   false,
+			ConfigIP:    state.ConfigIP.Value,
+			Mode:        machine.ApplyConfigurationRequest_AUTO,
+			BaseConfig:  state.BaseConfig.Value,
+			MachineType: machinetype.TypeWorker,
 		})
 		if err != nil {
 			resp.Diagnostics.AddError(errDesc, err.Error())
 			return
 		}
-		state.ReadInto(conf)
-	}
 
+		state.Patch = types.String{Value: config}
+
+		if !r.provider.skipread {
+			conf, errDesc, err := readConfig(ctx, &state, readData{
+				ConfigIP:   state.ConfigIP.Value,
+				BaseConfig: state.BaseConfig.Value,
+			})
+			if err != nil {
+				resp.Diagnostics.AddError(errDesc, err.Error())
+				return
+			}
+			state.ReadInto(conf)
+		}
+	*/
 	state.ID = types.String{Value: string(state.Name.Value)}
 
 	diags = resp.State.Set(ctx, &state)

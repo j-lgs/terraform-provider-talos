@@ -39,12 +39,12 @@ func (m runtimeMode) RequiresInstall() bool {
 
 // TestValidateConfig checks whether an expected valid configuration using values in all fields can be created from a Terraform state struct.
 func TestValidateConfig(t *testing.T) {
-	confString, err := genConfig(machine.TypeControlPlane, &datatypes.InputBundleExample, &talosControlNodeResourceDataExample)
+	confString, err := genConfig(machine.TypeControlPlane, &datatypes.InputBundleExample, talosControlNodeResourceDataExample)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cfg, err := configloader.NewFromBytes([]byte(confString))
+	cfg, err := configloader.NewFromBytes(confString)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestValidateConfig(t *testing.T) {
 // TestConfigDataAll checks if converting a Terraform data struct describing a controlplane node is
 // converted into an expected Talos v1alpha1.Config struct.
 func TestConfigDataAll(t *testing.T) {
-	confString, err := genConfig(machine.TypeControlPlane, &datatypes.InputBundleExample, &nodeData)
+	confString, err := genConfig(machine.TypeControlPlane, &datatypes.InputBundleExample, nodeData)
 	if err != nil {
 		t.Fatal(err)
 	}

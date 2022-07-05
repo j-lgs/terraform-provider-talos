@@ -226,6 +226,8 @@ func (plan *talosClusterConfigResourceData) Generate(opts []generate.GenOption) 
 		return fmt.Errorf("unable to generate secrets bundle: %w", err)
 	}
 
+	opts = append(opts, generate.WithVersionContract(versionContract))
+
 	input, err := generate.NewInput(clusterName, plan.KubernetesEndpoint.Value, kubernetesVersion, secrets,
 		opts...,
 	)
@@ -308,7 +310,6 @@ func appendGenOpt(in []generate.GenOption, datas ...datatypes.PlanToGenopts) (ou
 
 func (plan *talosClusterConfigResourceData) ReadInto(in *generate.Input) (err error) {
 	*plan = talosClusterConfigResourceData{}
-
 	if in.SystemDiskEncryptionConfig != nil {
 		plan.Encryption = &datatypes.EncryptionData{}
 		err := plan.Encryption.Read(in.SystemDiskEncryptionConfig)

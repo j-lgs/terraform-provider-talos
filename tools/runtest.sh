@@ -81,7 +81,8 @@ vmup() {
 
     qemu-img create -f qcow2 "test/opt/vm-$1.qcow2" 4G
     qemu-system-x86_64 -m 2048 -boot d  \
-		       -cdrom test/opt/talos-amd64-v1.0.5.iso \
+		       -cpu host \
+		       -cdrom test/opt/talos-amd64-v1.1.0.iso \
 		       -drive file=test/opt/vm-"$1".qcow2,format=qcow2,if=virtio \
 		       -netdev tap,id=mynet0,ifname=tap"$1",script=no,downscript=no \
 		       -device virtio-net-pci,netdev=mynet0,mac=$MAC \

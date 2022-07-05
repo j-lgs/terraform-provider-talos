@@ -1074,19 +1074,29 @@ var APIServerConfigSchema tfsdk.Schema = tfsdk.Schema{
 			Type: types.ListType{
 				ElemType: types.StringType,
 			},
-			Computed:    true,
+			Computed: true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 			Description: "Extra certificate subject alternative names for the API server’s certificate.",
 		},
 		"disable_pod_security_policy": {
-			Type:        types.BoolType,
-			Optional:    true,
-			Computed:    true,
+			Type:     types.BoolType,
+			Optional: true,
+			Computed: true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
 			Description: "Disable PodSecurityPolicy in the API server and default manifests.",
 		},
 		"admission_control": {
 			Optional:    true,
 			Description: AdmissionPluginSchema.Description,
-			Attributes:  tfsdk.ListNestedAttributes(AdmissionPluginSchema.Attributes),
+			Computed:    true,
+			PlanModifiers: tfsdk.AttributePlanModifiers{
+				tfsdk.UseStateForUnknown(),
+			},
+			Attributes: tfsdk.ListNestedAttributes(AdmissionPluginSchema.Attributes),
 		},
 	},
 }

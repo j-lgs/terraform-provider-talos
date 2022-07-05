@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"terraform-provider-talos/talos/datatypes"
-	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	v1alpha1 "github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
@@ -92,11 +91,6 @@ func (t talosControlNodeResourceType) GetSchema(_ context.Context) (tfsdk.Schema
 			},
 
 			// Generated
-			"patch": {
-				Type:      types.StringType,
-				Computed:  true,
-				Sensitive: true,
-			},
 			"id": {
 				Computed:            true,
 				MarkdownDescription: "Identifier hash, derived from the node's name.",
@@ -125,7 +119,6 @@ type talosControlNodeResourceData struct {
 	ProvisionIP types.String `tfsdk:"provision_ip"`
 	ConfigIP    types.String `tfsdk:"configure_ip"`
 	BaseConfig  types.String `tfsdk:"base_config"`
-	Patch       types.String `tfsdk:"patch"`
 	ID          types.String `tfsdk:"id"`
 }
 
@@ -157,57 +150,85 @@ func (plan *talosControlNodeResourceData) Generate() (err error) {
 	}
 
 	// TODO derive these from talos machinery
+	if plan.ControlPlane == nil {
+		plan.ControlPlane = &datatypes.ControlPlaneConfig{}
+	}
+	plan.ControlPlane.Endpoint = types.String{Value: input.GetControlPlaneEndpoint()}
 
-	plan.ControlPlane = &datatypes.ControlPlaneConfig{
-		Endpoint:           types.String{Value: input.GetControlPlaneEndpoint()},
-		LocalAPIServerPort: types.Int64{Null: true},
+	if plan.ControllerManager == nil {
+		plan.ControllerManager = &datatypes.ControllerManagerConfig{}
 	}
-	/*
-		plan.ControllerManager = &datatypes.ControllerManagerConfig{
-			Image: types.String{Value: (&v1alpha1.SchedulerConfig{}).Image()},
-		}
-	*/
-	plan.CoreDNS = &datatypes.CoreDNS{
-		Image: types.String{Value: (&v1alpha1.CoreDNS{}).Image()},
+	plan.ControllerManager.Image = types.String{Value: (&v1alpha1.ControllerManagerConfig{}).Image()}
+
+	if plan.CoreDNS == nil {
+		plan.CoreDNS = &datatypes.CoreDNS{}
 	}
+	plan.CoreDNS.Image = types.String{Value: (&v1alpha1.CoreDNS{}).Image()}
 
 	plan.AllowSchedulingOnMasters = types.Bool{Value: input.AllowSchedulingOnMasters}
 
-	plan.Kubelet = &datatypes.KubeletConfig{
-		Image: types.String{Value: (&v1alpha1.KubeletConfig{}).Image()},
+	if plan.Kubelet == nil {
+		plan.Kubelet = &datatypes.KubeletConfig{}
+	}
+	plan.Kubelet.Image = types.String{Value: (&v1alpha1.KubeletConfig{}).Image()}
+
+	if plan.Proxy == nil {
+		plan.Proxy = &datatypes.ProxyConfig{}
+	}
+	plan.Proxy.Image = types.String{Value: (&v1alpha1.ProxyConfig{}).Image()}
+
+	if plan.Scheduler == nil {
+		plan.Scheduler = &datatypes.SchedulerConfig{}
+	}
+	plan.Scheduler.Image = types.String{Value: (&v1alpha1.SchedulerConfig{}).Image()}
+
+	if plan.APIServer == nil {
+		plan.APIServer = &datatypes.APIServerConfig{}
 	}
 
-	plan.Proxy = &datatypes.ProxyConfig{
-		Image: types.String{Value: (&v1alpha1.ProxyConfig{}).Image()},
-	}
-
-	plan.Scheduler = &datatypes.SchedulerConfig{
-		Image: types.String{Value: (&v1alpha1.SchedulerConfig{}).Image()},
-	}
-
-	plan.APIServer = &datatypes.APIServerConfig{
-		Image:      types.String{Value: (&v1alpha1.APIServerConfig{}).Image()},
-		DisablePSP: types.Bool{Value: bool(true)},
-	}
-
+	plan.APIServer.Image = types.String{Value: (&v1alpha1.APIServerConfig{}).Image()}
 	for _, san := range input.GetAPIServerSANs() {
 		plan.APIServer.CertSANS = append(plan.APIServer.CertSANS, types.String{Value: san})
+	}
+	plan.APIServer.DisablePSP = types.Bool{Value: true}
+	plan.APIServer.AdmissionPlugins = []datatypes.AdmissionPluginConfig{
+		{
+			Name: types.String{Value: "PodSecurity"},
+			Configuration: types.String{Value: `apiVersion: pod-security.admission.config.k8s.io/v1alpha1
+defaults:
+    audit: restricted
+    audit-version: latest
+    enforce: baseline
+    enforce-version: latest
+    warn: restricted
+    warn-version: latest
+exemptions:
+    namespaces:
+        - kube-system
+    runtimeClasses: []
+    usernames: []
+kind: PodSecurityConfiguration`},
+		},
 	}
 
 	plan.Install.Image = types.String{Value: input.InstallImage}
 	if input.InstallImage == "" {
-		plan.Install.Image = types.String{Value: generate.DefaultGenOptions().InstallDisk}
+		plan.Install.Image = types.String{Value: generate.DefaultGenOptions().InstallImage}
 	}
 
-	plan.Discovery = &datatypes.ClusterDiscoveryConfig{
-		Enabled: types.Bool{Value: input.DiscoveryEnabled},
+	if plan.Discovery == nil {
+		plan.Discovery = &datatypes.ClusterDiscoveryConfig{}
 	}
 
-	plan.Etcd = &datatypes.EtcdConfig{
-		Image: types.String{Value: (&v1alpha1.EtcdConfig{}).Image()},
-		CaCrt: types.String{Value: string(input.Certs.Etcd.Crt)},
-		CaKey: types.String{Value: string(input.Certs.Etcd.Key)},
+	plan.Discovery.Enabled = types.Bool{Value: input.DiscoveryEnabled}
+
+	if plan.Etcd == nil {
+		plan.Etcd = &datatypes.EtcdConfig{}
 	}
+
+	plan.Etcd.Image = types.String{Value: (&v1alpha1.EtcdConfig{}).Image()}
+	plan.Etcd.CaCrt = types.String{Value: string(input.Certs.Etcd.Crt)}
+	plan.Etcd.CaKey = types.String{Value: string(input.Certs.Etcd.Key)}
 
 	return
 }
@@ -340,22 +361,52 @@ func (r talosControlNodeResource) Create(ctx context.Context, req tfsdk.CreateRe
 		return
 	}
 
-	p := &plan
-	config, errDesc, err := applyConfig(ctx, &p, configData{
-		Bootstrap:   plan.Bootstrap.Value,
-		ConfigIP:    plan.ConfigIP.Value,
-		ProvisionIP: plan.ProvisionIP.Value,
-		CreateNode:  true,
-		Mode:        machine.ApplyConfigurationRequest_REBOOT,
-		BaseConfig:  plan.BaseConfig.Value,
-		MachineType: machinetype.TypeControlPlane,
-	})
-	if err != nil {
-		resp.Diagnostics.AddError(errDesc, err.Error())
+	// Unmarshal values from plan and generate talos configuration struct based off plan values
+	input := generate.Input{}
+	if err := json.Unmarshal([]byte(plan.BaseConfig.Value), &input); err != nil {
+		resp.Diagnostics.AddError("Failed to unmarshal input bundle.", err.Error())
 		return
 	}
 
-	plan.Patch = types.String{Value: config}
+	if err := plan.Generate(); err != nil {
+		resp.Diagnostics.AddError("Unable to generate initial plan configuration values.", err.Error())
+		return
+	}
+
+	yaml, err := genConfig(machinetype.TypeControlPlane, &input, &plan)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to generate talos node config.", err.Error())
+		return
+	}
+
+	// Setup connection to maintainence endpoint and apply initial configuration.
+	conn, err := insecureConn(ctx, net.JoinHostPort(plan.ProvisionIP.Value, strconv.Itoa(talosPort)))
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to make insecure connection to Talos machine.", err.Error())
+		return
+	}
+
+	err = applyConfig(ctx, conn, yaml, machine.ApplyConfigurationRequest_REBOOT)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to apply node configuration yaml", err.Error())
+		return
+	}
+
+	// Setup secure connection to talos API and bootstrap the node if applicable.
+	if plan.Bootstrap.Value {
+		conn, err = secureConn(ctx, input, net.JoinHostPort(plan.ConfigIP.Value, strconv.Itoa(talosPort)))
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to make secure connection to Talos machine.", err.Error())
+			return
+		}
+
+		if err := bootstrap(ctx, conn); err != nil {
+			resp.Diagnostics.AddError("issue arised while attempting to bootstrap the machine", err.Error())
+			return
+		}
+	}
+
+	fmt.Println(spew.Sdump(plan.APIServer))
 
 	plan.ID = types.String{Value: string(plan.Name.Value)}
 	diags = resp.State.Set(ctx, &plan)
@@ -363,6 +414,7 @@ func (r talosControlNodeResource) Create(ctx context.Context, req tfsdk.CreateRe
 }
 
 func (r talosControlNodeResource) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+
 	var (
 		state talosControlNodeResourceData
 	)
@@ -397,15 +449,17 @@ func (r talosControlNodeResource) Read(ctx context.Context, req tfsdk.ReadResour
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 }
 
 func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+
 	var (
 		state talosControlNodeResourceData
 	)
 
 	if !r.provider.configured {
-		resp.Diagnostics.AddError("Provider not configured.", "The Talos control node's Update method has been called without the provider being configured. This is a provider bug.")
+		resp.Diagnostics.AddError("provider not configured", "The Talos control node's Update method has been called without the provider being configured. This is a provider bug.")
 		return
 	}
 
@@ -415,21 +469,32 @@ func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateRe
 		return
 	}
 
-	p := &state
-	config, errDesc, err := applyConfig(ctx, &p, configData{
-		Bootstrap:   false,
-		ProvisionIP: state.ProvisionIP.Value,
-		ConfigIP:    state.ConfigIP.Value,
-		Mode:        machine.ApplyConfigurationRequest_AUTO,
-		BaseConfig:  state.BaseConfig.Value,
-		MachineType: machinetype.TypeControlPlane,
-	})
-	if err != nil {
-		resp.Diagnostics.AddError(errDesc, err.Error())
+	input := generate.Input{}
+	if err := json.Unmarshal([]byte(state.BaseConfig.Value), &input); err != nil {
+		resp.Diagnostics.AddError("unmarshal error", "failed to unmarshal input bundle")
 		return
 	}
 
-	state.Patch = types.String{Value: config}
+	yaml, err := genConfig(machinetype.TypeControlPlane, &input, &state)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to generate talos node config.", err.Error())
+		return
+	}
+
+	ip := state.ConfigIP.Value
+	host := net.JoinHostPort(ip, strconv.Itoa(talosPort))
+
+	conn, err := secureConn(ctx, input, host)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to make secure connection to Talos machine.", err.Error())
+		return
+	}
+
+	err = applyConfig(ctx, conn, yaml, machine.ApplyConfigurationRequest_AUTO)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to apply node configuration yaml", err.Error())
+		return
+	}
 
 	if !r.provider.skipread {
 		talosConf, errDesc, err := readConfig(ctx, &state, readData{
@@ -447,6 +512,7 @@ func (r talosControlNodeResource) Update(ctx context.Context, req tfsdk.UpdateRe
 
 	diags = resp.State.Set(ctx, &state)
 	resp.Diagnostics.Append(diags...)
+
 }
 
 func (r talosControlNodeResource) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
@@ -496,58 +562,21 @@ func (r talosControlNodeResource) Delete(ctx context.Context, req tfsdk.DeleteRe
 
 	// The testing environment has issues regarding reboots
 	// Here we will manually send a command to the qemu socket to forcefully reset the machine.
-	if val, set := os.LookupEnv("TF_ACC"); set {
-		// This approach is not ideal is it might take much more or much less time for a talos host to
-		// reset. Ideally there would be an insecure endpoint that can be checked to determine if a host
-		// is up. Likely it would return 200 if up. This is handy too as it can help the provider determine
-		// whether the host's networking stack is up.
-		time.Sleep(50 * time.Second)
+	isAcctest, err := lookupEnvBool("TF_ACC")
+	if err != nil {
+		resp.Diagnostics.AddError("error parsing boolean value for TF_ACC", err.Error())
+	}
 
-		// Require more time if inside a Github Action
-		if _, set := os.LookupEnv("GITHUB_ACTIONS"); set {
-			time.Sleep(60 * time.Second)
-		}
-
-		b, err := strconv.ParseBool(val)
-		if err != nil {
-			resp.Diagnostics.AddError("environment parse error",
-				"error parsing boolean value for TF_ACC:"+err.Error())
-			return
-		}
-
-		if !b {
-			return
-		}
-
+	if isAcctest {
 		hostname := state.Network.Hostname.Value
 		conn, err := net.Dial("unix", "/tmp/qmp/vm-"+hostname+".sock")
 		if err != nil {
-			resp.Diagnostics.AddError("VM socket connect error",
-				"Issue connecting to VM socket at /tmp/qmp/vm-"+hostname+".sock: "+err.Error())
+			resp.Diagnostics.AddError("Issue connecting to VM socket at /tmp/qmp/vm-"+hostname+".sock: ", err.Error())
 			return
 		}
 		defer conn.Close()
 
-		buf := make([]byte, 256)
-		if n, err := conn.Read(buf); n <= 0 || err != nil {
-			resp.Diagnostics.AddError("VM socket read error",
-				"got "+strconv.Itoa(n)+"bytes. error: "+err.Error())
-			return
-		}
-
-		conn.Write([]byte(`{"execute": "qmp_capabilities"}`))
-		if n, err := conn.Read(buf); n <= 0 || err != nil {
-			resp.Diagnostics.AddError("VM socket read error",
-				"got "+strconv.Itoa(n)+"bytes. error: "+err.Error())
-			return
-		}
-
-		conn.Write([]byte(`{"execute": "system_reset"}`))
-		if n, err := conn.Read(buf); n <= 0 || err != nil {
-			resp.Diagnostics.AddError("VM socket read error",
-				"got "+strconv.Itoa(n)+"bytes. error: "+err.Error())
-			return
-		}
+		qemuReset(conn)
 	}
 }
 

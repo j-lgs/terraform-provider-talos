@@ -12,10 +12,14 @@ func (planAPIServer APIServerConfig) Data() (interface{}, error) {
 	if !planAPIServer.Image.Null {
 		apiServer.ContainerImage = planAPIServer.Image.Value
 	}
-	apiServer.ExtraArgsConfig = map[string]string{}
-	for arg, value := range planAPIServer.ExtraArgs {
-		apiServer.ExtraArgsConfig[arg] = value.Value
+
+	if len(planAPIServer.ExtraArgs) > 0 {
+		apiServer.ExtraArgsConfig = map[string]string{}
+		for arg, value := range planAPIServer.ExtraArgs {
+			apiServer.ExtraArgsConfig[arg] = value.Value
+		}
 	}
+
 	if !planAPIServer.DisablePSP.Null {
 		apiServer.DisablePodSecurityPolicyConfig = planAPIServer.DisablePSP.Value
 	}

@@ -30,9 +30,9 @@ if [ ! -f test/bin/slirp4netns-v${slirp_version} ]; then
     chmod +x test/bin/slirp4netns-v${slirp_version}
 fi
 
-talos_version="1.0.5"
+talos_version="1.1.0"
 talos_arch="amd64"
-talos_sha256="73103abf33ecbc5c2df1d0e157fe13ecea0510867b13060b625b260e4346addc"
+talos_sha256="e05be432b9998d4f7ccbb2394914b511bc1f8a85878dd97524426549ee2217f9"
 
 mkdir -p test/opt
 
@@ -46,7 +46,7 @@ if [ ! -f test/opt/talos-amd64-v${talos_version}.iso ]; then
     echo "$talos_sha256 test/opt/talos-${talos_arch}-v${talos_version}" | sha256sum -c -;
 fi
 
-talosctl_version="1.0.5"
+talosctl_version="1.1.0"
 talosctl_arch="amd64"
 talosctl_sha256="300eb0663fdf1826dd34cb0a72331cc56242830cf5100b69100327aad79a9c44"
 

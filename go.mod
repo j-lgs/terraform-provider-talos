@@ -8,7 +8,7 @@ replace (
 	// use same forked yaml that talos does.
 	gopkg.in/yaml.v3 => github.com/unix4ever/yaml v0.0.0-20210315173758-8fb30b8e5a5b
 	// workaround for talos siderolabs not working
-	talos-systems/talos => github.com/siderolabs/talos v1.0.6
+	talos-systems/talos => github.com/siderolabs/talos v1.1.0
 )
 
 // terraform
@@ -25,7 +25,7 @@ require (
 // talos
 require (
 	github.com/talos-systems/crypto v0.3.5
-	github.com/talos-systems/talos/pkg/machinery v1.0.6
+	github.com/talos-systems/talos/pkg/machinery v1.1.0
 )
 
 require (
@@ -45,7 +45,6 @@ require (
 
 require (
 	4d63.com/gochecknoglobals v0.1.0 // indirect
-	github.com/AlekSi/pointer v1.2.0 // indirect
 	github.com/Antonboom/errname v0.1.6 // indirect
 	github.com/Antonboom/nilnil v0.1.1 // indirect
 	github.com/BurntSushi/toml v1.1.0 // indirect
@@ -76,7 +75,7 @@ require (
 	github.com/chavacava/garif v0.0.0-20220316182200-5cad0b5181d4 // indirect
 	github.com/containerd/go-cni v1.1.5 // indirect
 	github.com/containernetworking/cni v1.1.0 // indirect
-	github.com/cosi-project/runtime v0.0.0-20211216175730-264f8fcd1a4f // indirect
+	github.com/cosi-project/runtime v0.0.0-20220527181155-95d06feaf8b5 // indirect
 	github.com/daixiang0/gci v0.3.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denis-tingaikin/go-header v0.4.3 // indirect
@@ -140,7 +139,7 @@ require (
 	github.com/jingyugao/rowserrcheck v1.1.1 // indirect
 	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af // indirect
 	github.com/josharian/native v1.0.0 // indirect
-	github.com/jsimonetti/rtnetlink v1.1.0 // indirect
+	github.com/jsimonetti/rtnetlink v1.2.0 // indirect
 	github.com/julz/importas v0.1.0 // indirect
 	github.com/kisielk/errcheck v1.6.0 // indirect
 	github.com/kisielk/gotool v1.0.0 // indirect
@@ -201,6 +200,7 @@ require (
 	github.com/securego/gosec/v2 v2.11.0 // indirect
 	github.com/shazow/go-diff v0.0.0-20160112020656-b6b7b6733b8c // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
+	github.com/siderolabs/go-pointer v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/sivchari/containedctx v1.0.2 // indirect
 	github.com/sivchari/tenv v1.5.0 // indirect
@@ -244,12 +244,12 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20220218215828-6cf2b201936e // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.0.0-20220418201149-a630d4f3e7a2 // indirect
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
+	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29 // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.11-0.20220513221640-090b14e8501f // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220407144326-9054f6ed7bac // indirect
+	google.golang.org/genproto v0.0.0-20220531134929-86cf59382f1b // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	mvdan.cc/gofumpt v0.3.1 // indirect

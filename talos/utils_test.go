@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"text/template"
 	"time"
 
+	"google.golang.org/grpc/codes"
 	"inet.af/netaddr"
 
 	"io"
@@ -29,7 +29,6 @@ import (
 	clientconfig "github.com/talos-systems/talos/pkg/machinery/client/config"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 	"github.com/talos-systems/talos/pkg/machinery/constants"
-	"google.golang.org/grpc/codes"
 )
 
 // Talos configuration related global variables
@@ -39,7 +38,7 @@ var (
 )
 
 var testInitialIPs = netaddr.MustParseIPRange("10.0.2.15-10.0.2.18")
-var configurationVersion string = "v1.0"
+var configurationVersion string = "v1.1.0"
 
 // testConfig defines input variables needed when templating talos_configuration resource
 // Terraform configurations.
@@ -54,21 +53,20 @@ type testConfig struct {
 var talosConfigName string = ".talosconfig"
 
 // talosConfig templates a Terraform configuration describing a talos_configuration resource.
-func testTalosConfig(config *testConfig) string {
-	if config.KubeEndpoint == "" {
-		config.KubeEndpoint = "https://" + config.Endpoint + ":6443"
+func testTalosConfig(cfg *testConfig) string {
+	if cfg.KubeEndpoint == "" {
+		cfg.KubeEndpoint = "https://" + cfg.Endpoint + ":6443"
 	}
 
 	dir, exists := os.LookupEnv("TALOSCONF_DIR")
 	if !exists {
 		dir = "/tmp"
 	}
-	config.TalosConfig = filepath.Join(dir, talosConfigName)
-	log.Printf("talosconfig location: %s\n", filepath.Join(dir, talosConfigName))
+	cfg.TalosConfig = filepath.Join(dir, talosConfigName)
 
-	config.ConfVersion = configurationVersion
+	cfg.ConfVersion = configurationVersion
 
-	config.KubeVersion = testKubernetesVersion
+	cfg.KubeVersion = testKubernetesVersion
 	t := template.Must(template.New("").Parse(`
 
 resource "talos_configuration" "cluster" {
@@ -86,7 +84,7 @@ resource "local_file" "talosconfig" {
 
 `))
 	var b bytes.Buffer
-	t.Execute(&b, config)
+	t.Execute(&b, cfg)
 	return b.String()
 }
 
@@ -125,6 +123,12 @@ func testControlConfig(nodes ...*testNode) string {
   provision_ip = "{{.ProvisionIP}}"
 
   config = {
+    apiserver = {
+      extra_args = {
+        "anonymous-auth": "true"
+      }
+    }
+
     install = {
       disk = "{{.Disk}}"
       kernel_args = [

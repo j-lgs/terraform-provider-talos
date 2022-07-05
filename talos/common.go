@@ -68,112 +68,65 @@ func readConfig[N nodeResourceData](ctx context.Context, nodeData N, data readDa
 	return
 }
 
-type configData struct {
-	Bootstrap   bool
-	CreateNode  bool
-	Mode        machine.ApplyConfigurationRequest_Mode
-	ProvisionIP string
-	ConfigIP    string
-	BaseConfig  string
-	MachineType machinetype.Type
-}
-
-func genConfig[N nodeResourceData](machineType machinetype.Type, input *generate.Input, nodeData *N) (out string, err error) {
+func genConfig[N nodeResourceData](machineType machinetype.Type, input *generate.Input, nodeData N) ([]byte, error) {
 	cfg, err := generate.Config(machineType, input)
 	if err != nil {
-		err = fmt.Errorf("failed to generate Talos configuration struct for node: %w", err)
-		return
+		return nil, err
 	}
 
-	(*nodeData).Generate()
-	newCfg, err := (*nodeData).TalosData(cfg)
+	newCfg, err := nodeData.TalosData(cfg)
 	if err != nil {
-		err = fmt.Errorf("failed to generate configuration: %w", err)
-		return
+		return nil, err
 	}
 
-	var confYaml []byte
-	confYaml, err = newCfg.Bytes()
+	confYaml, err := newCfg.Bytes()
 	if err != nil {
-		err = fmt.Errorf("failed to generate config yaml: %w", err)
-		return
+		return nil, err
 	}
 
-	out = string(regexp.MustCompile(`\s*#.*`).ReplaceAll(confYaml, nil))
-	return
+	// strip all comments from the generated yaml
+	rexp, err := regexp.Compile(`\s*#.*`)
+	if err != nil {
+		return nil, err
+	}
+
+	out := rexp.ReplaceAll(confYaml, nil)
+
+	return out, nil
 }
 
-func applyConfig[N nodeResourceData](ctx context.Context, nodeData *N, data configData) (out string, errDesc string, err error) {
-	input := generate.Input{}
-	if err := json.Unmarshal([]byte(data.BaseConfig), &input); err != nil {
-		return "", "Failed to unmarshal input bundle", err
-	}
-
-	yaml, err := genConfig(data.MachineType, &input, nodeData)
-	if err != nil {
-		return "", "error rendering configuration YAML", err
-	}
-
-	var conn *grpc.ClientConn
-	if data.CreateNode {
-		ip := data.ProvisionIP
-		host := net.JoinHostPort(ip, strconv.Itoa(talosPort))
-		conn, err = insecureConn(ctx, host)
-		if err != nil {
-			return "", "Unable to make insecure connection to Talos machine. Ensure it is in maintainence mode.", err
-		}
-	} else {
-		ip := data.ConfigIP
-		host := net.JoinHostPort(ip, strconv.Itoa(talosPort))
-		input := generate.Input{}
-		if err := json.Unmarshal([]byte(data.BaseConfig), &input); err != nil {
-			return "", "Unable to unmarshal BaseConfig json into a Talos Input struct.", err
-		}
-
-		conn, err = secureConn(ctx, input, host)
-		if err != nil {
-			return "", "Unable to make secure connection to the Talos machine.", err
-		}
-	}
-
+func applyConfig(ctx context.Context, conn *grpc.ClientConn, yaml []byte, mode machine.ApplyConfigurationRequest_Mode) error {
 	defer conn.Close()
+
 	client := machine.NewMachineServiceClient(conn)
-	_, err = client.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
-		Data: []byte(yaml),
-		Mode: machine.ApplyConfigurationRequest_Mode(data.Mode),
+	_, err := client.ApplyConfiguration(ctx, &machine.ApplyConfigurationRequest{
+		Data: yaml,
+		Mode: mode,
 	})
 	if err != nil {
-		return "", "Error applying configuration", err
+		return err
 	}
 
-	if data.MachineType == machinetype.TypeControlPlane && data.Bootstrap {
-		// Wait for time to be synchronised after installation.
-		// TODO: Figure out a better way of handling this. most likely by polling
-		// api endpoint.
-		time.Sleep(15 * time.Second)
-		// Require more time if inside a Github Action
-		if _, set := os.LookupEnv("GITHUB_ACTIONS"); set {
-			time.Sleep(60 * time.Second)
-		}
+	return nil
+}
 
-		ip := data.ConfigIP
-		host := net.JoinHostPort(ip, strconv.Itoa(talosPort))
-		input := generate.Input{}
-		if err := json.Unmarshal([]byte(data.BaseConfig), &input); err != nil {
-			return "", "Unable to unmarshal BaseConfig json into a Talos Input struct.", err
-		}
+func bootstrap(ctx context.Context, conn *grpc.ClientConn) error {
+	defer conn.Close()
 
-		conn, err := secureConn(ctx, input, host)
-		if err != nil {
-			return "", "Unable to make secure connection to the Talos machine.", err
-		}
-		defer conn.Close()
-		client := machine.NewMachineServiceClient(conn)
-		_, err = client.Bootstrap(ctx, &machine.BootstrapRequest{})
-		if err != nil {
-			return "", "Error attempting to bootstrap the machine.", err
-		}
+	// Wait for time to be synchronised after installation.
+	// TODO: Figure out a better way of handling this. most likely by polling
+	// api endpoint.
+	time.Sleep(15 * time.Second)
+	// Require more time if inside a Github Action
+	if _, set := os.LookupEnv("GITHUB_ACTIONS"); set {
+		time.Sleep(60 * time.Second)
 	}
 
-	return
+	client := machine.NewMachineServiceClient(conn)
+	_, err := client.Bootstrap(ctx, &machine.BootstrapRequest{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
