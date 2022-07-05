@@ -17,11 +17,11 @@
         tpt = pkgs.buildGo118Module {
           inherit system;
           pname = "terraform-provider-talos";
-          version = "0.0.12";
+          version = "0.0.13";
 
           src = builtins.path { path = ./.; name = "terraform-provider-talos"; };
 
-          vendorSha256 = "sha256-/ttIyNegFRzWt8PvhNCgiw5tFOqUmHrJ02av8rofINY=";
+          vendorSha256 = "sha256-q9v/P2sscf6YG/4spvk1QtrAS0jn7MkGQ/Jjwa7B8PQ=";
 
           doCheck = false;
 
