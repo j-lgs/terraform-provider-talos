@@ -37,7 +37,7 @@ require (
 	github.com/talos-systems/go-blockdevice v0.3.4
 	github.com/wI2L/jsondiff v0.2.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220504211119-3d4a969bb56b
-	google.golang.org/grpc v1.47.0
+	google.golang.org/grpc v1.48.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	honnef.co/go/tools v0.3.2
