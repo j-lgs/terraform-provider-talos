@@ -43,7 +43,7 @@ if [ ! -f test/opt/talos-amd64-v${talos_version}.iso ]; then
 
     curl -o test/opt/talos-${talos_arch}-v${talos_version}.iso --fail -L \
 	 https://github.com/siderolabs/talos/releases/download/v${talos_version}/talos-${talos_arch}.iso
-    echo "$talos_sha256 test/opt/talos-${talos_arch}-v${talos_version}" | sha256sum -c -;
+    echo "$talos_sha256 test/opt/talos-${talos_arch}-v${talos_version}.iso" | sha256sum -c -;
 fi
 
 talosctl_version="1.1.0"
