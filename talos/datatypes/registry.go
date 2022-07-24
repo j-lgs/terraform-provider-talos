@@ -81,6 +81,28 @@ type TalosRegistriesConfig struct {
 	*v1alpha1.RegistriesConfig
 }
 
+func (talosRegistriesConfig TalosRegistriesConfig) Read() *Registry {
+	r := Registry{
+		Mirrors: map[string][]types.String{},
+		Configs: map[string]RegistryConfig{},
+	}
+
+	if talosRegistriesConfig.Mirrors() != nil {
+		for host, mirror := range talosRegistriesConfig.Mirrors() {
+			for _, m := range mirror.Endpoints() {
+				r.Mirrors[host] = append(r.Mirrors[host], types.String{Value: m})
+			}
+		}
+	}
+
+	rc := TalosRegistryConfigs{RegistryConfigs: talosRegistriesConfig.RegistryConfig}
+	if talosRegistriesConfig.Config() != nil {
+		r.Configs = rc.Read()
+	}
+
+	return &r
+}
+
 func (talosRegistriesConfig TalosRegistriesConfig) ReadFunc() []ConfigReadFunc {
 	funs := []ConfigReadFunc{
 		func(planConfig *TalosConfig) (err error) {
@@ -159,6 +181,34 @@ func (registry Registry) DataFunc() [](func(*v1alpha1.Config) error) {
 type RegistryConfigs map[string]*v1alpha1.RegistryConfig
 type TalosRegistryConfigs struct {
 	RegistryConfigs
+}
+
+func (talosRegistryConfigs TalosRegistryConfigs) Read() map[string]RegistryConfig {
+	regs := make(map[string]RegistryConfig)
+
+	for host, config := range talosRegistryConfigs.RegistryConfigs {
+		registry := RegistryConfig{}
+
+		if config.RegistryTLS != nil {
+			registry.ClientCRT = readCert(*config.TLS().ClientIdentity())
+			registry.ClientKey = readKey(*config.TLS().ClientIdentity())
+
+			registry.CA = readString(string(config.TLS().CA()))
+			registry.InsecureSkipVerify = readBool(config.TLS().InsecureSkipVerify())
+		}
+
+		if config.RegistryAuth != nil {
+			registry.Username = readString(config.Auth().Username())
+			registry.Password = readString(config.RegistryAuth.Password())
+
+			registry.Auth = readString(config.Auth().Auth())
+			registry.IdentityToken = readString(config.Auth().IdentityToken())
+		}
+
+		regs[host] = registry
+	}
+
+	return regs
 }
 
 func (talosRegistryConfigs TalosRegistryConfigs) ReadFunc() []ConfigReadFunc {

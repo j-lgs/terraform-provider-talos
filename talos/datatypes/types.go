@@ -66,6 +66,12 @@ var (
 		Wipe:       Wrapb(installWipeExample),
 	}
 
+	InstallExampleClusterConfig = &InstallConfig{
+		Disk:       Wraps(installDiskExample),
+		KernelArgs: Wrapsl(installKernelArgsExample...),
+		Image:      Wraps(installImageExample),
+	}
+
 	NetworkConfigExample = &NetworkConfig{
 		Hostname: Wraps(hostnameExample),
 		Devices: []NetworkDevice{

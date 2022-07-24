@@ -11,6 +11,7 @@ import (
 	"hash/fnv"
 
 	"github.com/talos-systems/talos/pkg/machinery/config"
+	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -315,6 +316,94 @@ func (plan *talosClusterConfigResourceData) ReadInto(in *generate.Input) (err er
 		err := plan.Encryption.Read(in.SystemDiskEncryptionConfig)
 		if err != nil {
 			return err
+		}
+	}
+
+	if in.InstallDisk != "" || in.InstallImage != "" || in.InstallExtraKernelArgs != nil {
+		plan.Install = &datatypes.InstallConfig{}
+	}
+
+	ctx := context.Background()
+	if in.InstallDisk != "" {
+		tfsdk.ValueFrom(ctx, in.InstallDisk, types.StringType, &plan.Install.Disk)
+	}
+
+	if in.InstallImage != "" {
+		tfsdk.ValueFrom(ctx, in.InstallImage, types.StringType, &plan.Install.Image)
+	}
+
+	if in.InstallExtraKernelArgs != nil {
+		tfsdk.ValueFrom(ctx, in.InstallExtraKernelArgs, types.ListType{ElemType: types.StringType}, &plan.Install.KernelArgs)
+	}
+
+	if in.AdditionalMachineCertSANs != nil {
+		tfsdk.ValueFrom(ctx, in.AdditionalMachineCertSANs, types.ListType{ElemType: types.StringType}, &plan.MachineCertSANs)
+	}
+
+	if in.AdditionalSubjectAltNames != nil {
+		tfsdk.ValueFrom(ctx, in.AdditionalSubjectAltNames, types.ListType{ElemType: types.StringType}, &plan.K8sCertSANs)
+	}
+
+	if in.KubernetesVersion != "" {
+		tfsdk.ValueFrom(ctx, in.KubernetesVersion, types.StringType, &plan.KubernetesVersion)
+	}
+
+	if in.ControlPlaneEndpoint != "" {
+		tfsdk.ValueFrom(ctx, in.ControlPlaneEndpoint, types.StringType, &plan.KubernetesEndpoint)
+	}
+
+	if in.Debug {
+		plan.Debug = types.Bool{Value: true}
+	}
+
+	if in.RegistryConfig != nil || in.RegistryMirrors != nil {
+		talosRegistries := datatypes.TalosRegistriesConfig{RegistriesConfig: &v1alpha1.RegistriesConfig{
+			RegistryConfig:  in.RegistryConfig,
+			RegistryMirrors: in.RegistryMirrors,
+		}}
+		plan.Registry = talosRegistries.Read()
+	}
+
+	if in.Sysctls != nil {
+		tfsdk.ValueFrom(ctx, in.Sysctls, types.MapType{ElemType: types.StringType}, &plan.Sysctls)
+	}
+
+	if in.VersionContract != nil {
+		plan.TargetVersion = types.String{Value: fmt.Sprintf("v%d.%d.0", in.VersionContract.Major, in.VersionContract.Major)}
+	}
+
+	if in.CNIConfig != nil {
+		plan.CNI = &datatypes.CNI{}
+		plan.CNI.Read(in.CNIConfig)
+	}
+
+	if in.ClusterName != "" {
+		plan.ClusterName = types.String{Value: in.ClusterName}
+	}
+
+	if in.AllowSchedulingOnMasters {
+		plan.AllowSchedulingOnMasters = types.Bool{Value: true}
+	}
+
+	if in.MachineDisks != nil {
+		for _, talosDisk := range in.MachineDisks {
+			disk := datatypes.MachineDiskData{DeviceName: types.String{Value: talosDisk.DeviceName}}
+
+			for _, part := range talosDisk.DiskPartitions {
+				s, err := part.DiskSize.MarshalYAML()
+				if err != nil {
+					return err
+				}
+
+				p := datatypes.PartitionData{
+					Size:       types.String{Value: s.(string)},
+					MountPoint: types.String{Value: part.DiskMountPoint},
+				}
+
+				disk.Partitions = append(disk.Partitions, p)
+			}
+
+			plan.Disks = append(plan.Disks, disk)
 		}
 	}
 

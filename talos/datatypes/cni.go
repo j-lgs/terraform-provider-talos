@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1"
 	"github.com/talos-systems/talos/pkg/machinery/config/types/v1alpha1/generate"
 )
@@ -21,8 +22,8 @@ func (cniData *CNI) Read(cni any) error {
 	cniConfig := cni.(*v1alpha1.CNIConfig)
 
 	cniData.Name.Value = cniConfig.CNIName
-	for i, url := range cniConfig.CNIUrls {
-		cniData.URLs[i].Value = url
+	for _, url := range cniConfig.CNIUrls {
+		cniData.URLs = append(cniData.URLs, types.String{Value: url})
 	}
 
 	return nil

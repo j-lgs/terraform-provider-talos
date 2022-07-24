@@ -16,20 +16,19 @@ var (
 
 	tfinput = talosClusterConfigResourceData{
 		// For Resource
-		TargetVersion:            datatypes.Wraps("v1.0.0"),
+		TargetVersion:            datatypes.Wraps(""),
 		Debug:                    datatypes.Wrapb(datatypes.ConfigDebugExample),
 		AllowSchedulingOnMasters: datatypes.Wrapb(datatypes.AllowSchedulingOnMastersExample),
 		ClusterName:              datatypes.Wraps(datatypes.ClusterNameExample),
-		Endpoints:                datatypes.Wrapsl("0.0.0.0"),
 		// Talos related
 		MachineCertSANs:    []types.String{},
 		K8sCertSANs:        []types.String{{Value: "1.2.3.4"}, {Value: "4.5.6.7"}},
-		Install:            datatypes.InstallExample,
+		Install:            datatypes.InstallExampleClusterConfig,
 		CNI:                datatypes.CniExample,
-		Registry:           nodeData.Registry,
+		Registry:           datatypes.RegistryExample,
 		Sysctls:            datatypes.SysctlData(nodeData.Sysctls),
-		Disks:              nodeData.Disks,
-		Encryption:         nodeData.Encryption,
+		Disks:              datatypes.TalosConfigExample.Disks,
+		Encryption:         datatypes.EncryptionDataExample,
 		KubernetesEndpoint: datatypes.Wraps(datatypes.EndpointExample.String()),
 		KubernetesVersion:  datatypes.Wraps(testKubernetesVersion),
 	}
@@ -84,6 +83,7 @@ func TestCreateTalosConfiguration(t *testing.T) {
 
 func TestReadTalosConfiguration(t *testing.T) {
 	var state = tfinput
+
 	state.ReadInto(&expectedInput)
 
 	if !reflect.DeepEqual(tfinput, state) {
