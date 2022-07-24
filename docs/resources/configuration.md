@@ -112,7 +112,7 @@ resource "talos_configuration" {
 <a id="nestedatt--cni"></a>
 ### Nested Schema for `cni`
 
-Optional:
+Required:
 
 - `name` (String)
 - `urls` (List of String)
@@ -121,7 +121,7 @@ Optional:
 <a id="nestedatt--disks"></a>
 ### Nested Schema for `disks`
 
-Optional:
+Required:
 
 - `device_name` (String) Block device name.
 - `partitions` (Attributes List) Represents the options for a disk partition. (see [below for nested schema](#nestedatt--disks--partitions))
@@ -129,7 +129,7 @@ Optional:
 <a id="nestedatt--disks--partitions"></a>
 ### Nested Schema for `disks.partitions`
 
-Optional:
+Required:
 
 - `mount_point` (String) Where the partition will be mounted.
 - `size` (String) The size of partition: either bytes or human readable representation.
@@ -148,46 +148,58 @@ Optional:
 <a id="nestedatt--encryption--ephemeral"></a>
 ### Nested Schema for `encryption.ephemeral`
 
+Required:
+
+- `crypt_provider` (String) Encryption provider to use for the encryption.
+- `keys` (Attributes List) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption--ephemeral--keys))
+
 Optional:
 
 - `blocksize` (Number) Defines the encryption block size.
 - `cipher` (String) Cipher kind to use for the encryption. Depends on the encryption provider.
-- `crypt_provider` (String) Encryption provider to use for the encryption.
-- `keys` (Attributes List) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption--ephemeral--keys))
 - `keysize` (Number) Defines the encryption key size.
 - `perf_options` (List of String) Additional --perf parameters for LUKS2 encryption.
 
 <a id="nestedatt--encryption--ephemeral--keys"></a>
 ### Nested Schema for `encryption.ephemeral.keys`
 
+Required:
+
+- `slot` (Number) Defines the encryption block size.
+
 Optional:
 
 - `key_static` (String) Represents a throw away key type.
 - `node_id` (Boolean) Represents a deterministically generated key from the node UUID and PartitionLabel. Setting this value to true will enable it.
-- `slot` (Number) Defines the encryption block size.
 
 
 
 <a id="nestedatt--encryption--state"></a>
 ### Nested Schema for `encryption.state`
 
+Required:
+
+- `crypt_provider` (String) Encryption provider to use for the encryption.
+- `keys` (Attributes List) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption--state--keys))
+
 Optional:
 
 - `blocksize` (Number) Defines the encryption block size.
 - `cipher` (String) Cipher kind to use for the encryption. Depends on the encryption provider.
-- `crypt_provider` (String) Encryption provider to use for the encryption.
-- `keys` (Attributes List) Specifies system disk partition encryption settings. (see [below for nested schema](#nestedatt--encryption--state--keys))
 - `keysize` (Number) Defines the encryption key size.
 - `perf_options` (List of String) Additional --perf parameters for LUKS2 encryption.
 
 <a id="nestedatt--encryption--state--keys"></a>
 ### Nested Schema for `encryption.state.keys`
 
+Required:
+
+- `slot` (Number) Defines the encryption block size.
+
 Optional:
 
 - `key_static` (String) Represents a throw away key type.
 - `node_id` (Boolean) Represents a deterministically generated key from the node UUID and PartitionLabel. Setting this value to true will enable it.
-- `slot` (Number) Defines the encryption block size.
 
 
 
@@ -237,16 +249,19 @@ Optional:
 <a id="nestedatt--network--with_networkconfig--devices"></a>
 ### Nested Schema for `network.with_networkconfig.devices`
 
-Optional:
+Required:
 
 - `addresses` (List of String) A list of IP addresses for the interface.
+- `name` (String) Network device's Linux interface name.
+
+Optional:
+
 - `bond` (Attributes) Contains the various options for configuring a bonded interface. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--bond))
 - `dhcp` (Boolean) Indicates if DHCP should be used to configure the interface.
 - `dhcp_options` (Attributes) Specifies DHCP specific options. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--dhcp_options))
 - `dummy` (Boolean) Indicates if the interface is a dummy interface..
 - `ignore` (Boolean) Indicates if the interface should be ignored (skips configuration).
 - `mtu` (Number) The interface’s MTU. If used in combination with DHCP, this will override any MTU settings returned from DHCP server.
-- `name` (String) Network device's Linux interface name.
 - `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--routes))
 - `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--vip))
 - `vlans` (Attributes List) Represents vlan settings for a device. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--vlans))
@@ -254,6 +269,11 @@ Optional:
 
 <a id="nestedatt--network--with_networkconfig--devices--bond"></a>
 ### Nested Schema for `network.with_networkconfig.devices.wireguard`
+
+Required:
+
+- `interfaces` (List of String)
+- `mode` (String) A bond option. Please see the official kernel documentation.
 
 Optional:
 
@@ -268,12 +288,10 @@ Optional:
 - `arp_validate` (String) A bond option. Please see the official kernel documentation.
 - `down_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
 - `failover_mac` (String) A bond option. Please see the official kernel documentation.
-- `interfaces` (List of String)
 - `lacp_rate` (String) A bond option. Please see the official kernel documentation.
 - `lp_interval` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
 - `mii_mon` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
 - `min_links` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
-- `mode` (String) A bond option. Please see the official kernel documentation.
 - `num_peer_notif` (Number) A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.
 - `packets_per_slave` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
 - `peer_notify_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
@@ -289,40 +307,52 @@ Optional:
 <a id="nestedatt--network--with_networkconfig--devices--dhcp_options"></a>
 ### Nested Schema for `network.with_networkconfig.devices.wireguard`
 
+Required:
+
+- `route_metric` (Number) The priority of all routes received via DHCP. Must be castable to a uint32.
+
 Optional:
 
 - `ipv4` (Boolean) Enables DHCPv4 protocol for the interface.
 - `ipv6` (Boolean) Enables DHCPv6 protocol for the interface.
-- `route_metric` (Number) The priority of all routes received via DHCP. Must be castable to a uint32.
 
 
 <a id="nestedatt--network--with_networkconfig--devices--routes"></a>
 ### Nested Schema for `network.with_networkconfig.devices.wireguard`
 
+Required:
+
+- `network` (String) The route’s network (destination).
+
 Optional:
 
 - `gateway` (String) The route’s gateway (if empty, creates link scope route).
 - `metric` (Number) The optional metric for the route.
-- `network` (String) The route’s network (destination).
 - `source` (String) The route’s source address.
 
 
 <a id="nestedatt--network--with_networkconfig--devices--vip"></a>
 ### Nested Schema for `network.with_networkconfig.devices.wireguard`
 
+Required:
+
+- `ip` (String) Specifies the IP address to be used.
+
 Optional:
 
 - `equinix_metal_api_token` (String) Specifies the Equinix Metal API Token.
 - `hetzner_cloud_api_token` (String) Specifies the Hetzner Cloud API Token.
-- `ip` (String) Specifies the IP address to be used.
 
 
 <a id="nestedatt--network--with_networkconfig--devices--vlans"></a>
 ### Nested Schema for `network.with_networkconfig.devices.wireguard`
 
-Optional:
+Required:
 
 - `addresses` (List of String) A list of IP addresses for the interface.
+
+Optional:
+
 - `dhcp` (Boolean) Indicates if DHCP should be used.
 - `mtu` (Number) The VLAN’s MTU. Must be a 32 bit unsigned integer.
 - `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard--routes))
@@ -332,45 +362,60 @@ Optional:
 <a id="nestedatt--network--with_networkconfig--devices--wireguard--routes"></a>
 ### Nested Schema for `network.with_networkconfig.devices.wireguard.routes`
 
+Required:
+
+- `network` (String) The route’s network (destination).
+
 Optional:
 
 - `gateway` (String) The route’s gateway (if empty, creates link scope route).
 - `metric` (Number) The optional metric for the route.
-- `network` (String) The route’s network (destination).
 - `source` (String) The route’s source address.
 
 
 <a id="nestedatt--network--with_networkconfig--devices--wireguard--vip"></a>
 ### Nested Schema for `network.with_networkconfig.devices.wireguard.vip`
 
+Required:
+
+- `ip` (String) Specifies the IP address to be used.
+
 Optional:
 
 - `equinix_metal_api_token` (String) Specifies the Equinix Metal API Token.
 - `hetzner_cloud_api_token` (String) Specifies the Hetzner Cloud API Token.
-- `ip` (String) Specifies the IP address to be used.
 
 
 
 <a id="nestedatt--network--with_networkconfig--devices--wireguard"></a>
 ### Nested Schema for `network.with_networkconfig.devices.wireguard`
 
+Required:
+
+- `peers` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard--peers))
+
 Optional:
 
 - `firewall_mark` (Number) Firewall mark for wireguard packets.
 - `listen_port` (Number) Listening port for if this node should be a wireguard server.
-- `peers` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_networkconfig--devices--wireguard--peers))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
+
+Read-Only:
+
 - `public_key` (String) Automatically derived from the private_key field.
 
 <a id="nestedatt--network--with_networkconfig--devices--wireguard--peers"></a>
 ### Nested Schema for `network.with_networkconfig.devices.wireguard.peers`
 
-Optional:
+Required:
 
 - `allowed_ips` (List of String) AllowedIPs specifies a list of allowed IP addresses in CIDR notation for this peer.
 - `endpoint` (String) Specifies the endpoint of this peer entry.
-- `persistent_keepalive_interval` (Number) Specifies the persistent keepalive interval for this peer. Provided in seconds.
 - `public_key` (String) Specifies the public key of this peer.
+
+Optional:
+
+- `persistent_keepalive_interval` (Number) Specifies the persistent keepalive interval for this peer. Provided in seconds.
 
 
 
@@ -378,33 +423,45 @@ Optional:
 <a id="nestedatt--network--with_networkconfig--kubespan"></a>
 ### Nested Schema for `network.with_networkconfig.kubespan`
 
+Required:
+
+- `enabled` (Boolean) Enable the KubeSpan feature.
+
 Optional:
 
 - `allow_peer_down_bypass` (Boolean) Skip sending traffic via KubeSpan if the peer connection state is not up.
-- `enabled` (Boolean) Enable the KubeSpan feature.
 
 
 
 <a id="nestedatt--network--with_wireguard"></a>
 ### Nested Schema for `network.with_wireguard`
 
+Required:
+
+- `peers` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_wireguard--peers))
+
 Optional:
 
 - `firewall_mark` (Number) Firewall mark for wireguard packets.
 - `listen_port` (Number) Listening port for if this node should be a wireguard server.
-- `peers` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--network--with_wireguard--peers))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
+
+Read-Only:
+
 - `public_key` (String) Automatically derived from the private_key field.
 
 <a id="nestedatt--network--with_wireguard--peers"></a>
 ### Nested Schema for `network.with_wireguard.peers`
 
-Optional:
+Required:
 
 - `allowed_ips` (List of String) AllowedIPs specifies a list of allowed IP addresses in CIDR notation for this peer.
 - `endpoint` (String) Specifies the endpoint of this peer entry.
-- `persistent_keepalive_interval` (Number) Specifies the persistent keepalive interval for this peer. Provided in seconds.
 - `public_key` (String) Specifies the public key of this peer.
+
+Optional:
+
+- `persistent_keepalive_interval` (Number) Specifies the persistent keepalive interval for this peer. Provided in seconds.
 
 
 
@@ -438,22 +495,23 @@ Optional:
 <a id="nestedatt--secret_bundle"></a>
 ### Nested Schema for `secret_bundle`
 
+Required:
+
+- `id` (String) Unique cluster ID for Talos. Base64 encoded binary data.
+
 Optional:
 
 - `aes_cbc_encryption` (String) Unique secret for Talos disk encryption. Base64 encoded binary data.
 - `bootstrap_token` (String) Unique token for Talos bootstrap.
 - `cert_bundle` (Attributes) Represents the keys and certificates throughout Talos. (see [below for nested schema](#nestedatt--secret_bundle--cert_bundle))
-- `id` (String) Unique cluster ID for Talos. Base64 encoded binary data.
 - `secret` (String) Unique cluster secret for Talos. Base64 encoded binary data.
 - `trustd_token` (String) Unique token for Talos trustd.
 
 <a id="nestedatt--secret_bundle--cert_bundle"></a>
 ### Nested Schema for `secret_bundle.cert_bundle`
 
-Optional:
+Required:
 
-- `admin_crt` (String) PEM encoded cluster admin crt.
-- `admin_key` (String) PEM encoded cluster admin key.
 - `etcd_crt` (String) PEM encoded etcd crt.
 - `etcd_key` (String) PEM encoded etcd key.
 - `k8s_aggregator_crt` (String) PEM encoded crt for the k8s aggregator.
@@ -463,5 +521,10 @@ Optional:
 - `k8s_service_key` (String) PEM encoded key for the k8s service.
 - `os_crt` (String) PEM encoded crt for OS.
 - `os_key` (String) PEM encoded key for OS.
+
+Optional:
+
+- `admin_crt` (String) PEM encoded cluster admin crt.
+- `admin_key` (String) PEM encoded cluster admin key.
 
 

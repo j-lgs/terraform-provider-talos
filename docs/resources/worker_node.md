@@ -53,13 +53,16 @@ Represents a Talos worker node.
 Required:
 
 - `addresses` (List of String) A list of IP addresses for the interface.
+- `name` (String) Network device's Linux interface name.
+
+Optional:
+
 - `bond` (Attributes) Contains the various options for configuring a bonded interface. (see [below for nested schema](#nestedatt--devices--bond))
 - `dhcp` (Boolean) Indicates if DHCP should be used to configure the interface.
 - `dhcp_options` (Attributes) Specifies DHCP specific options. (see [below for nested schema](#nestedatt--devices--dhcp_options))
 - `dummy` (Boolean) Indicates if the interface is a dummy interface..
 - `ignore` (Boolean) Indicates if the interface should be ignored (skips configuration).
 - `mtu` (Number) The interface’s MTU. If used in combination with DHCP, this will override any MTU settings returned from DHCP server.
-- `name` (String) Network device's Linux interface name.
 - `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--devices--routes))
 - `vip` (Attributes) Contains settings for configuring a Virtual Shared IP on an interface. (see [below for nested schema](#nestedatt--devices--vip))
 - `vlans` (Attributes List) Represents vlan settings for a device. (see [below for nested schema](#nestedatt--devices--vlans))
@@ -69,6 +72,11 @@ Required:
 ### Nested Schema for `devices.bond`
 
 Required:
+
+- `interfaces` (List of String)
+- `mode` (String) A bond option. Please see the official kernel documentation.
+
+Optional:
 
 - `ad_actor_sys_prio` (Number) A bond option. Please see the official kernel documentation. Must be a 16 bit unsigned int.
 - `ad_actor_system` (String) A bond option. Please see the official kernel documentation.
@@ -81,12 +89,10 @@ Required:
 - `arp_validate` (String) A bond option. Please see the official kernel documentation.
 - `down_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
 - `failover_mac` (String) A bond option. Please see the official kernel documentation.
-- `interfaces` (List of String)
 - `lacp_rate` (String) A bond option. Please see the official kernel documentation.
 - `lp_interval` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
 - `mii_mon` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
 - `min_links` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
-- `mode` (String) A bond option. Please see the official kernel documentation.
 - `num_peer_notif` (Number) A bond option. Please see the official kernel documentation. Must be a 8 bit unsigned int.
 - `packets_per_slave` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
 - `peer_notify_delay` (Number) A bond option. Please see the official kernel documentation. Must be a 32 bit unsigned int.
@@ -104,9 +110,12 @@ Required:
 
 Required:
 
+- `route_metric` (Number) The priority of all routes received via DHCP. Must be castable to a uint32.
+
+Optional:
+
 - `ipv4` (Boolean) Enables DHCPv4 protocol for the interface.
 - `ipv6` (Boolean) Enables DHCPv6 protocol for the interface.
-- `route_metric` (Number) The priority of all routes received via DHCP. Must be castable to a uint32.
 
 
 <a id="nestedatt--devices--routes"></a>
@@ -114,9 +123,12 @@ Required:
 
 Required:
 
+- `network` (String) The route’s network (destination).
+
+Optional:
+
 - `gateway` (String) The route’s gateway (if empty, creates link scope route).
 - `metric` (Number) The optional metric for the route.
-- `network` (String) The route’s network (destination).
 - `source` (String) The route’s source address.
 
 
@@ -125,9 +137,12 @@ Required:
 
 Required:
 
+- `ip` (String) Specifies the IP address to be used.
+
+Optional:
+
 - `equinix_metal_api_token` (String) Specifies the Equinix Metal API Token.
 - `hetzner_cloud_api_token` (String) Specifies the Hetzner Cloud API Token.
-- `ip` (String) Specifies the IP address to be used.
 
 
 <a id="nestedatt--devices--vlans"></a>
@@ -136,6 +151,9 @@ Required:
 Required:
 
 - `addresses` (List of String) A list of IP addresses for the interface.
+
+Optional:
+
 - `dhcp` (Boolean) Indicates if DHCP should be used.
 - `mtu` (Number) The VLAN’s MTU. Must be a 32 bit unsigned integer.
 - `routes` (Attributes List) Represents a list of routes. (see [below for nested schema](#nestedatt--devices--vlans--routes))
@@ -147,9 +165,12 @@ Required:
 
 Required:
 
+- `network` (String) The route’s network (destination).
+
+Optional:
+
 - `gateway` (String) The route’s gateway (if empty, creates link scope route).
 - `metric` (Number) The optional metric for the route.
-- `network` (String) The route’s network (destination).
 - `source` (String) The route’s source address.
 
 
@@ -158,9 +179,12 @@ Required:
 
 Required:
 
+- `ip` (String) Specifies the IP address to be used.
+
+Optional:
+
 - `equinix_metal_api_token` (String) Specifies the Equinix Metal API Token.
 - `hetzner_cloud_api_token` (String) Specifies the Hetzner Cloud API Token.
-- `ip` (String) Specifies the IP address to be used.
 
 
 
@@ -169,10 +193,16 @@ Required:
 
 Required:
 
+- `peers` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--devices--wireguard--peers))
+
+Optional:
+
 - `firewall_mark` (Number) Firewall mark for wireguard packets.
 - `listen_port` (Number) Listening port for if this node should be a wireguard server.
-- `peers` (Attributes List) A WireGuard device peer configuration. (see [below for nested schema](#nestedatt--devices--wireguard--peers))
 - `private_key` (String, Sensitive) Specifies a private key configuration (base64 encoded). If one is not provided it is automatically generated and populated this field
+
+Read-Only:
+
 - `public_key` (String) Automatically derived from the private_key field.
 
 <a id="nestedatt--devices--wireguard--peers"></a>
@@ -182,8 +212,11 @@ Required:
 
 - `allowed_ips` (List of String) AllowedIPs specifies a list of allowed IP addresses in CIDR notation for this peer.
 - `endpoint` (String) Specifies the endpoint of this peer entry.
-- `persistent_keepalive_interval` (Number) Specifies the persistent keepalive interval for this peer. Provided in seconds.
 - `public_key` (String) Specifies the public key of this peer.
+
+Optional:
+
+- `persistent_keepalive_interval` (Number) Specifies the persistent keepalive interval for this peer. Provided in seconds.
 
 
 
@@ -200,7 +233,7 @@ Optional:
 <a id="nestedatt--files"></a>
 ### Nested Schema for `files`
 
-Optional:
+Required:
 
 - `content` (String) The file's content. Not required to be base64 encoded.
 - `op` (String) Mode for the file. Can be one of create, append and overwrite.
@@ -224,11 +257,14 @@ Optional:
 <a id="nestedatt--kubelet--extra_mount"></a>
 ### Nested Schema for `kubelet.extra_mount`
 
-Optional:
+Required:
 
 - `destination` (String) Destination of mount point: path inside container. This value MUST be an absolute path.
-- `options` (List of String) Mount options of the filesystem to be used.
 - `source` (String) A device name, but can also be a file or directory name for bind mounts or a dummy. Path values for bind mounts are either absolute or relative to the bundle. A mount is a bind mount if it has either bind or rbind in the options.
+
+Optional:
+
+- `options` (List of String) Mount options of the filesystem to be used.
 - `type` (String) The type of the filesystem to be mounted.
 
 
