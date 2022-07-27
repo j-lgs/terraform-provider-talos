@@ -840,8 +840,8 @@ github.com/talos-systems/go-debug v0.2.1/go.mod h1:pR4NjsZQNFqGx3n4qkD4MIj1F2Cxy
 github.com/talos-systems/go-retry v0.1.1-0.20201113203059-8c63d290a688/go.mod h1:HiXQqyVStZ35uSY/MTLWVvQVmC3lIW2MS5VdDaMtoKM=
 github.com/talos-systems/net v0.3.2 h1:IMseRyuha8fNsv/3FbQPRE9hLVRBEFR+9sxcoETQ5vI=
 github.com/talos-systems/net v0.3.2/go.mod h1:zhcGixNJz9dgwFiUwc7gkkAqdVqXagU1SNNoIVXYKGo=
-github.com/talos-systems/talos/pkg/machinery v1.1.1 h1:wJYAwbIur8Vc3aQxEG18tZQFfQWDMp9XdZgWKTcjffo=
-github.com/talos-systems/talos/pkg/machinery v1.1.1/go.mod h1:cz/Ud0/+VhUzv7+HvKFXliKaM+RvIZhxZ1vApjVh83Y=
+github.com/talos-systems/talos/pkg/machinery v1.1.2 h1:5x+/IurkGhcNa3oy4FB9fv7RB+nmNOD8W6TijwM2H5c=
+github.com/talos-systems/talos/pkg/machinery v1.1.2/go.mod h1:cz/Ud0/+VhUzv7+HvKFXliKaM+RvIZhxZ1vApjVh83Y=
 github.com/tdakkota/asciicheck v0.1.1 h1:PKzG7JUTUmVspQTDqtkX9eSiLGossXTybutHwTXuO0A=
 github.com/tdakkota/asciicheck v0.1.1/go.mod h1:yHp0ai0Z9gUljN3o0xMhYJnH/IcvkdTBOX2fmJ93JEM=
 github.com/tenntenn/modver v1.0.1 h1:2klLppGhDgzJrScMpkj9Ujy3rXPUspSjAcev9tSEBgA=
