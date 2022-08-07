@@ -40,7 +40,7 @@ require (
 	google.golang.org/grpc v1.48.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	honnef.co/go/tools v0.3.2
+	honnef.co/go/tools v0.3.3
 	inet.af/netaddr v0.0.0-20211027220019-c74959edd3b6
 )
 
