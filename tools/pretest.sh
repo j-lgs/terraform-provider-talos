@@ -25,10 +25,9 @@ if [ ! -f test/bin/slirp4netns-v${slirp_version} ]; then
     curl -o test/bin/slirp4netns-v${slirp_version} --fail -L \
 	 "https://github.com/rootless-containers/slirp4netns/releases/download/v${slirp_version}/slirp4netns-$(uname -m)"
 
-    echo "$slirp_sha256 test/bin/slirp4netns-v${slirp_version}" | sha256sum -c -;
-
     chmod +x test/bin/slirp4netns-v${slirp_version}
 fi
+echo "$slirp_sha256 test/bin/slirp4netns-v${slirp_version}" | sha256sum -c -;
 
 talos_version="1.1.0"
 talos_arch="amd64"
@@ -43,12 +42,12 @@ if [ ! -f test/opt/talos-amd64-v${talos_version}.iso ]; then
 
     curl -o test/opt/talos-${talos_arch}-v${talos_version}.iso --fail -L \
 	 https://github.com/siderolabs/talos/releases/download/v${talos_version}/talos-${talos_arch}.iso
-    echo "$talos_sha256 test/opt/talos-${talos_arch}-v${talos_version}.iso" | sha256sum -c -;
 fi
+echo "$talos_sha256 test/opt/talos-${talos_arch}-v${talos_version}.iso" | sha256sum -c -;
 
 talosctl_version="1.1.0"
 talosctl_arch="amd64"
-talosctl_sha256="300eb0663fdf1826dd34cb0a72331cc56242830cf5100b69100327aad79a9c44"
+talosctl_sha256="c7827781457b7561da96498d86554a1638b47053764321b7c63bb6f6b7307756"
 
 if [ ! -f test/bin/talosctl-v${talosctl_version} ]; then
     echo "acctest -> downloading talosctl"
@@ -57,14 +56,15 @@ if [ ! -f test/bin/talosctl-v${talosctl_version} ]; then
 
     curl -o test/bin/talosctl-v${talosctl_version} --fail -L \
 	 https://github.com/siderolabs/talos/releases/download/v${talos_version}/talosctl-linux-${talos_arch}
-    echo "$talosctl_sha256 test/bin/talosctl-v${talosctl_version}" | sha256sum -c -;
 
     chmod +x test/bin/talosctl-v${talosctl_version}
 fi
+echo "$talosctl_sha256 test/bin/talosctl-v${talosctl_version}" | sha256sum -c -;
 
 registry_version="2.8.1"
 registry_arch="amd64"
-registry_sha256="f1a376964912a5fd7d588107ebe5185da77803244e15476d483c945959347ee2"
+registry_sha256="c8193513993708671bb413b1db61e80afb10de9bb7024ea7ae874ff6250d9ca3"
+registry_tar_sha256="f1a376964912a5fd7d588107ebe5185da77803244e15476d483c945959347ee2"
 
 if [ ! -f test/bin/registry-v${registry_version} ]; then
     echo "acctest -> downloading registry binary"
@@ -73,12 +73,13 @@ if [ ! -f test/bin/registry-v${registry_version} ]; then
 
     curl -o registry.tar.gz --fail -L \
 	 "https://github.com/distribution/distribution/releases/download/v${registry_version}/registry_${registry_version}_linux_${registry_arch}.tar.gz";
-    echo "$registry_sha256 registry.tar.gz" | sha256sum -c -;
+    echo "$registry_tar_sha256 registry.tar.gz" | sha256sum -c -;
     tar --extract --verbose --file registry.tar.gz --directory test/bin/ registry;
 
     mv test/bin/registry test/bin/registry-v${registry_version}
     rm registry.tar.gz;
 fi
+echo "$registry_sha256 test/bin/registry-v${registry_version}" | sha256sum -c -;
 
 mkdir -p test/etc
 cat << EOF > test/etc/registry.yml
