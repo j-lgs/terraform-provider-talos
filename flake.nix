@@ -41,6 +41,8 @@
               gopls
               gcc
 
+              shellcheck
+
               qemu_full
 
               terraform
